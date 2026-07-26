@@ -9,8 +9,10 @@ import { useWorkbenchStore } from '../workbenchStore'
 
 export default function CreationWorkspace(): JSX.Element {
   const { t } = useTranslation()
-  // 与生成区助手一致：一开始收着（浮起一个 pill），点开才展开成 344px 侧栏。
-  const [collapsed, setCollapsed] = React.useState(true)
+  // 创作助手默认展开成编辑器右侧的 344px 侧栏（用户拍板 2026-07-25：回到 3c2fe821 之前的常驻右栏）。
+  // 收起态放 store（非本地 useState）→ 跨页面/跨导航不重置，收起「粘住」（根治 3c2fe821 本地 useState 每次进页重置的问题）。
+  const collapsed = useWorkbenchStore((s) => s.creationAiCollapsed)
+  const setCollapsed = useWorkbenchStore((s) => s.setCreationAiCollapsed)
   // 一次性信号：打开示例/新项目时自动展开助手，让「拆镜头」CTA 一眼可见，消费后清掉。
   const autoOpen = useWorkbenchStore((s) => s.creationAssistantAutoOpen)
   const setAutoOpen = useWorkbenchStore((s) => s.setCreationAssistantAutoOpen)
