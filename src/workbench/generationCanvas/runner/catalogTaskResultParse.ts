@@ -88,9 +88,8 @@ function describeTaskFailure(result: TaskResultDto): string {
   return suffix ? `${prefix} (${suffix})` : prefix
 }
 
-function readDurationSeconds(node: GenerationCanvasNode): number | undefined {
-  const meta = node.meta || {}
-  return asFiniteNumber(meta.durationSeconds) ?? asFiniteNumber(meta.videoDuration)
+function readDurationSeconds(asset: { durationSeconds?: unknown } | null | undefined): number | undefined {
+  return asFiniteNumber(asset?.durationSeconds)
 }
 
 export function normalizeCatalogTaskResult(
@@ -134,7 +133,7 @@ export function normalizeCatalogTaskResult(
     thumbnailUrl: asset.thumbnailUrl || undefined,
     ...(asset.providerUrl ? { providerUrl: asset.providerUrl } : {}),
     model: selectedModelKey(node) || undefined,
-    durationSeconds: type === 'video' ? readDurationSeconds(node) : undefined,
+    durationSeconds: type === 'video' ? readDurationSeconds(asset) : undefined,
     taskId: result.id,
     taskKind: type,
     assetId: asset.assetId || undefined,

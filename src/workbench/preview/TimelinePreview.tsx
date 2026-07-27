@@ -26,6 +26,8 @@ import { describeVideoPlaybackFailure, diagnoseVideoPlaybackFailure, logVideoPla
 import { computeTimelineDuration } from '../timeline/timelineMath'
 import { getDesktopBridge } from '../../desktop/bridge'
 import { getDesktopActiveProjectId } from '../../desktop/activeProject'
+import { useGenerationCanvasStore } from '../generationCanvas/store/generationCanvasStore'
+import { resolveTimelineClipPlaybackUrl } from '../timeline/timelinePlaybackUrl'
 
 type TimelinePreviewProps = {
   activeClips: TimelineClip[]
@@ -79,13 +81,14 @@ export default function TimelinePreview({ activeClips, aspectRatio, fps, playhea
   const playing = useWorkbenchStore((state) => state.timelinePlaying)
   const setTimelinePlaying = useWorkbenchStore((state) => state.setTimelinePlaying)
   const setTimelinePlayhead = useWorkbenchStore((state) => state.setTimelinePlayhead)
+  const generationNodes = useGenerationCanvasStore((state) => state.nodes)
   const videoClip = findClip(activeClips, 'video')
   const imageClip = findClip(activeClips, 'image')
   const audioClip = findClip(activeClips, 'audio')
-  const videoUrl = videoClip?.url || ''
+  const videoUrl = resolveTimelineClipPlaybackUrl(videoClip, generationNodes)
   const videoPlaybackUrl = videoUrl ? buildVideoPlaybackUrl(videoUrl) : ''
   const activeRatio = PREVIEW_RATIOS.find((ratio) => ratio.value === aspectRatio) || PREVIEW_RATIOS[0]
-  const activeMediaKey = videoClip?.url || imageClip?.url || ''
+  const activeMediaKey = videoUrl || imageClip?.url || ''
   const hasMedia = Boolean(activeMediaKey)
   // 取景 per-clip（P0-5）：控件作用于主媒体 clip（视频优先，z-2 在上）；渲染时各媒体用自己的 framing。
   const framingClipId = (videoClip ?? imageClip)?.id ?? ''
@@ -111,13 +114,13 @@ export default function TimelinePreview({ activeClips, aspectRatio, fps, playhea
   // 放宽阈值只在 scrub 这种「大跳」时纠正，避免每帧把 currentTime 往回拽造成抖动。
   React.useEffect(() => {
     const video = videoRef.current
-    if (!video || !videoClip?.url) return
+    if (!video || !videoClip || !videoUrl) return
     const nextTime = resolveVideoClipMediaTimeSeconds({ clip: videoClip, playheadFrame, fps })
     if (!Number.isFinite(nextTime)) return
     const threshold = playing ? 0.3 : 0.04
     if (Math.abs(video.currentTime - nextTime) < threshold) return
     video.currentTime = nextTime
-  }, [fps, playheadFrame, videoClip, playing])
+  }, [fps, playheadFrame, videoClip, videoUrl, playing])
 
   // 音量/静音应用到 <video>（video 每个 clip 重挂，故 videoUrl 变也要重设）。
   React.useEffect(() => {
@@ -150,7 +153,7 @@ export default function TimelinePreview({ activeClips, aspectRatio, fps, playhea
 
   React.useEffect(() => {
     const video = videoRef.current
-    if (!video || !videoClip?.url) return
+    if (!video || !videoClip || !videoUrl) return
     if (playing) {
       setPlaybackError('')
       void video.play().catch((error: unknown) => {
@@ -167,7 +170,7 @@ export default function TimelinePreview({ activeClips, aspectRatio, fps, playhea
         // jsdom does not implement media controls; browsers do.
       }
     }
-  }, [playing, setTimelinePlaying, videoClip?.url, t])
+  }, [playing, setTimelinePlaying, videoClip, videoUrl, t])
 
   React.useEffect(() => {
     setPlaybackError('')
@@ -255,6 +258,7 @@ export default function TimelinePreview({ activeClips, aspectRatio, fps, playhea
         projectId,
         resolution: '1080p',
         quality: 'standard',
+        generationNodes,
         onProgress: (progress: Parameters<NonNullable<ExportTimelineToMp4Options['onProgress']>>[0]) => {
           setExportStatus(progress.status)
           setExportRatio(progress.ratio)
@@ -273,7 +277,7 @@ export default function TimelinePreview({ activeClips, aspectRatio, fps, playhea
       cancelJobIdRef.current = ''
       setCanCancelExport(false)
     }
-  }, [aspectRatio, exportBusy, timeline, t])
+  }, [aspectRatio, exportBusy, generationNodes, timeline, t])
 
   // 导出进行中订阅导出事件，捕获当前项目在跑 job 的 id（供「取消」按钮）。
   // exportApi 内部生成 jobId 不回传 UI；per-project 单 active 锁保证相关性可靠。

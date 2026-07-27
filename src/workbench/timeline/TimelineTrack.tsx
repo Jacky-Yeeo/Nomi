@@ -1,8 +1,10 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { useWorkbenchStore } from '../workbenchStore'
+import { useGenerationCanvasStore } from '../generationCanvas/store/generationCanvasStore'
 import { cn } from '../../utils/cn'
 import { buildClipFromGenerationNode } from '../generationCanvas/model/buildClipFromGenerationNode'
+import { buildGenerationNodeTimelineClip } from './buildGenerationNodeTimelineClip'
 import { tryAddAudioAssetFromDragData } from './dropAudioAssetToTimeline'
 import { ASSET_LIBRARY_DRAG_MIME } from '../assets/assetLibraryDrag'
 import { clientXToFrame } from './timelineEdit'
@@ -65,8 +67,12 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
         event.dataTransfer.getData(TIMELINE_GENERATION_NODE_DRAG_MIME),
       )
       if (!generationNodePayload) return null
+      const liveNode = useGenerationCanvasStore
+        .getState()
+        .nodes.find((node) => node.id === generationNodePayload.nodeId)
+      const generationNode = liveNode || generationNodePayload.node
       const startFrame = resolveFrame(event.clientX)
-      const clip = buildClipFromGenerationNode(generationNodePayload.node, {
+      const clip = buildClipFromGenerationNode(generationNode, {
         fps,
         startFrame,
         resultId: generationNodePayload.resultId,
@@ -112,9 +118,27 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
         toast(preview.reason || t('timelineEditor.track.unavailable'), 'warning')
         return
       }
-      addTimelineClipAtFrame(preview.clip, getTrackTypeForClipType(preview.clip.type), preview.startFrame)
+      const generationNodePayload = decodeTimelineGenerationNodeDragPayload(
+        event.dataTransfer.getData(TIMELINE_GENERATION_NODE_DRAG_MIME),
+      )
+      if (!generationNodePayload) {
+        addTimelineClipAtFrame(preview.clip, getTrackTypeForClipType(preview.clip.type), preview.startFrame)
+        return
+      }
+      const liveNode = useGenerationCanvasStore
+        .getState()
+        .nodes.find((node) => node.id === generationNodePayload.nodeId)
+      const generationNode = liveNode || generationNodePayload.node
+      void buildGenerationNodeTimelineClip(generationNode, {
+        fps,
+        startFrame: preview.startFrame,
+        resultId: generationNodePayload.resultId,
+      }).then((clip) => {
+        const nextClip = clip || preview.clip
+        addTimelineClipAtFrame(nextClip, getTrackTypeForClipType(nextClip.type), preview.startFrame)
+      })
     },
-    [handleAssetAudioDrop, addTimelineClipAtFrame, dragPreview, resolveDropPreview, t],
+    [handleAssetAudioDrop, addTimelineClipAtFrame, dragPreview, resolveDropPreview, fps, t],
   )
 
   return (

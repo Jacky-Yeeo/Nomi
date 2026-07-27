@@ -6,7 +6,7 @@ import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import { useWorkbenchStore } from '../../workbenchStore'
 import { clientXToFrame } from '../../timeline/timelineEdit'
 import { getTrackTypeForClipType } from '../../timeline/timelineTypes'
-import { buildClipFromGenerationNode } from '../model/buildClipFromGenerationNode'
+import { buildGenerationNodeTimelineClip } from '../../timeline/buildGenerationNodeTimelineClip'
 import { toast } from '../../../ui/toast'
 import { emitCanvasGesture } from '../events/canvasEventEmitter'
 import i18n from '../../../i18n'
@@ -301,10 +301,11 @@ export function useNodeDragResize({
     }
     if (timelineDropTarget) {
       const timeline = useWorkbenchStore.getState().timeline
+      const liveNode = useGenerationCanvasStore.getState().nodes.find((candidate) => candidate.id === node.id) || node
       const rect = timelineDropTarget.getBoundingClientRect()
       const startFrame = clientXToFrame(event.clientX, rect.left, timeline.scale)
-      const clip = buildClipFromGenerationNode(node, { fps: timeline.fps, startFrame })
-      if (clip) {
+      void buildGenerationNodeTimelineClip(liveNode, { fps: timeline.fps, startFrame }).then((clip) => {
+        if (!clip) return
         useWorkbenchStore.getState().addTimelineClipAtFrame(clip, getTrackTypeForClipType(clip.type), startFrame)
         if (!dragStart?.multi) {
           moveNode(
@@ -316,7 +317,7 @@ export function useNodeDragResize({
             { persist: false, emit: false },
           )
         }
-      }
+      })
     }
     if (dragStart?.dragging || hadResize) {
       if (dragStart?.dragging) emitDragSettled(dragStart.multi)

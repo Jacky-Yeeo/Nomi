@@ -14,6 +14,10 @@ function imageNode(): GenerationCanvasNode {
   return { id: 'n2', kind: 'image', title: '', position: { x: 0, y: 0 }, meta: { modelKey: 'sd' } }
 }
 
+function generatedVideoNode(): GenerationCanvasNode {
+  return { id: 'v1', kind: 'video', title: '', position: { x: 0, y: 0 }, meta: { modelKey: 'comfyui-local-video' } }
+}
+
 function chatResult(raw: unknown, status: TaskResultDto['status'] = 'succeeded'): TaskResultDto {
   return { id: 'task-1', kind: 'chat', status, assets: [], raw }
 }
@@ -422,6 +426,40 @@ describe('normalizeCatalogTaskResult — image path unaffected', () => {
     )
     expect(result.type).toBe('image')
     expect(result.url).toBe('https://x/y.png')
+  })
+})
+
+describe('normalizeCatalogTaskResult — generated video duration', () => {
+  it('uses localized asset duration before the canvas metadata fallback', () => {
+    const node = generatedVideoNode()
+    const result = normalizeCatalogTaskResult(
+      {
+        id: 't-video',
+        kind: 'text_to_video',
+        status: 'succeeded',
+        assets: [{ type: 'video', url: 'nomi-local://asset/p/video.mp4', durationSeconds: 3.0625 }],
+        raw: {},
+      },
+      { ...node, meta: { ...node.meta, videoDuration: 5 } },
+    )
+
+    expect(result.durationSeconds).toBe(3.0625)
+  })
+
+  it('does not freeze a previous video metadata duration into a newly generated result', () => {
+    const node = generatedVideoNode()
+    const result = normalizeCatalogTaskResult(
+      {
+        id: 't-video',
+        kind: 'text_to_video',
+        status: 'succeeded',
+        assets: [{ type: 'video', url: 'nomi-local://asset/p/new-video.mp4' }],
+        raw: {},
+      },
+      { ...node, meta: { ...node.meta, videoDuration: 8 } },
+    )
+
+    expect(result.durationSeconds).toBeUndefined()
   })
 })
 

@@ -4,10 +4,12 @@ import type { DesktopMp4ExportResult } from '../../desktop/bridge'
 import i18n from '../../i18n'
 import type { TimelineState } from '../timeline/timelineTypes'
 import type { PreviewAspectRatio } from '../workbenchTypes'
+import type { GenerationCanvasNode } from '../generationCanvas/model/generationCanvasTypes'
 import { createTimelineExportFilename, downloadTimelineBlob, exportTimelineToWebm } from './timelineWebmExport'
 import type { ExportQuality } from './exportTypes'
 import { buildRenderManifestRequest } from './renderManifest'
 import { renderTextOverlays } from './textOverlayPng'
+import { resolveTimelinePlaybackUrls } from '../timeline/timelinePlaybackUrl'
 
 const MP4_WEBM_IPC_CHUNK_BYTES = 1024 * 1024
 
@@ -18,6 +20,7 @@ export type ExportTimelineToMp4Options = {
   outputName?: string
   resolution?: '720p' | '1080p'
   quality?: ExportQuality
+  generationNodes?: GenerationCanvasNode[]
   onProgress?: (progress: { status: 'preparing' | 'recording' | 'converting' | 'done'; ratio: number }) => void
 }
 
@@ -30,16 +33,17 @@ export async function startTimelineMp4ExportJob(options: StartTimelineMp4ExportJ
   }
   const projectId = (options.projectId || getDesktopActiveProjectId()).trim()
   if (!projectId) throw new Error(i18n.t('runtime.export.missingProjectId'))
+  const exportTimeline = resolveTimelinePlaybackUrls(options.timeline, options.generationNodes || [])
 
   const manifest = buildRenderManifestRequest({
     projectId,
-    timeline: options.timeline,
+    timeline: exportTimeline,
     aspectRatio: options.aspectRatio,
     resolution: options.resolution || '1080p',
     quality: options.quality || 'standard',
     preset: 'publish',
   })
-  manifest.textOverlays = renderTextOverlays(options.timeline, manifest.profile.width, manifest.profile.height)
+  manifest.textOverlays = renderTextOverlays(exportTimeline, manifest.profile.width, manifest.profile.height)
 
   return desktop.exports.startJob({
     projectId,
@@ -57,15 +61,16 @@ export async function exportTimelineToMp4(options: ExportTimelineToMp4Options): 
   if (!projectId) throw new Error(i18n.t('runtime.export.missingProjectId'))
   const resolution = options.resolution || '1080p'
   const quality = options.quality || 'standard'
+  const exportTimeline = resolveTimelinePlaybackUrls(options.timeline, options.generationNodes || [])
   const manifest = buildRenderManifestRequest({
     projectId,
-    timeline: options.timeline,
+    timeline: exportTimeline,
     aspectRatio: options.aspectRatio,
     resolution,
     quality,
     preset: 'publish',
   })
-  manifest.textOverlays = renderTextOverlays(options.timeline, manifest.profile.width, manifest.profile.height)
+  manifest.textOverlays = renderTextOverlays(exportTimeline, manifest.profile.width, manifest.profile.height)
   const { jobId, backend } = await desktop.exports.startJob({
     projectId,
     outputName: options.outputName,
@@ -93,7 +98,7 @@ export async function exportTimelineToMp4(options: ExportTimelineToMp4Options): 
 
     // 降级路径：资产无法本地解析 → 录 canvas WebM 上传，主进程转码。
     webmBlob = await exportTimelineToWebm({
-      timeline: options.timeline,
+      timeline: exportTimeline,
       aspectRatio: options.aspectRatio,
       width: options.resolution === '720p' ? 1280 : 1920,
       autoDownload: false,

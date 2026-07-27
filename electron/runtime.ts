@@ -10,6 +10,7 @@ import { chatImageFallbackOperation } from "./catalog/imageRouteFallback";
 import { buildNormalizedRecipe, buildTaskProvenance } from "./vendor/provenance";
 import { traceVendorCompleted, traceVendorRequested } from "./events/vendorCallTrace";
 import { scheduleTechnicalReview } from "./review/reviewTrace";
+import { probeMediaMetadata } from "./export/mediaProbe";
 import {
   type AuthType,
   authHeaders as buildAuthHeaders,
@@ -43,6 +44,30 @@ import {
 // 公共 API：main.ts 仍从 "./runtime" 消费这些 —— re-export 保持其 import 不变。
 export { createProject, deleteProject, listProjects, readProject, resolveProjectRelativePath, saveProject };
 export { importRemoteAsset, listProjectAssets, moveAssetFile, writeAsset } from "./assets/projectAssetStore";
+
+const DEFAULT_ASSET_EXTENSIONS: Record<"image" | "video" | "audio" | "model3d", string> = {
+  image: "png",
+  video: "mp4",
+  audio: "mp3",
+  model3d: "glb",
+};
+
+function extensionFromAssetUrl(assetUrl: string): string {
+  try {
+    const parsed = new URL(assetUrl);
+    const filename = parsed.searchParams.get("filename") || parsed.pathname;
+    const match = /\.([a-z0-9]{1,8})(?:$|[?#])/i.exec(filename);
+    return match?.[1]?.toLowerCase() || "";
+  } catch {
+    const match = /\.([a-z0-9]{1,8})(?:$|[?#])/i.exec(assetUrl);
+    return match?.[1]?.toLowerCase() || "";
+  }
+}
+
+export function localizedTaskAssetFileName(type: "image" | "video" | "audio" | "model3d", assetUrl: string, now = Date.now()): string {
+  const ext = extensionFromAssetUrl(assetUrl) || DEFAULT_ASSET_EXTENSIONS[type];
+  return `${type}-${now}.${ext}`;
+}
 
 // 任务执行复用 catalog 状态（readCatalog + extractVendorExtraHeaders 纯函数）；
 // catalogStore 反向复用本文件任务引擎 → 运行期循环引用（CommonJS 安全）。
@@ -136,6 +161,7 @@ export type TaskResult = {
     assetName?: string | null;
     /** 原始 CDN URL（https://...）。供后续生成直接用，无需上传。可能过期，过期后退回本地字节。 */
     providerUrl?: string | null;
+    durationSeconds?: number;
   }>;
   raw: unknown;
   /**
@@ -204,8 +230,17 @@ export async function localizeTaskAsset(
     url: assetUrl,
     kind: "generated",
     ownerNodeId: nodeId || null,
-    fileName: `${type}-${Date.now()}.${type === "image" ? "png" : type === "video" ? "mp4" : type === "model3d" ? "glb" : "mp3"}`,
+    fileName: localizedTaskAssetFileName(type, assetUrl),
   }, { trustedPrivateOrigin: trustedLocalOutputOrigin(vendor) || undefined })) as { id?: string; name?: string; data?: { url?: string; absolutePath?: string } };
+  let durationSeconds: number | undefined;
+  if ((type === "video" || type === "audio") && imported.data?.absolutePath) {
+    try {
+      const probe = await probeMediaMetadata(imported.data.absolutePath);
+      durationSeconds = probe.durationSeconds;
+    } catch {
+      // 时长探测失败不影响生成成功；renderer 仍会回退到参数时长 / 默认时长。
+    }
+  }
   if (type === "image" || type === "video")
     scheduleTechnicalReview({
       projectId,
@@ -220,6 +255,7 @@ export async function localizeTaskAsset(
     thumbnailUrl: type === "image" ? String(imported.data?.url || assetUrl) : null,
     assetId: imported.id || null,
     assetName: imported.name || null,
+    ...(durationSeconds !== undefined ? { durationSeconds } : {}),
     // 原始 CDN URL 留存：任何 vendor 都能直接使用，不需要再上传或转 base64。
     providerUrl: /^https?:\/\//i.test(assetUrl) ? assetUrl : null,
   };
