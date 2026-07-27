@@ -14,7 +14,7 @@ import { framingToMediaStyle, mediaFitClass, framingOffsetFromDrag } from './pre
 import { fitPreviewStageSize } from './previewStageLayout'
 import OverlaySelectionBox from './OverlaySelectionBox'
 import type { PreviewAspectRatio } from '../workbenchTypes'
-import { resolveVideoClipMediaTimeSeconds, findClipByType as findClip } from '../player/timelinePlayback'
+import { findClipByType as findClip } from '../player/timelinePlayback'
 import { usePreviewBgmPlayback } from './usePreviewBgmPlayback'
 import { PREVIEW_RATIOS } from './previewAspectRatios'
 import { exportTimelineToMp4, type ExportTimelineToMp4Options } from '../export/exportApi'
@@ -28,6 +28,7 @@ import { getDesktopBridge } from '../../desktop/bridge'
 import { getDesktopActiveProjectId } from '../../desktop/activeProject'
 import { useGenerationCanvasStore } from '../generationCanvas/store/generationCanvasStore'
 import { resolveTimelineClipPlaybackUrl } from '../timeline/timelinePlaybackUrl'
+import { usePreviewVideoPlayheadSync } from './usePreviewVideoPlayheadSync'
 
 type TimelinePreviewProps = {
   activeClips: TimelineClip[]
@@ -108,19 +109,7 @@ export default function TimelinePreview({ activeClips, aspectRatio, fps, playhea
     progressPercent: exportRatio * 100,
   })
 
-  // playhead → <video>.currentTime 同步（playhead 是单一真相源）。
-  // 旧实现「playing 时直接 return」→ 播放中点时间轴中间，playhead 跳了但画面不跟（scrub 失效）。
-  // 改为播放感知阈值：暂停时贴紧（逐帧步进也要跟）；播放时 <video> 自走、与 playhead 实时相近，
-  // 放宽阈值只在 scrub 这种「大跳」时纠正，避免每帧把 currentTime 往回拽造成抖动。
-  React.useEffect(() => {
-    const video = videoRef.current
-    if (!video || !videoClip || !videoUrl) return
-    const nextTime = resolveVideoClipMediaTimeSeconds({ clip: videoClip, playheadFrame, fps })
-    if (!Number.isFinite(nextTime)) return
-    const threshold = playing ? 0.3 : 0.04
-    if (Math.abs(video.currentTime - nextTime) < threshold) return
-    video.currentTime = nextTime
-  }, [fps, playheadFrame, videoClip, videoUrl, playing])
+  usePreviewVideoPlayheadSync(videoRef, { videoClip, videoUrl, playheadFrame, fps, playing })
 
   // 音量/静音应用到 <video>（video 每个 clip 重挂，故 videoUrl 变也要重设）。
   React.useEffect(() => {

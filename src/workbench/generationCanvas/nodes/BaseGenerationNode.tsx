@@ -150,10 +150,7 @@ function BaseGenerationNodeImpl({
     const timeline = useWorkbenchStore.getState().timeline
     const liveNode = useGenerationCanvasStore.getState().nodes.find((candidate) => candidate.id === node.id) || node
     const startFrame = timeline.playheadFrame
-    void buildGenerationNodeTimelineClip(liveNode, {
-      fps: timeline.fps,
-      startFrame,
-    }).then((clip) => {
+    void buildGenerationNodeTimelineClip(liveNode, { fps: timeline.fps, startFrame }).then((clip) => {
       if (!clip) {
         toast(t('generationCommon.node.generateFirst'), 'info')
         return

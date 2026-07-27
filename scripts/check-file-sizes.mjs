@@ -25,8 +25,8 @@ const SCAN_DIRS = ["src", "electron"];
 // 现存巨壳的基线行数（棘轮上限）。清空此表 = 巨壳债还清。
 // 改小某个数 = 你成功瘦身后锁定的新上限。新增条目应经人工评审。
 const ALLOWLIST = {
-  "electron/runtime.ts": 555, // …抽 projectAssetStore 锁到 602（2026-07-08 PR#36）→ 抽 profileHttpRequest（templateContext+buildProfileHttpRequest）到 catalog 锁到 558（2026-07-21 multipart 图生图）→ 555（2026-07-22 锁定）
-  "src/workbench/generationCanvas/nodes/BaseGenerationNode.tsx": 743, // …→ 733（2026-07-21）→ 743（2026-07-22 全量 i18n：useTranslation import+hook+可见串 t() 化，+10；main 结构未变）
+  "electron/runtime.ts": 550, // …→ 555（2026-07-22 锁定）→ 550（2026-07-27 PR#54：命名/时长探测助手抽到 assets/localizedAsset）
+  "src/workbench/generationCanvas/nodes/BaseGenerationNode.tsx": 742, // …→ 743（2026-07-22 全量 i18n）→ 742（2026-07-27 PR#54：入轨 options 单行化）
   "src/workbench/generationCanvas/nodes/scene3d/Scene3DFullscreen.tsx": 800, // 曾 3822 巨壳拆到 771 出白名单；i18n 化到 802；F1/F2 抽出 useScene3DCameraFraming 回到 800（2026-07-22 安全画幅+首尾帧卡）
   // PR#21 白板节点引入（2026-06-25）：WhiteboardDrawingTool（1032）与 WhiteboardLeaferCanvas（3406）两巨壳
   // 已按 Rule 9 全部拆完、双双出白名单。LeaferCanvas → whiteboardCanvasTypes/Export/NodeOps/Geometry 四纯模块
