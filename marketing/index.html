@@ -59,7 +59,7 @@
     "https://nomiaqm.com/assets/screen-canvas.png",
     "https://nomiaqm.com/assets/screen-timeline.png"
   ],
-  "softwareVersion": "0.13.0",
+  "softwareVersion": "0.17.0",
   "downloadUrl": "https://github.com/aqm857886159/Nomi/releases/latest",
   "inLanguage": "zh-CN",
   "featureList": [
@@ -1593,6 +1593,16 @@
         if (tag[0] !== 'v') tag = 'v' + tag;
         document.querySelectorAll('[data-latest-version]').forEach(function (el) {
           el.textContent = tag;
+        });
+        // 同步结构化数据 softwareVersion（SEO），避免 JSON-LD schema 版本落后于实际发布。
+        document.querySelectorAll('script[type="application/ld+json"]').forEach(function (s) {
+          try {
+            var data = JSON.parse(s.textContent);
+            if (data && Object.prototype.hasOwnProperty.call(data, 'softwareVersion')) {
+              data.softwareVersion = tag.replace(/^v/, '');
+              s.textContent = JSON.stringify(data, null, 2);
+            }
+          } catch (e) { /* 忽略非法 JSON-LD */ }
         });
       })
       .catch(function () { /* keep fallback text */ });
