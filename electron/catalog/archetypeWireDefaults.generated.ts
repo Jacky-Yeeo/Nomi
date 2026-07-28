@@ -201,14 +201,16 @@ export const ARCHETYPE_WIRE_DEFAULTS: Record<string, Record<string, Record<strin
       "*": {
         "size": "16:9",
         "resolution": "1080P",
-        "duration": 5
+        "duration": 5,
+        "model": "wan2.7"
       }
     },
     "image_to_video": {
       "*": {
         "size": "16:9",
         "resolution": "1080P",
-        "duration": 5
+        "duration": 5,
+        "model": "wan2.7-r2v"
       }
     }
   },
@@ -260,6 +262,61 @@ export const ARCHETYPE_WIRE_DEFAULTS: Record<string, Record<string, Record<strin
         "duration": 5,
         "generate_audio": true,
         "model": "doubao-seedance-2.0-fast"
+      }
+    }
+  },
+  "vidu-q3": {
+    "image_to_video": {
+      "*": {
+        "duration": 5,
+        "resolution": "720p",
+        "aspect_ratio": "16:9",
+        "model": "viduq3"
+      }
+    }
+  },
+  "kling-3.0-turbo": {
+    "text_to_video": {
+      "*": {
+        "aspect_ratio": "16:9",
+        "resolution": "720p",
+        "duration": 5
+      }
+    },
+    "image_to_video": {
+      "*": {
+        "resolution": "720p",
+        "duration": 5
+      }
+    }
+  },
+  "happyhorse-1.1": {
+    "text_to_video": {
+      "*": {
+        "resolution": "1080P",
+        "size": "16:9",
+        "duration": 5
+      }
+    },
+    "image_to_video": {
+      "*": {
+        "resolution": "1080P",
+        "size": "16:9",
+        "duration": 5
+      }
+    }
+  },
+  "seedream-5-pro": {
+    "text_to_image": {
+      "*": {
+        "size": "1:1",
+        "resolution": "2K"
+      }
+    },
+    "image_edit": {
+      "*": {
+        "size": "1:1",
+        "resolution": "2K"
       }
     }
   },

@@ -31,6 +31,13 @@ export const enModelDisplayText: Readonly<Record<string, string>> = {
   '参考图驱动（1 张=首帧，2 张=首尾帧）':
     'Reference-image driven (1 image = first frame; 2 images = first and last frames)',
   '参考图驱动（最多 3 张）': 'Reference-image driven (up to 3 images)',
+  参考生视频: 'Reference-to-video',
+  '1–7 张参考图，主体一致性直出；外观由图决定，提示词写动作/运镜':
+    '1–7 reference images with subject consistency; appearance comes from the images, so describe motion and camera work in the prompt',
+  '1–9 张参考图（人物/场景），模型自动融合': '1–9 reference images (characters/scenes), blended automatically by the model',
+  '单张首帧图驱动（提示词可留空）': 'Use one first-frame image (prompt optional)',
+  '最多 5 个参考（图+视频合计），角色/风格一致性直出；提示词可用「图1」「视频1」指代':
+    'Up to 5 references in total (images + videos) for character/style consistency; refer to them as "image 1" / "video 1" in the prompt',
   参考图融合: 'Reference image blend',
   参考图作首帧驱动: 'Use a reference image as the first frame',
   参考音频: 'Reference audio',
@@ -85,6 +92,7 @@ export const enModelDisplayText: Readonly<Record<string, string>> = {
   开: 'On',
   '可灵 3.0': 'Kling 3.0',
   '可灵 3.0 (RunningHub)': 'Kling 3.0 (RunningHub)',
+  '可灵 3.0 Turbo': 'Kling 3.0 Turbo',
   快速: 'Fast',
   '刘飞 · 男声': 'Liu Fei · Male',
   面数: 'Polygon count',
