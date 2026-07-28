@@ -55,6 +55,7 @@ import {
   referenceSlotStorage,
 } from './controls/archetypeMeta'
 import { resolveReferenceSlots, decideArrayReferenceRemoval } from '../runner/referenceSlots'
+import { resolveModeForConnectedReferences } from '../agent/referenceEdgeCapability'
 import { specializeArchetypeForVariant } from '../../../config/modelArchetypes'
 import ModeBar from './controls/ModeBar'
 import AssetReference, { type AssetSlot } from '../../assets/AssetReference'
@@ -152,7 +153,7 @@ export default function NodeParameterControls({
     const aspectPatch = isVideoLike
       ? videoAspectDefaultPatch(controls, preferredVideoAspect(collectInputAspectRatios(node.id, edges, nodes)))
       : {}
-    const nextMeta = {
+    let nextMeta: Record<string, unknown> = {
       ...removePreviousControlParams(getLatestMeta(), renderedControls),
       modelKey: nextOption?.modelKey || nextOption?.value || value || null,
       modelAlias: nextOption?.modelAlias || nextOption?.value || value || null,
@@ -165,7 +166,16 @@ export default function NodeParameterControls({
         ? { videoModel: nextOption?.value || value || null, videoModelVendor: nextOption?.vendor || null }
         : { imageModel: nextOption?.value || value || null, imageModelVendor: nextOption?.vendor || null }),
     }
-    if (!nextArchetype) delete (nextMeta as Record<string, unknown>).archetype
+    if (!nextArchetype) {
+      delete nextMeta.archetype
+    } else {
+      // 换模型后旧 meta.archetype 失配 → currentArchetypeMode 落回新档案默认（常为 t2i 空槽）。
+      // 身上挂着活边参考时就地促到能收的模式（与建边 auto-promote 同一把尺子），UI 立即正确、
+      // 不等提交咽喉兜底——否则用户看着「文生图」还以为参考没用（2026-07-28 群反馈根因之一）。
+      const state = useGenerationCanvasStore.getState()
+      const promotedModeId = resolveModeForConnectedReferences({ ...node, meta: nextMeta }, state.nodes, state.edges)
+      if (promotedModeId) nextMeta = applyArchetypeModeSwitch(nextMeta, nextArchetype, promotedModeId)
+    }
     updateNode(node.id, {
       meta: nextMeta,
     })

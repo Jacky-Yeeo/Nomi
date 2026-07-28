@@ -14,7 +14,9 @@ import { isRecoverableTimeoutError } from './recoverableTimeout'
 export { classifyGenerationError, type GenerationErrorReport } from '../../observability/classifyError'
 import type { DependencyWavePlan } from './dependencyWaves'
 import { resolveGenerationReferences } from './generationReferenceResolver'
+import { archetypeForNode, resolveModeForConnectedReferences } from '../agent/referenceEdgeCapability'
 import {
+  applyArchetypeModeSwitch,
   currentArchetypeMode,
   hasArchetypeArrayReferences,
 } from '../nodes/controls/archetypeMeta'
@@ -103,6 +105,26 @@ async function waitForRetry(attempt: number, baseDelayMs: number): Promise<void>
   await new Promise((resolve) => globalThis.setTimeout(resolve, baseDelayMs * 2 ** Math.max(0, attempt - 1)))
 }
 
+/**
+ * 提交前对账「生成方式 × 活边参考」（2026-07-28 群反馈根治）：当前模式一条参考边都收不下、档案里
+ * 有能收的模式 → 切过去（与建边 autoPromoteTargetModeForEdge 同一套语义，ModeBar 同步翻转）。
+ * 建边时的 auto-promote 只覆盖「建边那一刻」，换模型（archetype 失配落回默认 t2i）、存量边都够不到；
+ * 停在 t2i 的节点会在投影层（buildArchetypeInputParams 空槽互斥）把挂着的参考静默丢掉、付费发出
+ * 纯文生（「男的角色图生成出女的」根因）。挂在唯一提交咽喉 runGenerationNode 入口，整类不再复发。幂等。
+ */
+export function reconcileNodeModeWithConnectedReferences(nodeId: string): void {
+  const state = useGenerationCanvasStore.getState()
+  const node = state.nodes.find((candidate) => candidate.id === nodeId)
+  if (!node) return
+  const nextModeId = resolveModeForConnectedReferences(node, state.nodes, state.edges)
+  if (!nextModeId) return
+  const archetype = archetypeForNode(node)
+  if (!archetype) return
+  state.updateNode(nodeId, {
+    meta: applyArchetypeModeSwitch((node.meta || {}) as Record<string, unknown>, archetype, nextModeId),
+  })
+}
+
 export async function runGenerationNode(
   nodeId: string,
   options: RunGenerationNodeOptions = {},
@@ -110,6 +132,7 @@ export async function runGenerationNode(
   const id = String(nodeId || '').trim()
   if (!id) throw new Error('nodeId is required')
 
+  reconcileNodeModeWithConnectedReferences(id)
   const initialState = useGenerationCanvasStore.getState()
   const initialNode = initialState.nodes.find((node) => node.id === id)
   if (!initialNode) throw new Error('node not found')

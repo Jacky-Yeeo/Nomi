@@ -232,6 +232,7 @@ export const zhGenerationCommon = {
     confirmSplit: '确认切图',
   },
   node: {
+    videoRepairing: '视频编码不受支持，正在自动转码…',
     generateFirst: '该节点还没生成画面，先点「生成」',
     sourceMissing: '源节点已不在当前项目',
     copyFromCategory: '独立副本（来自 {{category}}·{{source}}）',
@@ -360,6 +361,7 @@ export const zhGenerationCommon = {
     replacePlaceholder: '重写要求…（替换整篇）',
     videoReferenceRequired: '需要先添加参考素材（拖入 / 连线 / 点 +）',
     videoFirstFrameRequired: '需要先连接一个图片节点作为首帧',
+    promptReferenceUnsupported: '当前模型不支持参考图，已只应用提示词文本',
     imageReferenceRequired: '图生图需要参考图（拖入 / 连线 / 点 +），或切回「文生图」',
     imageConnectionRequired: '图生图需要参考图：请连接图片节点或添加参考，或切回「文生图」',
     unsupportedKind: '「{{kind}}」类型暂不支持直接生成',
@@ -1075,6 +1077,7 @@ export const enGenerationCommon = {
     confirmSplit: 'Confirm split',
   },
   node: {
+    videoRepairing: 'Video codec is not supported. Converting automatically…',
     generateFirst: 'This node has no generated visual yet. Generate it first.',
     sourceMissing: 'The source node is no longer in this project',
     copyFromCategory: 'Independent copy (from {{category}} · {{source}})',
@@ -1204,6 +1207,7 @@ export const enGenerationCommon = {
     replacePlaceholder: 'Describe how to rewrite the entire document…',
     videoReferenceRequired: 'Add a reference first (drag, connect, or click +)',
     videoFirstFrameRequired: 'Connect an image node as the first frame',
+    promptReferenceUnsupported: 'This model does not accept reference images; only the prompt text was applied',
     imageReferenceRequired:
       'Image-to-image requires a reference image (drag, connect, or click +), or switch back to text-to-image',
     imageConnectionRequired:

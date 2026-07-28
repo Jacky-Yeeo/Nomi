@@ -31,7 +31,10 @@ import {
   isVideoLikeGenerationNodeKind,
 } from '../model/generationNodeKinds'
 import { resolveArchetypeForModel } from '../../../config/modelArchetypes'
-import { currentArchetypeMode } from './controls/archetypeMeta'
+import { applyArchetypeModeSwitch, currentArchetypeMode } from './controls/archetypeMeta'
+import { archetypeForNode, resolveModeForReferenceDemand } from '../agent/referenceEdgeCapability'
+import { addAssetUrlToNode } from './nodeAssetWrite'
+import { toast } from '../../../ui/toast'
 import { getTextGenMode, type TextGenMode } from '../runner/textActions'
 
 // C5 P2：文本节点的三种生成模式（label 由 composer.append/rewrite/replace 在渲染处翻译）。
@@ -384,10 +387,36 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
         promptEditor.commands.focus('end')
       }
       updateNode(node.id, { prompt: item.prompt })
+      // 库 prompt 自带的参考图一并落地（此前只写 prompt，item.referenceImages 被静默丢弃——
+      // 2026-07-28 群反馈「参考被丢」家族）。当前生成方式收不下 image_ref 先促到能收的模式
+      // （与建边 auto-promote 同一把尺子），再走 addAssetUrlToNode 单源写入（去重/上限同一处）；
+      // 模型任何模式都不吃图参考 → 诚实提示只应用了文本，不写死数据。
+      const referenceUrls = item.referenceImages.map((reference) => reference.url).filter(Boolean)
+      if (referenceUrls.length) {
+        const state = useGenerationCanvasStore.getState()
+        const target = state.nodes.find((candidate) => candidate.id === node.id)
+        const archetype = target ? archetypeForNode(target) : null
+        if (target && archetype) {
+          const promotedModeId = resolveModeForReferenceDemand(
+            archetype,
+            (target.meta || {}) as Record<string, unknown>,
+            [{ slots: ['image_ref'], asset: 'image' }],
+          )
+          if (promotedModeId) {
+            state.updateNode(node.id, {
+              meta: applyArchetypeModeSwitch((target.meta || {}) as Record<string, unknown>, archetype, promotedModeId),
+            })
+          }
+        }
+        const outcomes = referenceUrls.map((url) => addAssetUrlToNode(node.id, 'image', url))
+        if (outcomes.every((outcome) => outcome.status === 'no-slot')) {
+          toast(t('generationCommon.composer.promptReferenceUnsupported'), 'info')
+        }
+      }
       setPromptPickerOpen(false)
       void persistActiveWorkbenchProjectNow().catch(() => {})
     },
-    [mentionCandidates, node.id, node.locked, promptEditor, updateNode],
+    [mentionCandidates, node.id, node.locked, promptEditor, t, updateNode],
   )
 
   const handleGenerate = async (event: React.MouseEvent<HTMLButtonElement>) => {
