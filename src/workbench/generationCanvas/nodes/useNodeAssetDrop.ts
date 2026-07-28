@@ -14,7 +14,7 @@ import {
   buildWorkspaceFileUrl,
   parseWorkspaceFileDrag,
 } from '../../explorer/workspaceFileDrag'
-import { dropKindFromMime, dropKindFromWorkspaceKind, resolveNodeArraySlots } from '../model/nodeAssetDrop'
+import { dropKindFromFile, dropKindFromWorkspaceKind, resolveNodeArraySlots } from '../model/nodeAssetDrop'
 import { type AddAssetOutcome, addAssetUrlToNode } from './nodeAssetWrite'
 
 type DropHandlers = {
@@ -91,7 +91,7 @@ export function useNodeAssetDrop(node: GenerationCanvasNode): NodeAssetDrop {
       setUploading(true)
       try {
         for (const file of files) {
-          const kind = dropKindFromMime(file.type)
+          const kind = dropKindFromFile(file)
           if (!kind) {
             showInfoToast(i18n.t('generationCommon.node.assetDrop.unsupported'))
             continue

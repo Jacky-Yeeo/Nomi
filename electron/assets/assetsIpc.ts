@@ -15,6 +15,10 @@ export function registerAssetsIpc(): void {
     const { importLocalFile } = await import("./localFileImport");
     return importLocalFile(payload);
   });
+  ipcMain.handle("nomi:assets:ensure-playable", async (_event, payload) => {
+    const { ensurePlayableAsset } = await import("./localFileImport");
+    return ensurePlayableAsset(payload);
+  });
   ipcMain.handle("nomi:assets:download", async (_event, payload) => {
     const { downloadAssetToDisk } = await import("./downloadAsset");
     return downloadAssetToDisk(payload);

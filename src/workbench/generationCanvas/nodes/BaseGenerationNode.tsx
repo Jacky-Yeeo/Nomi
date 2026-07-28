@@ -27,7 +27,8 @@ import PanoramaUploadFallback from './PanoramaUploadFallback'
 import { MagneticConnectionHandle } from './NodeConnectionHandles'
 import { SideTimelineDragHandle, TimelineNotchDragHandle } from './NodeTimelineDragHandles'
 import { cn } from '../../../utils/cn'
-import { DeferredNodeImage, DeferredNodeVideo } from './DeferredNodeMedia'
+import { DeferredNodeImage } from './DeferredNodeMedia'
+import { NodeVideoPlaybackGuard } from './NodeVideoPlaybackGuard'
 import { useNodePanoramaHandlers } from './useNodePanoramaHandlers'
 import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
 import type { ConnectionAnchorSide } from '../store/canvasStoreTypes'
@@ -45,7 +46,6 @@ import { dismissRecoverableNode, recoverNodeResult } from '../runner/recoverTask
 import { WorkbenchButton } from '../../../design'
 import { completeNodeConnection } from './completeNodeConnection'
 import { buildVideoPlaybackUrl } from '../../../media/videoPlaybackUrl'
-import { diagnoseVideoPlaybackFailure, logVideoPlaybackFailure } from '../../../media/videoPlaybackDiagnostics'
 import { getGenerationNodeExecutionKind, isImageLikeGenerationNodeKind } from '../model/generationNodeKinds'
 import { applyFixationMakeup } from '../fixation/buildFixationNode'
 import { TechnicalReviewBadge } from './TechnicalReviewBadge'
@@ -572,7 +572,10 @@ function BaseGenerationNodeImpl({
               <Model3DViewer url={node.result.url} />
             </React.Suspense>
           ) : node.result.type === 'video' ? (
-            <DeferredNodeVideo
+            // 播放守卫：decode 失败自动转码自愈一次（HEVC 存量/供应商 HEVC 产物），修不了给人话原因。
+            <NodeVideoPlaybackGuard
+              nodeId={node.id}
+              rawUrl={node.result.url}
               data-node-preview-video="true"
               className={cn('w-full h-full min-h-0 object-contain pointer-events-auto', 'bg-nomi-ink-05 select-none')}
               src={buildVideoPlaybackUrl(node.result.url)}
@@ -588,11 +591,6 @@ function BaseGenerationNodeImpl({
                   event.currentTarget.videoWidth,
                   event.currentTarget.videoHeight,
                   event.currentTarget.duration,
-                )
-              }}
-              onError={(event) => {
-                void diagnoseVideoPlaybackFailure(node.result?.url || '', event.currentTarget.error).then(
-                  logVideoPlaybackFailure,
                 )
               }}
             />

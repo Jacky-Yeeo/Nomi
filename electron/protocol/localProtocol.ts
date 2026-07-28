@@ -14,9 +14,15 @@ function withLocalAssetHeaders(headers?: HeadersInit): Headers {
   return next;
 }
 
-function assetPathFromUrl(rawUrl: string): string | null {
-  const url = new URL(rawUrl);
-  if (url.hostname !== "asset") return null;
+/** nomi-local://asset/... → { projectId, 磁盘绝对路径 }。协议处理与懒自愈（ensurePlayableAsset）共用。 */
+export function parseLocalAssetUrl(rawUrl: string): { projectId: string; filePath: string } | null {
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "nomi-local:" || url.hostname !== "asset") return null;
   // 解码与 localAssetUrl 的「逐段 encodeURIComponent」对称：先按 "/" 切段、再逐段 decode。
   // （此前先整体 decode 再 split，文件名若含被编码的 %2F 会让段边界错位 → 路径错位 404。）
   const segments = url.pathname
@@ -30,7 +36,18 @@ function assetPathFromUrl(rawUrl: string): string | null {
       }
     });
   const [projectId, ...relativeParts] = segments;
-  return resolveProjectRelativePath(projectId, relativeParts.join("/"));
+  if (!projectId) return null;
+  try {
+    const filePath = resolveProjectRelativePath(projectId, relativeParts.join("/"));
+    return filePath ? { projectId, filePath } : null;
+  } catch {
+    // 项目不存在/路径越界（resolveProjectRelativePath 抛）→ 解析失败，调用方按 404/不适用处理。
+    return null;
+  }
+}
+
+function assetPathFromUrl(rawUrl: string): string | null {
+  return parseLocalAssetUrl(rawUrl)?.filePath ?? null;
 }
 
 type ByteRange = { start: number; end: number };

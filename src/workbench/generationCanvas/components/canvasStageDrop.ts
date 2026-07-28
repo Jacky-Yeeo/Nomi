@@ -15,7 +15,7 @@ import {
 } from '../../assets/assetLibraryDrag'
 import { importLocalMediaFilesToGenerationCanvas } from '../adapters/assetImportAdapter'
 import { getGenerationNodeDefaultSize, getGenerationNodeFootprintSize } from '../model/generationNodeKinds'
-import { dropKindFromMime } from '../model/nodeAssetDrop'
+import { dropKindFromFile } from '../model/nodeAssetDrop'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import { toast } from '../../../ui/toast'
 import type { BrowserAssetCanvasImportItem } from '../../../ui/browser/overlay/globalAssetPopoverEvents'
@@ -344,7 +344,7 @@ export function handleCanvasStageDrop(event: DragEvent<HTMLDivElement>, ctx: Can
 
   // 4) OS 文件拖入：复制进项目并上传，创建图片 / 视频素材节点（音频无可落节点，过滤）。
   const files = Array.from(event.dataTransfer.files || []).filter((file) => {
-    const kind = dropKindFromMime(file.type)
+    const kind = dropKindFromFile(file)
     return kind === 'image' || kind === 'video'
   })
   if (!files.length) return

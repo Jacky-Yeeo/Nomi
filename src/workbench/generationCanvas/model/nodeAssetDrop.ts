@@ -2,6 +2,7 @@
 // 职责：把「拖进来的东西的类型(image/video/audio)」映射出来，并据节点当前模型档案的当前模式，
 // 找到匹配该类型的数组参考槽。写入由 nodeAssetWrite 经 appendArchetypeArrayValue 单源完成。
 import type { GenerationNodeKind } from './generationCanvasTypes'
+import { mediaKindFromExtension } from '../../../../electron/assets/mediaTypes'
 import { isImageLikeGenerationNodeKind, isVideoLikeGenerationNodeKind } from './generationNodeKinds'
 import {
   type ArchetypeArraySlot,
@@ -19,6 +20,18 @@ export function dropKindFromMime(mime: string | undefined | null): AssetDropKind
   if (mime.startsWith('video/')) return 'video'
   if (mime.startsWith('audio/')) return 'audio'
   return null
+}
+
+/**
+ * OS 文件 → 资产类型：MIME 优先，MIME 为空按扩展名兜底（单源 electron/assets/mediaTypes）。
+ * Windows 上 mkv 等常无注册 MIME（file.type=''）→ 此前被静默跳过，用户拖了没反应（silent-drop 家族）。
+ */
+export function dropKindFromFile(file: { type?: string; name?: string }): AssetDropKind | null {
+  const byMime = dropKindFromMime(file.type)
+  if (byMime) return byMime
+  if (file.type) return null
+  const kind = mediaKindFromExtension(String(file.name || ''))
+  return kind === 'image' || kind === 'video' || kind === 'audio' ? kind : null
 }
 
 const WORKSPACE_KIND: Record<string, AssetDropKind> = { image: 'image', video: 'video', audio: 'audio' }
