@@ -1,114 +1,70 @@
-# 小说→成片 直出管线(Novel-to-Film Pipeline)— 总体方案 + M1 编排引擎施工方案
+# 小说→成片 直出管线(Novel-to-Film Pipeline)— 方案 v2
 
-> 2026-07-29 用户拍板:定位=**结构化直出初稿+全程可介入**(不做黑盒一键);起步=**M1 编排引擎先行**。
-> 依据:① 5 路调研《小说/长文→AI漫剧 固化工作流景观》(research/2026-07-29-novel-to-video-pipeline-landscape.md,不入公开 git):五段管线全行业收敛、「一键」被业界证伪、40-50% 人工耗在抽卡/修穿帮;② 积木盘点(本文 §2);③ 论文雷达 2026-07-29:OmniScript 坐实「per-shot 结构化脚本=行业中间表示」,反向验证 storyboardPlan 方向。
+> v1(2026-07-29 早):定位=结构化直出初稿+可介入,M1 编排引擎先行。
+> **v2(2026-07-29 晚,用户深度回应后修订)**:吸收用户拍板的六条增量——①生产单位=单集/管理单位=整季 ②目标用户收窄 ③黄金样片先行 ④实体状态圣经 ⑤MCP 制片语义化 ⑥制片台 IA。v1 的 M1 技术内核(runner/断点续跑/预算闸)保留,规格输入改为黄金样片实测数据。
+> 依据:research/2026-07-29-novel-to-video-pipeline-landscape.md(5 路调研+补录 Jellyfish/wind-comic/Aniv,外部引用已逐项亲核全真);本地事实亲核:24 镜上限(electron/ai/canvasTools.ts storyboardPlanParamsSchema max 24)、记忆注入 1500 字符(electron/memory/projectMemory.ts formatMemoryForPrompt)、MCP 生成必须本调用内等完(electron/capabilityCore/core.ts generateOnProject 注释:taskCache 进程内不能跨调用轮询)。
 
-## 0. 一句话
+## 0. 产品定义(锁定)
 
-把 Nomi 已有的「拆镜→生成→verify→排片→配音字幕→导出」积木,用一个**可断点续跑、带预算闸的管线引擎**串成「丢一本小说→直出一集已验过的初稿」;每层(剧集/剧本/分镜/镜头)都是结构化对象、都可人工介入单点重跑;工作流定义=playbook 单源,App 内 runner 与 MCP 编排工具消费同一份(P1/P4)。
+**明确反对「一键生成 1 小时漫剧」。** 可落地形态:
 
-**用户看到什么(终态,M1-M5 全落后)**:导入小说 → 剧集列表+分集剧本进创作区 → 点「直出这一集」→ 画布分镜卡逐个亮起、verify 给每镜打分标红坏镜 → 时间轴上成片已拼好带配音字幕 → 人只处理标红的几镜。
+> **以 1-3 分钟单集为生产单位(≤24 镜,恰合现有拆镜上限),以 30-60 分钟整季为管理单位;AI 批量生产,人只在关键节点确认和处理异常。**
 
-**差异化(vs 剪映漫剧/有戏AI/Catimind)**:别人一键出「要人肉抽卡的素材」,Nomi 直出「已自动验过、坏镜标出来等你处理」的初稿;本地+BYOM,量产工作室成本结构不同;每层可介入,单镜重跑不重跑全片。
+**北极星**:Nomi 不是替用户「生成很多素材」,而是**让一个小团队能稳定周更交付一整季漫剧**。
 
-## 1. 分期总览(M1 是中枢,M2-M4 挂其上,M5 是暴露面)
+**目标用户(只抓这类)**:已有小说/剧本/IP 的个人创作者或 2-5 人小团队;连载竖屏漫剧;愿确认角色/风格/样片,不愿逐镜填参数;核心诉求=每周稳定交片。**不服务**:零素材一句话要 1 小时成片的小白;有完整分工的专业影视公司;通用视频编辑需求。
 
-| 期 | 交付 | 用户看到 | 依赖 |
-|---|---|---|---|
-| **M1 编排引擎(本文详设)** | PipelineRunner 接真执行+断点续跑+预算闸+进度事件;MCP `nomi_run_pipeline`;App 进度卡 | 任务进度卡:阶段推进/暂停审阅/续跑;外部 AI 可经 MCP 驱动一串步骤 | 无 |
-| M2 长文导入+剧集层 | docx/txt→切章→LLM 改编分集剧本;episode 数据模型;创作区剧集列表 | 丢一本小说→得到一季分集剧本,每集可改 | M1(改编=管线 stage) |
-| M3 中段自动循环 | 拆镜→批量生成→shotVerify→replan 挂进引擎无人值守跑(收编现有 UI 驱动,同 commit 删旧驱动,P1) | 点「直出这一集」画布自己长出分镜并生成,坏镜标红 | M1 |
-| M4 尾段批量编排 | 逐镜台词→批量 TTS→音轨铺排+字幕 clip 按镜号对齐落轨→排片→导出 | 成片躺在时间轴上,带配音字幕 | M1;M3 产物 |
-| M5 Skill 化+MCP 外露 | 「小说成片」workflow=内置 playbook 进技能库(用户可改/分享);MCP 工具面补齐 | 技能库里可见可编辑该工作流;Claude/Codex 给一本小说驱动 Nomi 出片 | M1-M4 |
+**为什么不是「漫剧模板」**:Aniv(商业,1-2 分钟成片)、Jellyfish(开源 5.7K★,script→storyboard→consistency→shot prep→generation→export)已把「剧本→分镜→视频→剪辑」漏斗做成大路货;加模板=同质化。Nomi 的差异位=**整季规模的状态管理**(720 镜的分批/失败恢复/批量审核/只重跑失败项)+**本地 BYOM 成本结构**+**verify 把「抽卡师」自动化**。
 
-## 2. 现状积木(Explore 实测 2026-07-29,file:line 以 main@239615c8 为准)
+## 1. 规模数学(为什么难题是状态管理不是调模型)
 
-- **编排骨架已有、未接真执行**:`electron/skills/playbookOrchestrator.ts`(PlaybookRun 状态机:拓扑排序/pause/advance,纯逻辑可单测);stages schema `electron/skills/skillManifestSchema.ts:63`(id/goal/tools 白名单/dependsOn/pause/modelPrefs,modelPrefs 只声明能力身份不绑 vendor,P4 已焊死)。注释明言「真正跑 agent loop 的仍是现有那条链;live 驱动在有 UI 的切片里接」——**M1 就是接上这一段**。
-- **headless 执行面已有**:`electron/capabilityCore/core.ts`(主进程单一执行口:listAllProjects/createNamedProject/addProjectNodes/connectProjectNodes/setProjectNodePrompt/generateOnProject 含提交幂等键+轮询取回;app 开着走 RPC、关着 headless)。MCP 9 个原子工具注册于 `electron/capabilityCore/mcpProtocol.ts:25`。
-- **分镜结构化文档**:`src/workbench/generationCanvas/agent/storyboardPlan.ts`(PlanShot: index/shotKind/durationSec/anchorIds/prompt/keyframe;PlanAnchor=character/scene/prop/style 跨镜锚;zod 校验;storyboardPlanToArgs 落画布)。
-- **verify 闭环**:`shotVerify.ts`(identity/composition/continuity 三轴,阈值 3)+ `storyboardLoopBudget.ts`(maxRounds 缺省 2/上限 5)+ runner/judge/store——当前由画布助手 UI 驱动。
-- **花钱确认已有全局机制**:MCP/App 双路 spend-confirm(hybrid 网关+确认卡,记忆 mcp-spend-confirm-global-fix)——预算闸**复用它,不新造**。
-- **四缺口**:episode 层(无)、长文结构化导入(无,附件只能喂 LLM)、**编排引擎真执行(M1)**、TTS/字幕批量编排(原子 API 在:addTimelineTextClip 等 workbenchStore.ts:218,缺批量函数)。
+60 分钟 ≈ 720 镜(5s/镜)=30 集×24 镜。每镜历经关键帧图→视频→配音→字幕→审核,首轮 ≈1,440 次图像/视频生成;30% 返工再 +900 余次;视频 3min/次、并发 4 路 ⇒ 单轮理论 ≈9 小时,未计排队/失败。⇒ 真难题:**720 镜的状态保持、分批运行、失败恢复、批量审核,且不让用户被 720 次确认累死**。现有 24 镜规划上限恰好是「一集」,证明单集=生产单位是顺势而为。
 
-## 3. M1 详设:编排引擎接真执行
-
-### 3.1 分层(R9)
+## 2. 五个确认节点 + 预算包络(替代逐镜确认)
 
 ```
-定义层  PipelineDefinition = SkillManifest.stages(已有 schema,不新造格式)
-        + stage 执行契约扩展(§3.2,扩 skillStageSchema 可选字段)
-编排层  PipelineRunner(新,electron/pipeline/):消费 PlaybookRun 状态机,
-        逐 stage 调执行器;进度事件;暂停/续跑/取消
-执行层  StageExecutor 注册表(新):每个 stage.kind 映射到一个主进程函数
-        —— 'agent-turn'(经 agentChatV2 跑一回合 LLM,工具白名单=stage.tools)
-        —— 'core-action'(直调能力核:generateOnProject / addProjectNodes …)
-持久化  PipelineRunState 落项目目录(新):游标/每 stage 产物引用/花费累计;
-        重启后从游标续跑(断点续传,对齐开源 AI_novel 的 checkpoint 共识)
-暴露面  App:进度卡(UI 切片,实现前按 R8 出样张)
-        MCP:nomi_run_pipeline / nomi_pipeline_status / nomi_pipeline_resume
-        (mcpProtocol.ts TOOLS 表加三项,复用同一 Runner——P1 无并行版)
+导入小说/剧本 → 拆整季/单集/场景 → 【确认1:分集与每集高潮钩子】
+→ 角色/场景/道具+状态圣经 → 【确认2:资产与风格锁定】
+→ 制作一集低成本样片 → 【确认3:样片=全季制作标准】
+→ 按单集批量生产 → 自动检查(身份/构图/对白/转场) → 【确认4:只看异常镜头】→(返工循环)
+→ 配音/字幕/音乐/单集粗剪 → 整季合辑+终检 → 【确认5:最终交付】→ 逐集包+合集
 ```
 
-### 3.2 stage 执行契约(扩展,向后兼容)
+付费不逐镜问,改**预算包络**:「本批预计 24 镜,预算上限 ¥X,允许最多 2 轮自动返工」一次批准(机制=现有 SpendConfirmDialog 明细行扩展,src/workbench/generationCanvas/spend/SpendConfirmDialog.tsx;三来源共用不另造卡,P1)。五节点=默认漫剧 playbook 的 pause 配置,机制即 stages 的 pause(schema 已有)。
 
-`skillStageSchema` 加可选字段(无 = 现状纯 prompt 段,零破坏):
-- `kind?: 'agent-turn' | 'core-action'`(缺省 agent-turn,对齐原设计「复用 agentChatV2 不新造 agent」);
-- `action?: string`(kind=core-action 时指能力核方法名,zod 枚举白名单);
-- `costly?: boolean`(true ⇒ 执行前过预算闸);
-- `produces?: string`(产物键,如 'storyboardPlan',写进 RunState 供下游 stage 读)。
+## 3. 长篇一致性=实体状态圣经(新子系统,非更长 prompt)
 
-### 3.3 预算闸(不新造,挂已有 spend-confirm)
+现有 projectMemory(1500 字符注入)存的是静态事实,记不住:角色第几集换装/受伤恢复/道具在谁手上/秘密谁已知/场景昼夜天气。需要**实体状态时间表**(entity state timeline):按「集-场景」粒度记录每实体的状态变化,生成某镜时按镜头所处时间点**derive** 出该镜的资产引用+提示词修饰(不 hardcode)。与 storyboardPlan 的 anchors 衔接:anchor=实体身份,状态圣经=实体随剧情的时变属性。(论文雷达 2026-07-29 OmniScript 的 per-shot 对白/表情/音频字段可作 schema 参照。)
 
-- `costly` stage 启动前:汇总本 stage 预估调用数(如分镜 N 镜 ⇒ N 次生成)→ 走现有确认路(App 开着=确认卡;headless/MCP=elicitation;`NOMI_LOOP_SPEND_OK=1` 的 E2E 旁路保留)。
-- loopBudget(verify 重跑上限)沿用 `storyboardLoopBudget.ts`,M1 不改语义。
-- 铁律:**重试绝不包住付费提交**(记忆 retry-must-not-wrap-paid-submit)——Runner 的 stage 级重试只许包 agent-turn(免费规划),core-action 的生成失败走「可找回态」不自动重发。
+## 4. 分期(v2 重排:样片先行拿真数据,引擎随后)
 
-### 3.4 断点续跑
+| 期 | 交付 | 为什么在这个位置 |
+|---|---|---|
+| **P0 黄金样片(先行)** | 用**当前 Nomi 原样**完整做一集 2 分钟/约 24 镜(拆镜→生成→verify→排片→配音字幕→导出),**记录耗时/费用/返工率/人工操作次数** | effect-first:引擎规格(预算包络数字/并发/重试上限/确认点位)必须来自实测而非拍脑袋;同时暴露现链路断点,即 M1 需求清单。评测额度默认授权,直接跑 |
+| **M1 结构+任务引擎** | 「整季-单集-场景-镜头-Take」数据模型;PipelineRunner 接真执行(复用 PlaybookRun+agentChatV2+能力核,v1 §3 详设全保留:stage 契约/RunState 落盘断点续跑/重试不包付费提交/幂等键) | 一切批量能力的地基;Take=同镜多候选,是「抽卡」的一等公民化 |
+| **M2 制片语义 MCP** | `create_series / plan_episode / approve_checkpoint / start_episode_batch / get_job / cancel_job / retry_failed_shots / build_rough_cut / export_master`;长任务立即返 **jobId**,队列/重试/预算/幂等/状态全由 Nomi 持久化 | 治根:core.ts「本调用内等完」撞客户端超时+低层工具让外部 Agent 背全部生产规则太脆弱。MCP Tasks(2025-11-25 spec)已亲核=**experimental**,不作核心持久化;本地阶段 STDIO 够用,jobId 是应用层协议、日后可平滑映射 tasks |
+| **M3 状态圣经+门禁+异常审核** | 实体状态时间表(§3);镜头准备门禁(资产未锁不进生成队列,参照 Jellyfish shot-preparation);整集异常清单+Take 对比+只重跑失败项 | 确认 4 的完整形态;把 40-50% 返工人力压到「只看异常」 |
+| **M4 音频分轨+整季合辑** | 对白/旁白/BGM/SFX 分轨(现 TimelineTrackType 仅 image/video/audio 一类音轨,src/workbench/timeline/timelineTypes.ts)+角色声线;逐集交付包+60 分钟合集+字幕/封面/清单 | 交付面,最后做——前面不稳它无意义 |
+| **M5 远程/协作/分发** | HTTP MCP、多人、playbook 分享 | 本地流程跑顺后才考虑 |
 
-- `PipelineRunState` JSON 落项目目录(与注册表同级,跨进程 mkdir 锁复用 poison-project-not-found 的修法);字段:pipelineId/skillKey/游标/stage 产物引用(节点 id、文档 id,不内联大对象)/spentEstimate/状态(running|awaiting-confirm|paused|done|failed)。
-- 续跑 = 读 RunState → PlaybookRun 快进到游标 → 从当前 stage 重入(stage 内不做半步续,粒度=stage,简单可靠)。
-- 生成类产物本就落画布节点(可找回态已有),RunState 只存引用——**不另建产物存储**(P1)。
+**UI 与 MCP 不做两套流程**(P1):制片台=人类审核/纠错/看全局;MCP=Agent 调同一套领域命令;画布=当前场景的「导演显微镜」,不再承担整季总览;整季总览=生产看板(待准备/可生成/生成中/待审核/返工/已批准)。
 
-### 3.5 MCP 工具(编排级,3 个)
+## 5. IA 主张(样张拍板项)
 
-- `nomi_run_pipeline { projectId?, skillKey, inputs }` → 起跑,返 pipelineId(异步,不阻塞到完片);
-- `nomi_pipeline_status { pipelineId }` → 阶段/进度/待确认项/产物引用;
-- `nomi_pipeline_resume { pipelineId, confirm? }` → 确认暂停闸/续跑。
-- 单动作 9 工具不动(外部 AI 仍可精细操作);编排工具与 App 进度卡消费**同一个 Runner 实例**的事件。
+推荐:漫剧(剧集)项目的顶层步进 = **创作 → 制片 → 预览**,画布从制片台按场景**下钻**进入(备选:制片作为第四步插在创作/生成之间,画布保持顶层)。三张样张(整季制片台/单集工作台/MCP 确认卡)2026-07-29 已出,等用户裁。
 
-### 3.6 M1 验收门
+## 6. 不动项 / 回滚 / 验收
 
-1. 单测:契约 schema 兼容(旧 manifest 全过)/Runner 状态迁移/断点续跑(杀进程重入)/预算闸拦截(costly 未确认不执行)/重试不包付费提交。
-2. headless E2E:一个 3-stage 测试 playbook(规划→core-action 加节点→规划)零额度全跑通;再跑一次含 1 镜真生成的最小管线(评测额度,事后报花销)。
-3. MCP:外部 client 起跑→status 轮询→resume 确认→完成,全链真跑。
-4. 五门全绿;进度卡 UI 切片另行 R8 样张+真机走查(R13)后才算 M1 完整交付。
+- P0 不写码,纯实测;产出=docs/research/golden-sample 实测报告(数字进 M1 规格)。
+- M1 起每期照 v1 §3.6 验收门(单测/headless E2E/五门/真机走查);UI 一律先样张(R8)。
+- 不动:现有三工作区语义(非漫剧项目零变化)、9 个原子 MCP 工具、导出引擎。新增均为增量文件+可选字段,revert 即回滚。
+- 风险明标(D4):复杂动作/口型仍是行业未解,样片阶段就对用户明标;「编剧」不承诺 AI 化,卖改编初稿+人裁。
 
-### 3.7 M1 范围外(不动项)
+## 7. 六角色评审(v2 增量部分)
 
-- 不碰:现有画布助手的 verify 驱动(M3 收编时同 commit 删)、9 个单动作 MCP 工具语义、storyboardPlan schema(M2 扩 episode 时才动,参照 OmniScript 字段形评估 per-shot 对白字段)、技能库面板 UI(M5)。
-- 回滚:M1 全部为新增文件+schema 可选字段,revert 即回滚,无迁移。
-
-## 4. 开放问题(M2 前拍板,不阻塞 M1)
-
-1. episode 放哪层:项目=一部剧(集=画布分组)vs 项目=一集(剧=项目组)——牵动工作区模型,M2 方案文档里给对比表。
-2. 长文改编的「剧集大纲→单集剧本」两级 LLM 编排的 token 成本与质量;是否引入分章缓存。
-3. 漫剧风格包(画风锚)是否进 M3:调研显示 13 款画风是剪映卖点,Nomi 可用 style anchor + 提示词库表情/定妆包承接(低成本,倾向做)。
-4. 目标用户细分:量产工作室(BYOM 省钱敏感)vs 个人创作者(体验敏感)——影响 M4 之后的默认值与文案,不影响架构。
-
-## 5. 六角色评审(R7)
-
-- **CTO**:管线定义复用 stages schema 单源,App/MCP 同 Runner,无并行版;风险=agentChatV2 回合的可编排性(工具白名单/上下文注入是否够干净),M1 第一周先立这个探针。✔
-- **设计**:进度卡是新组件,必须走 nomi-design-system + 样张;「坏镜标红」延用 ReconcileDeviationCard 语汇,不造新隐喻。✔
-- **PM**:M1 无直接用户价值,是赌后面三期的地基——但 MCP 编排工具本身就是可讲的卖点(外部 AI 驱动 Nomi);M2 是第一个可传播 demo(丢小说出剧本)。接受。✔
-- **前端**:进度卡消费事件流,别把 Runner 状态镜像进 Zustand 双真相源——store 只存视图态,RunState 是唯一真相(对齐 harness EventLog 经验)。✔
-- **后端**:断点粒度=stage 是对的,别做 stage 内半步续(复杂度爆炸);生成幂等键已有,续跑重入不会双扣费。✔
-- **真实用户(量产工作室)**:「直出一集要多少钱、多久」必须在预算闸上直接可见(D4 诚实);坏镜标红后的单镜重跑必须一键。✔
-
-## 6. 施工顺序(M1 内切片,每片五门绿+单测过再 commit)
-
-1. 契约扩展+RunState 持久化+Runner 骨架(纯逻辑,单测覆盖状态机/续跑);
-2. StageExecutor:core-action 路(接能力核,headless E2E 零额度);
-3. StageExecutor:agent-turn 路(接 agentChatV2,含工具白名单收紧);
-4. 预算闸接 spend-confirm+重试边界单测;
-5. MCP 三工具+外部 client 真跑;
-6. App 进度卡(先 R8 样张拍板再动)。
+- CTO:jobId 应用层协议优于绑 experimental MCP Tasks,✔;状态圣经别做成第二个记忆系统——与 projectMemory 分层(圣经=结构化时变真相源,记忆=对话事实),边界 M3 方案文档里写死。
+- 设计:制片台是新顶层面,信息密度参照项目库列表而非画布;状态徽章语义色须进 token。
+- PM:P0 黄金样片同时是内容营销素材(真实数字讲故事),✔。
+- 前端:看板 30 集×24 镜不虚拟化会卡,列表虚拟化从第一版就上。
+- 后端:Take 模型注意资产引用计数(删 Take 不删被采用资产)。
+- 真实用户:确认 4 的「只看异常」必须默认视图,全量网格是退路不是首页。
