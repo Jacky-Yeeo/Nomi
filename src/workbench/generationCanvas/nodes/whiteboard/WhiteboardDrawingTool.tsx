@@ -32,6 +32,7 @@ import { WhiteboardLibraryPanel, type WhiteboardLibraryTabKey } from './Whiteboa
 import { blobToDataUrl, removeBackgroundBlob } from '../../../../lib/removeBackground'
 import {
   ASSET_DRAG_MIME,
+  assessDeleteTarget,
   clampCanvasPosition,
   deleteTargetFromState,
   getAssetPanelItems,
@@ -138,7 +139,6 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
       () => getAssetPanelItems(state.layers, state.canvasAssets).reverse(),
       [state.canvasAssets, state.layers],
     )
-    const boardLibraryItemCount = assetPanelItems.length + canvasImageItems.length
     const resultItemById = React.useMemo(
       () => new Map([...canvasImageItems, ...resultItems].map((item) => [item.id, item])),
       [canvasImageItems, resultItems],
@@ -396,9 +396,14 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
     }, [])
 
     const deleteCanvasObject = React.useCallback((target: CanvasObjectTarget) => {
+      // 静默 no-op 根治：锁定/背景层删除给明确反馈（此前 deleteTargetFromState 无声吞掉，
+      // 用户体感「删不掉又没人告诉我为什么」）。
+      const verdict = assessDeleteTarget(state, target)
+      if (verdict === 'locked') { toast(t('generationCommon.whiteboard.deleteBlockedLocked'), 'warning'); return }
+      if (verdict === 'background') { toast(t('generationCommon.whiteboard.deleteBlockedBackground'), 'warning'); return }
       setState((current) => deleteTargetFromState(current, target))
       setActiveCanvasObject(null)
-    }, [])
+    }, [state, t])
 
     const toggleFullscreen = React.useCallback(() => {
       const panel = fullscreenPanelRef.current
@@ -715,7 +720,6 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
               activeObject={activeCanvasObject}
               activeTab={activeLibraryTab}
               assetPanelItems={assetPanelItems}
-              boardLibraryItemCount={boardLibraryItemCount}
               canvasImageItems={canvasImageItems}
               resultItems={resultItems}
               onActiveTabChange={setActiveLibraryTab}

@@ -4,7 +4,7 @@ import { IconEye, IconEyeOff, IconPhoto, IconTrash } from '@tabler/icons-react'
 import { cn } from '../../../../utils/cn'
 import type { CanvasObjectTarget } from './WhiteboardLeaferCanvas'
 import type { WhiteboardResultLibraryItem } from './whiteboardTypes'
-import type { AssetPanelItem, LibraryDragPayload } from './whiteboardStateOps'
+import { mergeResultLibraryItems, type AssetPanelItem, type LibraryDragPayload } from './whiteboardStateOps'
 
 export type WhiteboardLibraryTabKey = 'board' | 'results'
 
@@ -12,7 +12,6 @@ type WhiteboardLibraryPanelProps = {
   activeObject: CanvasObjectTarget | null
   activeTab: WhiteboardLibraryTabKey
   assetPanelItems: AssetPanelItem[]
-  boardLibraryItemCount: number
   canvasImageItems: WhiteboardResultLibraryItem[]
   resultItems: WhiteboardResultLibraryItem[]
   onActiveTabChange: (tab: WhiteboardLibraryTabKey) => void
@@ -28,7 +27,7 @@ function LibraryResultCard({
   onAssetDragEnd,
   onAssetDragStart,
 }: {
-  item: WhiteboardResultLibraryItem
+  item: WhiteboardResultLibraryItem & { fromCanvas?: boolean }
   onAssetDragEnd: () => void
   onAssetDragStart: (event: React.DragEvent<HTMLElement>, payload: LibraryDragPayload) => void
 }): JSX.Element {
@@ -36,7 +35,7 @@ function LibraryResultCard({
   return (
     <div
       draggable
-      className="group overflow-hidden rounded-nomi-sm border border-nomi-line-soft bg-nomi-paper text-caption text-nomi-ink-80 shadow-nomi-sm cursor-grab hover:border-nomi-line hover:bg-nomi-ink-05 active:cursor-grabbing"
+      className="group relative overflow-hidden rounded-nomi-sm border border-nomi-line-soft bg-nomi-paper text-caption text-nomi-ink-80 shadow-nomi-sm cursor-grab hover:border-nomi-line hover:bg-nomi-ink-05 active:cursor-grabbing"
       title={t('generationCommon.whiteboard.library.dragResult')}
       onDragStart={(event) => onAssetDragStart(event, { source: 'result', itemId: item.id })}
       onDragEnd={onAssetDragEnd}
@@ -44,7 +43,15 @@ function LibraryResultCard({
       <span className="block aspect-[4/3] overflow-hidden bg-nomi-ink-05">
         <img className="h-full w-full object-cover" src={item.url} alt="" draggable={false} />
       </span>
+      {item.fromCanvas ? (
+        <span className="absolute left-1 top-1 rounded-full bg-nomi-ink/70 px-1.5 py-0.5 text-micro text-nomi-paper">
+          {t('generationCommon.whiteboard.library.fromCanvas')}
+        </span>
+      ) : null}
       <span className="block min-w-0 truncate px-1.5 py-1 text-micro">{item.name}</span>
+      <span className="block border-t border-nomi-line-soft px-1.5 py-0.5 text-micro text-nomi-ink-40">
+        {t('generationCommon.whiteboard.library.dragHint')}
+      </span>
     </div>
   )
 }
@@ -53,7 +60,6 @@ export function WhiteboardLibraryPanel({
   activeObject,
   activeTab,
   assetPanelItems,
-  boardLibraryItemCount,
   canvasImageItems,
   resultItems,
   onActiveTabChange,
@@ -64,6 +70,11 @@ export function WhiteboardLibraryPanel({
   onToggleLayerVisibility,
 }: WhiteboardLibraryPanelProps): JSX.Element {
   const { t } = useTranslation()
+  // IA 归位（2026-07-29 拍板 A）：「画板」页签只列真在板上的资产（每张都有眼睛/删除操作排）；
+  // 画布成图并进「结果」页签当拖拽素材源——此前混排进画板页签、长得一样却删不掉，即群反馈
+  // 「多出的图无法删除」的根因。
+  const boardLibraryItemCount = assetPanelItems.length
+  const mergedResultItems = mergeResultLibraryItems(resultItems, canvasImageItems)
   return (
     <aside
       className="flex h-full min-h-0 min-w-[320px] shrink-0 flex-col overflow-hidden bg-nomi-paper"
@@ -83,7 +94,7 @@ export function WhiteboardLibraryPanel({
               {
                 key: 'results' as const,
                 label: t('generationCommon.whiteboard.library.results'),
-                count: resultItems.length,
+                count: mergedResultItems.length,
               },
             ].map((tab) => {
               const active = activeTab === tab.key
@@ -114,7 +125,7 @@ export function WhiteboardLibraryPanel({
               {t('generationCommon.whiteboard.library.emptyBoard')}
             </div>
           ) : null}
-          {activeTab === 'results' && resultItems.length === 0 ? (
+          {activeTab === 'results' && mergedResultItems.length === 0 ? (
             <div className="grid min-h-[120px] place-items-center rounded-nomi border border-dashed border-nomi-line px-3 text-center text-caption text-nomi-ink-40">
               {t('generationCommon.whiteboard.library.emptyResults')}
             </div>
@@ -183,19 +194,11 @@ export function WhiteboardLibraryPanel({
                   </div>
                 )
               })}
-              {canvasImageItems.map((item) => (
-                <LibraryResultCard
-                  key={item.id}
-                  item={item}
-                  onAssetDragEnd={onAssetDragEnd}
-                  onAssetDragStart={onAssetDragStart}
-                />
-              ))}
             </div>
           ) : null}
-          {activeTab === 'results' && resultItems.length > 0 ? (
+          {activeTab === 'results' && mergedResultItems.length > 0 ? (
             <div className="grid grid-cols-3 gap-2">
-              {resultItems.map((item) => (
+              {mergedResultItems.map((item) => (
                 <LibraryResultCard
                   key={item.id}
                   item={item}
