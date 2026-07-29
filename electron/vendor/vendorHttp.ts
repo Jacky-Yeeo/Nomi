@@ -9,6 +9,7 @@ import {
   looksLikeLogicalError,
 } from "../ai/requestPipeline";
 import { describeIllegalHeader, findIllegalHeader, firstString, isJsonRecord, readNestedRecord } from "../jsonUtils";
+import { fetchVendorWithBaseFallback } from "./vendorBaseFallback";
 import type { Vendor } from "../catalog/types";
 
 export type VendorErrorCategory = "auth" | "balance" | "quota" | "input" | "server" | "network" | "unknown";
@@ -118,7 +119,9 @@ async function requestVendor(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let response: Response;
   try {
-    response = await fetch(finalUrl, {
+    // 经 vendorBaseFallback：主域被墙（连接从未建立）→ 零额度探测官方备用域 → 换线重发一次。
+    // 仅连接层安全码触发重发，「重试绝不包住付费提交」铁律不破（见 vendorBaseFallback 文件头）。
+    response = await fetchVendorWithBaseFallback(finalUrl, {
       method: upperMethod,
       headers,
       signal: controller.signal,

@@ -756,6 +756,15 @@ if (hasSingleInstanceLock)
             .then(({ applySystemProxy }) => applySystemProxy(session.defaultSession))
             .catch((error) => {
               console.error("[nomi:desktop] applySystemProxy failed:", error);
+            })
+            // 代理探测定型后再装 vendor 候选域自愈（apimart 主域被墙自动切官方备用域）——
+            // 回切探测要走最终 dispatcher，才能反映用户真实网络路径。
+            .then(() => Promise.all([import("./vendor/vendorBaseFallback"), import("./runtimePaths"), import("node:path")]))
+            .then(([{ configureVendorBaseFallback }, { getSettingsRoot }, path]) => {
+              configureVendorBaseFallback(path.join(getSettingsRoot(), "vendor-base-overrides.json"));
+            })
+            .catch((error) => {
+              console.error("[nomi:desktop] configureVendorBaseFallback failed:", error);
             });
         },
         lowMemoryMode ? 15000 : 3000,
