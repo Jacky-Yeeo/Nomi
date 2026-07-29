@@ -9,6 +9,7 @@ import { describeGenerationCost, useSpendConfirmStore } from '../spend/spendConf
 import { generationNodeExecutor, type GenerationNodeExecutor } from './generationNodeExecutor'
 import { narrateProgress } from '../../observability/narrate'
 import { isRecoverableTimeoutError } from './recoverableTimeout'
+import { recordModelFailure, recordModelSuccess } from './modelHealthMemory'
 // 错误分类(classifyGenerationError)已抽到 observability/classifyError(人话叶子层,生成域+对话域共用);
 // 这里 re-export 保持 NodeErrorReport / classifyGenerationError.test 等既有 import 不破。
 export { classifyGenerationError, type GenerationErrorReport } from '../../observability/classifyError'
@@ -125,6 +126,12 @@ export function reconcileNodeModeWithConnectedReferences(nodeId: string): void {
   })
 }
 
+/** 结算时读节点当前绑定的模型键（健康记忆的记账主体；meta 无 modelKey 的异常路径记空=跳过）。 */
+function currentNodeModelKey(nodeId: string): unknown {
+  const node = useGenerationCanvasStore.getState().nodes.find((candidate) => candidate.id === nodeId)
+  return (node?.meta as Record<string, unknown> | undefined)?.modelKey
+}
+
 export async function runGenerationNode(
   nodeId: string,
   options: RunGenerationNodeOptions = {},
@@ -198,15 +205,18 @@ export async function runGenerationNode(
     }
     if (!result) throw new Error('生成失败')
     useGenerationCanvasStore.getState().addNodeResult(id, result)
+    recordModelSuccess(currentNodeModelKey(id))
     await persistActiveWorkbenchProjectNow().catch(() => {})
     return result
   } catch (error: unknown) {
     // 可找回超时：上游可能仍在跑/已出片 → 落 recoverable（不进红色错误桶），给「重新拉取」入口。
     // taskId 已在 run 记录里持久化，recover 动作从节点重建续查（重启后也能拉）。
+    // 健康记账也不算失败——上游没有明确判死。
     if (isRecoverableTimeoutError(error)) {
       useGenerationCanvasStore.getState().setNodeStatus(id, 'recoverable', error.message)
       throw error
     }
+    recordModelFailure(currentNodeModelKey(id))
     // Store the RAW message; the UI (NodeErrorReport) runs classifyGenerationError
     // to show a human reason + hint + the raw detail. Keeping node.error a plain
     // string avoids a persisted-shape migration for existing project files.

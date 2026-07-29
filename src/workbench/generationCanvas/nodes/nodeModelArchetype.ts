@@ -16,6 +16,7 @@ import {
   resolveArchetypeForModel,
 } from './controls/archetypeMeta'
 import { translateModelDisplayText } from '../../../i18n/modelDisplayText'
+import { isModelRecentlyAiling } from '../runner/modelHealthMemory'
 
 export function chooseDefaultModelOption(
   options: readonly ModelOption[],
@@ -35,7 +36,16 @@ export function chooseDefaultModelOption(
       `${option.value} ${option.modelKey || ''} ${option.modelAlias || ''}`,
     )
   const recognized = options.filter((option) => Boolean(resolveArchetypeForOption(option)))
-  return recognized.find((option) => !needsReference(option)) || recognized[0] || options[0]
+  const runnable = recognized.filter((option) => !needsReference(option))
+  // 健康避让（modelHealthMemory）：近 24h 连败 ≥2 的模型让出「自动默认」位——上游挂掉的模型
+  // 不再霸占默认让新节点必死（2026-07-29 批量体检根治）。只影响自动默认（手动选择不拦）；
+  // 全部候选都在避让期 → 回退原序，绝不空选。
+  return (
+    runnable.find((option) => !isModelRecentlyAiling(option.modelKey || option.value)) ||
+    runnable[0] ||
+    recognized[0] ||
+    options[0]
+  )
 }
 
 export function resolveArchetypeForOption(option: ModelOption | null) {
