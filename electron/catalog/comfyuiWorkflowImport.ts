@@ -18,6 +18,15 @@ export type ComfyGraph = Record<string, ComfyNode>;
 export type NodeInputCandidate = { nodeId: string; inputKey: string; classType: string; title?: string; value: string | number | boolean };
 export type OutputNodeCandidate = { nodeId: string; classType: string; kind: "image" | "video" };
 export type WorkflowNumericParam = { nodeId: string; inputKey: string; paramKey: string; label: string; default: number };
+export type WorkflowParamType = "number" | "text" | "boolean";
+export type WorkflowParamBinding = {
+  nodeId: string;
+  inputKey: string;
+  paramKey: string;
+  label: string;
+  type: WorkflowParamType;
+  default: string | number | boolean;
+};
 
 /** 绑定选择（自动建议或用户在 UI 里改）。 */
 export type WorkflowBinding = {
@@ -25,7 +34,8 @@ export type WorkflowBinding = {
   firstFrameNodeId?: string; firstFrameInputKey?: string; // → {{request.params.first_frame_url}}（S2 上传后是 ComfyUI 文件名）
   lastFrameNodeId?: string; lastFrameInputKey?: string;   // → {{request.params.last_frame_url}}
   outputNodeId?: string; outputKind?: "image" | "video";
-  numeric: WorkflowNumericParam[];                        // → {{request.params.comfy_X}}
+  numeric?: WorkflowNumericParam[];                       // 旧字段：兼容已保存 workflow
+  params?: WorkflowParamBinding[];                        // → {{request.params.comfy_X}}
 };
 
 export type WorkflowAnalysis = {
@@ -33,10 +43,11 @@ export type WorkflowAnalysis = {
   imageInputs: NodeInputCandidate[];
   outputNodes: OutputNodeCandidate[];
   numericInputs: NodeInputCandidate[];
+  widgetInputs: NodeInputCandidate[];
   suggested: WorkflowBinding;
 };
 
-export type ParamControl = { key: string; label: string; type: "number" | "text" | "select"; default: number | string };
+export type ParamControl = { key: string; label: string; type: WorkflowParamType; default: number | string | boolean };
 export type ImportedWorkflow = { templatedGraph: ComfyGraph; parameters: ParamControl[]; kind: "image" | "video"; taskKind: "text_to_image" | "image_edit" | "text_to_video" | "image_to_video" };
 export type ComfyWorkflowImportDraft = { text: string; binding: WorkflowBinding };
 
@@ -57,6 +68,7 @@ const NUMERIC_LABEL: Record<string, string> = {
   seed: "随机种子", steps: "采样步数", cfg: "CFG 强度", denoise: "重绘幅度", width: "宽度", height: "高度",
   length: "帧数/时长", frames: "帧数", num_frames: "帧数", fps: "帧率", frame_rate: "帧率", batch_size: "批量",
 };
+const PARAM_KEY_RE = /^[A-Za-z0-9_]+$/;
 
 function isLink(v: unknown): v is [string, number] {
   return Array.isArray(v) && v.length === 2 && typeof v[0] === "string" && typeof v[1] === "number";
@@ -128,6 +140,32 @@ function pushUniqueCandidate(candidates: NodeInputCandidate[], candidate: NodeIn
   candidates.push(candidate);
 }
 
+function pushScalarWidgetCandidate(candidates: NodeInputCandidate[], nodeId: string, node: ComfyNode, inputKey: string, value: unknown): void {
+  if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") return;
+  pushUniqueCandidate(candidates, { nodeId, inputKey, classType: node.class_type ?? "", title: node._meta?.title, value });
+}
+
+function inferParamType(value: string | number | boolean): WorkflowParamType {
+  if (typeof value === "number") return "number";
+  if (typeof value === "boolean") return "boolean";
+  return "text";
+}
+
+function normalizeParamKey(raw: string | undefined, fallback: string): string {
+  const cleaned = String(raw || "").trim().replace(/[^A-Za-z0-9_]+/g, "_").replace(/^_+|_+$/g, "");
+  const key = cleaned || fallback;
+  return PARAM_KEY_RE.test(key) ? key : fallback;
+}
+
+function numericToParam(np: WorkflowNumericParam): WorkflowParamBinding {
+  return { nodeId: np.nodeId, inputKey: np.inputKey, paramKey: np.paramKey, label: np.label, type: "number", default: np.default };
+}
+
+function normalizeParamBindings(binding: WorkflowBinding): WorkflowParamBinding[] {
+  if (Array.isArray(binding.params)) return binding.params;
+  return (binding.numeric ?? []).map(numericToParam);
+}
+
 /** 解析 + 校验 workflow_api.json。非 API 格式（UI 保存格式）给明确可行动的提示。 */
 export function parseComfyApiWorkflow(text: string): ComfyGraph {
   let json: unknown;
@@ -181,6 +219,7 @@ export function analyzeComfyWorkflow(graph: ComfyGraph): WorkflowAnalysis {
   const textInputs: NodeInputCandidate[] = [];
   const imageInputs: NodeInputCandidate[] = [];
   const numericInputs: NodeInputCandidate[] = [];
+  const widgetInputs: NodeInputCandidate[] = [];
   const outputNodes: OutputNodeCandidate[] = [];
 
   for (const [nodeId, node] of Object.entries(graph)) {
@@ -192,6 +231,9 @@ export function analyzeComfyWorkflow(graph: ComfyGraph): WorkflowAnalysis {
         continue;
       }
       if (isLink(value)) continue; // 连线不可参数化；提示词连线已在上方追溯到可注入源
+      if (!(typeof value === "string" && LOAD_IMAGE_RE.test(classType) && inputKey === "image")) {
+        pushScalarWidgetCandidate(widgetInputs, nodeId, node, inputKey, value);
+      }
       if (typeof value === "string" && TEXT_ENCODE_RE.test(classType) && (inputKey === "text" || inputKey === "prompt")) {
         textInputs.push({ nodeId, inputKey, classType, title: node._meta?.title, value });
       } else if (typeof value === "string" && LOAD_IMAGE_RE.test(classType) && inputKey === "image") {
@@ -215,22 +257,26 @@ export function analyzeComfyWorkflow(graph: ComfyGraph): WorkflowAnalysis {
   // 建议数值参数：按优先序每个 inputKey 只取第一个（去重，clean）。
   const seenKey = new Set<string>();
   const suggestedNumeric: WorkflowNumericParam[] = [];
+  const suggestedParams: WorkflowParamBinding[] = [];
   for (const key of NUMERIC_PRIORITY) {
     const hit = numericInputs.find((n) => n.inputKey === key);
     if (hit && !seenKey.has(key)) {
       seenKey.add(key);
-      suggestedNumeric.push({ nodeId: hit.nodeId, inputKey: key, paramKey: `comfy_${key}`, label: NUMERIC_LABEL[key] ?? key, default: hit.value as number });
+      const param = { nodeId: hit.nodeId, inputKey: key, paramKey: `comfy_${key}`, label: NUMERIC_LABEL[key] ?? key, default: hit.value as number };
+      suggestedNumeric.push(param);
+      suggestedParams.push({ ...param, type: "number" });
     }
   }
 
   return {
-    textInputs, imageInputs, outputNodes, numericInputs,
+    textInputs, imageInputs, outputNodes, numericInputs, widgetInputs,
     suggested: {
       promptNodeId: suggestedPrompt?.nodeId, promptInputKey: suggestedPrompt?.inputKey,
       firstFrameNodeId: suggestedFirstFrame?.nodeId, firstFrameInputKey: suggestedFirstFrame?.inputKey,
       lastFrameNodeId: suggestedLastFrame?.nodeId, lastFrameInputKey: suggestedLastFrame?.inputKey,
       outputNodeId: suggestedOutput?.nodeId, outputKind: suggestedOutput?.kind,
       numeric: suggestedNumeric,
+      params: suggestedParams,
     },
   };
 }
@@ -255,12 +301,13 @@ export function buildImportedWorkflow(graph: ComfyGraph, binding: WorkflowBindin
   }
   const parameters: ParamControl[] = [];
   const seen = new Set<string>();
-  for (const np of binding.numeric) {
-    let paramKey = np.paramKey || `comfy_${np.inputKey}`;
+  for (const np of normalizeParamBindings(binding)) {
+    let paramKey = normalizeParamKey(np.paramKey, `comfy_${np.inputKey}`);
     while (seen.has(paramKey)) paramKey = `${paramKey}_${np.nodeId}`; // 同名去重（两个 sampler 都有 seed）
     seen.add(paramKey);
     setInput(templated, np.nodeId, np.inputKey, `{{request.params.${paramKey}}}`);
-    parameters.push({ key: paramKey, label: np.label || np.inputKey, type: "number", default: np.default });
+    const defaultValue = typeof np.default === "undefined" ? "" : np.default;
+    parameters.push({ key: paramKey, label: np.label || np.inputKey, type: np.type ?? inferParamType(defaultValue), default: defaultValue });
   }
   const outputKind = binding.outputKind ?? "image";
   const hasFrameInput = Boolean(

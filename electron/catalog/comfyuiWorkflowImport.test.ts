@@ -77,6 +77,20 @@ const WAN_FIRST_LAST_FRAME: ComfyGraph = {
   "90": { class_type: "CLIPTextEncode", inputs: { text: "", clip: ["72", 0] } },
 };
 
+// LTX 2.3 常见形态：UI 里显示 WIDTH/HEIGHT/FPS/seconds，但真正接入图的是常量节点 value。
+const LTX_CONSTANT_PARAMS: ComfyGraph = {
+  "108": { class_type: "LTXVImgToVideo", inputs: { width: ["292", 0], height: ["293", 0], length: ["287", 0], positive: ["110", 0], image: ["200", 0] } },
+  "110": { class_type: "CLIPTextEncode", inputs: { text: "default prompt", clip: ["111", 0] } },
+  "111": { class_type: "CLIPLoader", inputs: { clip_name: "t5xxl_fp16.safetensors" } },
+  "200": { class_type: "LoadImage", inputs: { image: "start.png" } },
+  "285": { class_type: "PrimitiveFloat", _meta: { title: "FPS" }, inputs: { value: 24 } },
+  "287": { class_type: "SimpleCalculatorKJ", inputs: { a: ["291", 0], b: ["285", 0], operation: "multiply" } },
+  "291": { class_type: "INTConstant", _meta: { title: "LENGTH (in seconds)" }, inputs: { value: 5 } },
+  "292": { class_type: "INTConstant", _meta: { title: "WIDTH" }, inputs: { value: 960 } },
+  "293": { class_type: "INTConstant", _meta: { title: "HEIGHT" }, inputs: { value: 544 } },
+  "300": { class_type: "SaveVideo", inputs: { video: ["108", 0], filename_prefix: "ltx" } },
+};
+
 describe("parseComfyApiWorkflow", () => {
   it("接受 API 格式", () => {
     expect(Object.keys(parseComfyApiWorkflow(JSON.stringify(SD_T2I)))).toContain("3");
@@ -126,6 +140,11 @@ describe("analyzeComfyWorkflow", () => {
     expect(a.suggested.outputNodeId).toBe("83");
     expect(a.suggested.outputKind).toBe("video");
   });
+  it("LTX 常量节点：把 WIDTH/HEIGHT/FPS/seconds 暴露为可手动选择的 widget 输入", () => {
+    const a = analyzeComfyWorkflow(LTX_CONSTANT_PARAMS);
+    expect(a.widgetInputs.map((n) => `${n.nodeId}.${n.inputKey}`)).toEqual(expect.arrayContaining(["292.value", "293.value", "285.value", "291.value"]));
+    expect(a.suggested.numeric.map((n) => `${n.nodeId}.${n.inputKey}`)).not.toEqual(expect.arrayContaining(["292.value", "293.value", "285.value", "291.value"]));
+  });
 });
 
 describe("buildImportedWorkflow", () => {
@@ -170,6 +189,46 @@ describe("buildImportedWorkflow", () => {
     expect(built.templatedGraph["90"].inputs!.text).toBe("{{request.prompt}}");
     expect(built.kind).toBe("video");
     expect(built.taskKind).toBe("image_to_video");
+  });
+  it("旧 numeric 绑定仍兼容：没有 params 时继续生成 number 参数", () => {
+    const built = buildImportedWorkflow(WAN_I2V, {
+      promptNodeId: "2",
+      promptInputKey: "text",
+      outputNodeId: "10",
+      outputKind: "video",
+      numeric: [{ nodeId: "3", inputKey: "seed", paramKey: "comfy_seed", label: "随机种子", default: 123 }],
+    });
+    expect(built.templatedGraph["3"].inputs!.seed).toBe("{{request.params.comfy_seed}}");
+    expect(built.parameters).toEqual([{ key: "comfy_seed", label: "随机种子", type: "number", default: 123 }]);
+  });
+  it("显式 params 空数组优先于旧 numeric：用户删除全部参数后不会自动恢复", () => {
+    const built = buildImportedWorkflow(WAN_I2V, {
+      promptNodeId: "2",
+      promptInputKey: "text",
+      outputNodeId: "10",
+      outputKind: "video",
+      numeric: [{ nodeId: "3", inputKey: "seed", paramKey: "comfy_seed", label: "随机种子", default: 123 }],
+      params: [],
+    });
+    expect(built.templatedGraph["3"].inputs!.seed).toBe(123);
+    expect(built.parameters).toEqual([]);
+  });
+  it("LTX 手动参数：常量节点 value 可映射成生成时参数", () => {
+    const a = analyzeComfyWorkflow(LTX_CONSTANT_PARAMS);
+    const built = buildImportedWorkflow(LTX_CONSTANT_PARAMS, {
+      ...a.suggested,
+      params: [
+        { nodeId: "292", inputKey: "value", paramKey: "comfy_width", label: "宽度", type: "number", default: 960 },
+        { nodeId: "293", inputKey: "value", paramKey: "comfy_height", label: "高度", type: "number", default: 544 },
+        { nodeId: "291", inputKey: "value", paramKey: "comfy_seconds", label: "秒数", type: "number", default: 5 },
+        { nodeId: "285", inputKey: "value", paramKey: "comfy_fps", label: "帧率", type: "number", default: 24 },
+      ],
+    });
+    expect(built.templatedGraph["292"].inputs!.value).toBe("{{request.params.comfy_width}}");
+    expect(built.templatedGraph["293"].inputs!.value).toBe("{{request.params.comfy_height}}");
+    expect(built.templatedGraph["291"].inputs!.value).toBe("{{request.params.comfy_seconds}}");
+    expect(built.templatedGraph["285"].inputs!.value).toBe("{{request.params.comfy_fps}}");
+    expect(built.parameters.map((p) => p.key)).toEqual(["comfy_width", "comfy_height", "comfy_seconds", "comfy_fps"]);
   });
 });
 
@@ -217,6 +276,29 @@ describe("导入的图跑通真注参管线（证 {{}} 全被填、数字保持�
     const body = renderTemplateValue(create.body, context) as { prompt: Record<string, { inputs: Record<string, unknown> }> };
     expect(body.prompt["80"].inputs.image).toBe("input/start.png");
     expect(body.prompt["89"].inputs.image).toBe("input/end.png");
+  });
+  it("LTX 手动参数：模板渲染后尺寸/秒数/FPS 保持数字", () => {
+    const built = buildImportedWorkflow(LTX_CONSTANT_PARAMS, {
+      ...analyzeComfyWorkflow(LTX_CONSTANT_PARAMS).suggested,
+      params: [
+        { nodeId: "292", inputKey: "value", paramKey: "comfy_width", label: "宽度", type: "number", default: 960 },
+        { nodeId: "293", inputKey: "value", paramKey: "comfy_height", label: "高度", type: "number", default: 544 },
+        { nodeId: "291", inputKey: "value", paramKey: "comfy_seconds", label: "秒数", type: "number", default: 5 },
+        { nodeId: "285", inputKey: "value", paramKey: "comfy_fps", label: "帧率", type: "number", default: 24 },
+      ],
+    });
+    const { mapping } = buildComfyImportModelMapping(built, { modelKey: "comfy-ltx", labelZh: "LTX" });
+    const create = mapping.create as { body: unknown; defaultParams: Record<string, unknown> };
+    const extras = applyWireDefaults({ comfy_width: 1280, comfy_height: 720, comfy_seconds: 6, comfy_fps: 30, firstFrameUrl: "input/start.png" }, create.defaultParams);
+    const params = taskTemplateParams({ extras });
+    const context = buildTemplateContext({ request: { prompt: "new prompt", extras }, params, model: {}, modelKey: "comfy-ltx", apiKey: "" });
+    const body = renderTemplateValue(create.body, context) as { prompt: Record<string, { inputs: Record<string, unknown> }> };
+    expect(body.prompt["110"].inputs.text).toBe("new prompt");
+    expect(body.prompt["200"].inputs.image).toBe("input/start.png");
+    expect(body.prompt["292"].inputs.value).toBe(1280);
+    expect(body.prompt["293"].inputs.value).toBe(720);
+    expect(body.prompt["291"].inputs.value).toBe(6);
+    expect(body.prompt["285"].inputs.value).toBe(30);
   });
 });
 
