@@ -78,6 +78,7 @@ docs/feedback/*
 **/welive.yml
 **/all_keys.json
 **/keys.json
+**/wechat_keys.json
 **/wechat-export/
 *.db
 
@@ -85,3 +86,7 @@ docs/feedback/*
 .failure-walk/
 .failure-walk-ok/
 .batch-walk/
+
+# Python 运行副产物（decrypt_wechat.py 等被 import/执行时生成，绝不入库）
+__pycache__/
+*.pyc
