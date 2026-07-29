@@ -757,15 +757,10 @@ if (hasSingleInstanceLock)
             .catch((error) => {
               console.error("[nomi:desktop] applySystemProxy failed:", error);
             })
-            // 代理探测定型后再装 vendor 候选域自愈（apimart 主域被墙自动切官方备用域）——
-            // 回切探测要走最终 dispatcher，才能反映用户真实网络路径。
-            .then(() => Promise.all([import("./vendor/vendorBaseFallback"), import("./runtimePaths"), import("node:path")]))
-            .then(([{ configureVendorBaseFallback }, { getSettingsRoot }, path]) => {
-              configureVendorBaseFallback(path.join(getSettingsRoot(), "vendor-base-overrides.json"));
-            })
-            .catch((error) => {
-              console.error("[nomi:desktop] configureVendorBaseFallback failed:", error);
-            });
+            // 代理定型后装 vendor 候选域自愈（apimart 被墙自动切官方备用域；回切探测走最终 dispatcher）。
+            .then(() => import("./vendor/vendorBaseFallbackBoot"))
+            .then((m) => m.configureVendorBaseFallbackAtBoot())
+            .catch((error) => console.error("[nomi:desktop] vendor base fallback boot failed:", error));
         },
         lowMemoryMode ? 15000 : 3000,
       );
