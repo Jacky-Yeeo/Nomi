@@ -8,6 +8,7 @@ import { Scene3DWindowBar } from './Scene3DWindowBar'
 import { Scene3DCoachMarks } from './Scene3DCoachMarks'
 import { hasSeenScene3DCoach, resetScene3DCoachSeen } from '../../../onboarding/onboardingState'
 import { cloneScene3DState } from './scene3dSerializer'
+import { syncSceneTimelineDuration } from './scene3dTimeline'
 import {
   type CaptureApi,
   type Scene3DCaptureResult,
@@ -84,7 +85,8 @@ export default function Scene3DFullscreen({
   referenceTarget,
 }: Scene3DFullscreenProps): JSX.Element {
   const { t } = useTranslation()
-  const [state, setState] = React.useState(() => cloneScene3DState(initialState))
+  // 进编辑器即把 totalDuration 同步到内容真实长度（第3期：老工程存的 stale-high / 默认 10s 一并回收，迁移-free）。
+  const [state, setState] = React.useState(() => syncSceneTimelineDuration(cloneScene3DState(initialState)))
   const [selection, setSelection] = React.useState<Scene3DSelection>(null)
   // 首次进入的三步教练标注（方案 A，2026-07-11 拍板）；只出现一次，localStorage 记忆。
   const [showCoach, setShowCoach] = React.useState(() => !hasSeenScene3DCoach())

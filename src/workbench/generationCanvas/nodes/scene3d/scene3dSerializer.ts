@@ -23,6 +23,7 @@ import { cameraAimBindingId } from './scene3dBindingIds'
 import { fitEditorCameraToScene } from './scene3dFitView'
 import { safeFrameCameraForSubjects } from './scene3dSafeFrame'
 import { cameraLookAtRotation } from './scene3dMath'
+import { DEFAULT_SCENE_TIMELINE_DURATION } from './scene3dTimeline'
 
 const GEOMETRIES = new Set<Scene3DGeometry>(['box', 'sphere', 'cylinder', 'plane'])
 // 道具 kind 白名单（与 scene3dProps 的 spec 表同域；这里手列避免 serializer 拖进 React/three 依赖）。
@@ -38,7 +39,6 @@ const SCENE3D_LOCAL_ASSET_URL_PATTERN = /^(nomi-local:\/\/|data:image\/|https?:\
 const MANNEQUIN_DEFAULT_SCALE: Scene3DVector3 = [2.5, 2.5, 2.5]
 const ROLE_COLOR_SEQUENCE = ['#ef4444', '#facc15', '#3b82f6', '#22c55e'] as const
 const CROWD_MAX_AXIS = 10
-const DEFAULT_SCENE_TIMELINE_DURATION = 10
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? value as Record<string, unknown> : {}

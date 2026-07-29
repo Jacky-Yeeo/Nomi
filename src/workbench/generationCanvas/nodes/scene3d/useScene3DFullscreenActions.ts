@@ -710,22 +710,13 @@ export function useScene3DExportActions({
     exportingTimerRef.current = window.setTimeout(() => setSlowHint(true), 60_000)
   }, [])
 
-  // 出片核心：把「裁时长 + 触发离屏渲染」抽出——正常出片与「一键补（绑相机后立即出片）」共用同一份，
-  // 后者传入绑定后的 state，不依赖 setState 时序（绑完还没生效就出片 = 又一次静默失败）。
-  // 时长裁到真实运动终点：编辑器时间轴默认 10s（UI 宽度用），预设只落 3s 轨迹时若按 10s 渲染，
-  // mp4 会带 7s 定格尾巴——喂给下游的参考视频大半静止。录 take 路径不经此处（录多久写多久）。
+  // 出片核心：触发离屏渲染——正常出片与「一键补（绑相机后立即出片）」共用同一份，后者传入绑定后的 state，
+  // 不依赖 setState 时序（绑完还没生效就出片 = 又一次静默失败）。时长无需在此裁：totalDuration 现恒 = 内容真实
+  // 终点（第3期 syncSceneTimelineDuration 在编辑器 init + 每次增删/拖动松手/数字提交双向同步），旧「裁定格尾巴」
+  // 补丁随根因删（P1）。录 take 路径录多久写多久。
   const exportWithState = React.useCallback((source: Scene3DState) => {
     if (!onRecordTake) return
-    const motionEnd = Math.max(
-      source.trajectoryBindings.reduce((max, binding) => Math.max(max, binding.endTime), 0),
-      source.objects.reduce((max, object) => (
-        (object.poseTrack ?? []).reduce((inner, keyframe) => Math.max(inner, keyframe.time), max)
-      ), 0),
-    )
-    const exportState = motionEnd > 0 && motionEnd < source.sceneTimeline.totalDuration
-      ? { ...source, sceneTimeline: { ...source.sceneTimeline, totalDuration: motionEnd } }
-      : source
-    const takeId = onRecordTake(exportState)
+    const takeId = onRecordTake(source)
     trackTakeExport(typeof takeId === 'string' ? takeId : null)
   }, [onRecordTake, trackTakeExport])
 

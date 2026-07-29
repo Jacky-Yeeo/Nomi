@@ -28,6 +28,8 @@ type TrajectoryTimelineProps = {
   onAddGroup: () => void
   onRenameGroup: (groupId: string, name: string) => void
   onPatchBinding: (bindingId: string, patch: Partial<Scene3DTrajectoryBinding>) => void
+  // 拖绑定条松手 / 数字提交时把 totalDuration re-fit 到内容长度（第3期）；拖动逐帧只走 onPatchBinding 不触发它。
+  onCommitTimeline: () => void
   onPatchTrajectoryPoint: (trajectoryId: string, pointId: string, patch: Partial<Scene3DTrajectoryPoint>) => void
 }
 
@@ -211,6 +213,7 @@ export function TrajectoryTimeline({
   onAddGroup,
   onRenameGroup,
   onPatchBinding,
+  onCommitTimeline,
   onPatchTrajectoryPoint,
 }: TrajectoryTimelineProps): JSX.Element | null {
   const { t } = useTranslation()
@@ -442,6 +445,7 @@ export function TrajectoryTimeline({
                     readOnly={readOnly}
                     laneRef={laneRef}
                     onPatchBinding={onPatchBinding}
+                    onCommitTimeline={onCommitTimeline}
                     onPatchTrajectoryPoint={onPatchTrajectoryPoint}
                   />
                 ) : (
@@ -466,6 +470,7 @@ function TimelineBindingBar({
   readOnly,
   laneRef,
   onPatchBinding,
+  onCommitTimeline,
   onPatchTrajectoryPoint,
 }: {
   binding: Scene3DTrajectoryBinding
@@ -474,6 +479,7 @@ function TimelineBindingBar({
   readOnly: boolean
   laneRef: React.RefObject<HTMLDivElement>
   onPatchBinding: (bindingId: string, patch: Partial<Scene3DTrajectoryBinding>) => void
+  onCommitTimeline: () => void
   onPatchTrajectoryPoint: (trajectoryId: string, pointId: string, patch: Partial<Scene3DTrajectoryPoint>) => void
 }): JSX.Element {
   const { t } = useTranslation()
@@ -540,10 +546,11 @@ function TimelineBindingBar({
       dragRef.current = null
       window.removeEventListener('pointermove', handleMove)
       window.removeEventListener('pointerup', handleUp)
+      onCommitTimeline() // 松手把 totalDuration re-fit 到内容长度（拖动期间纯 patch、冻结尺子，避免正反馈跳动）
     }
     window.addEventListener('pointermove', handleMove)
     window.addEventListener('pointerup', handleUp)
-  }, [applyDragDelta, binding.endTime, binding.startTime, laneRef, readOnly, totalDuration])
+  }, [applyDragDelta, binding.endTime, binding.startTime, laneRef, onCommitTimeline, readOnly, totalDuration])
 
   const patchPointRatio = React.useCallback((pointIndex: number, pointId: string, nextRatio: number) => {
     const previousRatio = pointIndex <= 1

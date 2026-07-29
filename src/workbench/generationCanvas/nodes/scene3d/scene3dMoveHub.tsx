@@ -148,6 +148,7 @@ export function Scene3DMoveHub({
               onDeletePoint={trajectory.deletePoint}
               onBindObject={trajectory.bindObject}
               onPatchBinding={trajectory.patchBinding}
+              onCommitTimeline={trajectory.syncTimelineDuration}
               onPatchBoundObject={trajectory.patchBoundObject}
               onUnbindObject={trajectory.unbindObject}
               onDeleteBinding={trajectory.deleteBinding}

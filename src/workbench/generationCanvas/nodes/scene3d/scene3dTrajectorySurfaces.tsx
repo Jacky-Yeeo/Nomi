@@ -166,6 +166,7 @@ export function Scene3DTrajectoryTimelineBar({
       onAddGroup={trajectory.addGroup}
       onRenameGroup={trajectory.renameGroup}
       onPatchBinding={trajectory.patchBinding}
+      onCommitTimeline={trajectory.syncTimelineDuration}
       onPatchTrajectoryPoint={trajectory.patchTrajectoryPoint}
     />
   )

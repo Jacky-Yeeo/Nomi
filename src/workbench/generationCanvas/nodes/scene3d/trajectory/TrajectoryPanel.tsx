@@ -27,6 +27,7 @@ type TrajectoryPanelProps = {
   onDeletePoint: (trajectoryId: string, pointId: string) => void
   onBindObject: (trajectoryId: string, objectId: string) => void
   onPatchBinding: (bindingId: string, patch: Partial<Scene3DTrajectoryBinding>) => void
+  onCommitTimeline: () => void
   onPatchBoundObject: (bindingId: string, objectId: string, patch: Partial<Scene3DTrajectoryBoundObject>) => void
   onUnbindObject: (bindingId: string, objectId: string) => void
   onDeleteBinding: (bindingId: string) => void
@@ -137,6 +138,7 @@ function TrajectoryBindingCard({
   onSelectTrajectory,
   onBindObject,
   onPatchBinding,
+  onCommitTimeline,
   onPatchBoundObject,
   onUnbindObject,
   onDeleteBinding,
@@ -150,6 +152,7 @@ function TrajectoryBindingCard({
   onSelectTrajectory: (trajectoryId: string) => void
   onBindObject: (trajectoryId: string, objectId: string) => void
   onPatchBinding: (bindingId: string, patch: Partial<Scene3DTrajectoryBinding>) => void
+  onCommitTimeline: () => void
   onPatchBoundObject: (bindingId: string, objectId: string, patch: Partial<Scene3DTrajectoryBoundObject>) => void
   onUnbindObject: (bindingId: string, objectId: string) => void
   onDeleteBinding: (bindingId: string) => void
@@ -178,7 +181,7 @@ function TrajectoryBindingCard({
                 step={0.1}
                 type="number"
                 value={numberInputValue(binding.startTime)}
-                onChange={(event) => onPatchBinding(binding.id, { startTime: Math.max(0, Number(event.currentTarget.value)) })}
+                onChange={(event) => { onPatchBinding(binding.id, { startTime: Math.max(0, Number(event.currentTarget.value)) }); onCommitTimeline() }}
               />
             </label>
             <label className="grid gap-1">
@@ -190,7 +193,7 @@ function TrajectoryBindingCard({
                 step={0.1}
                 type="number"
                 value={numberInputValue(binding.endTime)}
-                onChange={(event) => onPatchBinding(binding.id, { endTime: Math.max(binding.startTime + 0.001, Number(event.currentTarget.value)) })}
+                onChange={(event) => { onPatchBinding(binding.id, { endTime: Math.max(binding.startTime + 0.001, Number(event.currentTarget.value)) }); onCommitTimeline() }}
               />
             </label>
           </div>
@@ -288,6 +291,7 @@ export function TrajectoryPanel({
   onDeletePoint,
   onBindObject,
   onPatchBinding,
+  onCommitTimeline,
   onPatchBoundObject,
   onUnbindObject,
   onDeleteBinding,
@@ -400,6 +404,7 @@ export function TrajectoryPanel({
               onSelectTrajectory={onSelectTrajectory}
               onBindObject={onBindObject}
               onPatchBinding={onPatchBinding}
+              onCommitTimeline={onCommitTimeline}
               onPatchBoundObject={onPatchBoundObject}
               onUnbindObject={onUnbindObject}
               onDeleteBinding={onDeleteBinding}
