@@ -38,8 +38,10 @@ describe("Codex CLI image bridge", () => {
     mkdirSync(nvmBinOld, { recursive: true });
 
     const candidates = candidateCodexBins("darwin", root);
-    expect(candidates).toContain("/opt/homebrew/bin/codex");
-    expect(candidates).toContain("/usr/local/bin/codex");
+    // 静态位断言用 path.join 按宿主分隔符算：实现的 join 在 Windows 宿主产反斜杠，
+    // 写死 "/opt/.../codex" 字面量会让社区贡献者在 Windows 上全量测试恒红（PR#55 作者报）。
+    expect(candidates).toContain(path.join("/opt/homebrew/bin", "codex"));
+    expect(candidates).toContain(path.join("/usr/local/bin", "codex"));
     expect(candidates).toContain(path.join(root, ".local", "bin", "codex"));
     // nvm 各版本 bin 都在候选里，且数值降序（v24 在 v9 前，不许按字典序）
     const nvmIdx = candidates.indexOf(path.join(nvmBin, "codex"));
