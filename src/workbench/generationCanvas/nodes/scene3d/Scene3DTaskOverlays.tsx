@@ -10,12 +10,16 @@ export function Scene3DTaskOverlays({
   viewIdentity,
   statusSentence,
   recordCountdown,
+  previewActive,
+  onTogglePreview,
   onToggleOutputView,
   onSnapshotViewport,
 }: {
   viewIdentity: { label: string; isOutput: boolean }
   statusSentence: string
   recordCountdown: number | null
+  previewActive: boolean
+  onTogglePreview: () => void
   onToggleOutputView: () => void
   onSnapshotViewport: () => void
 }): JSX.Element {
@@ -55,9 +59,9 @@ export function Scene3DTaskOverlays({
         <button
           type="button"
           className="shrink-0 text-caption text-[var(--nomi-accent)] hover:opacity-80"
-          onClick={onToggleOutputView}
+          onClick={onTogglePreview}
         >
-          {viewIdentity.isOutput ? t('scene3d.taskFlow.backToWorkViewShort') : t('scene3d.taskFlow.previewFinal')}
+          {previewActive ? t('scene3d.taskFlow.backToWorkViewShort') : t('scene3d.taskFlow.previewFinal')}
         </button>
       </div>
       {recordCountdown !== null ? (

@@ -28,6 +28,7 @@ import {
   FocusController,
   CaptureBinder,
   CameraViewEditController,
+  PreviewCameraController,
 } from './scene3dViewControllers'
 import { CameraStateRecorder } from './CameraStateRecorder'
 import { CharacterDriveController } from './scene3dCharacterDriveController'
@@ -78,6 +79,9 @@ export function SceneContent({
   onEditTrajectory,
   onDeleteTrajectory,
   onBindTargetToTrajectory,
+  previewMode,
+  playheadRef,
+  previewTrajectoryIds,
 }: {
   state: Scene3DState
   selection: Scene3DSelection
@@ -136,6 +140,10 @@ export function SceneContent({
   onEditTrajectory?: (trajectoryId: string) => void
   onDeleteTrajectory?: (trajectoryId: string) => void
   onBindTargetToTrajectory?: (trajectoryId: string, targetId: string, pointId?: string | null) => void
+  // 成片预览（第2期）：previewMode 时挂 PreviewCameraController、不挂 Scene3DControls，主相机 live 跟随播放头。
+  previewMode?: boolean
+  playheadRef: React.MutableRefObject<number>
+  previewTrajectoryIds: ReadonlySet<string> | null
 }): JSX.Element {
   const freeLook = !viewLocked
   const controlMode: Scene3DControlMode = freeLook ? 'fly' : 'edit'
@@ -277,19 +285,29 @@ export function SceneContent({
         onCameraChange={onEditorCameraCommit}
         onFocusConsumed={onFocusConsumed}
       />
-      <Scene3DControls
-        freeLook={freeLook}
-        selectionActive={selection !== null}
-        speed={flySpeed}
-        target={state.editorCamera.target}
-        keyboardDisabled={Boolean(possessedObject)}
-        followObjectId={possessedObject?.id ?? null}
-        navigationLockedRef={navigationLockedRef}
-        onClearSelection={() => onSelect(null)}
-        onWheelNavigation={onWheelNavigation}
-        onKeyboardNavigationStart={onKeyboardNavigationStart}
-        onKeyboardNavigationStop={onKeyboardNavigationStop}
-      />
+      {/* 成片预览态：主相机交给 PreviewCameraController 只读跟随播放头，不挂 Scene3DControls——fly/orbit 与
+          playhead 驱动互斥，避免抢相机（「按模式拆分」）。退出预览恢复正常导航。 */}
+      {previewMode ? (
+        <PreviewCameraController
+          state={state}
+          playheadRef={playheadRef}
+          activeTrajectoryIds={previewTrajectoryIds}
+        />
+      ) : (
+        <Scene3DControls
+          freeLook={freeLook}
+          selectionActive={selection !== null}
+          speed={flySpeed}
+          target={state.editorCamera.target}
+          keyboardDisabled={Boolean(possessedObject)}
+          followObjectId={possessedObject?.id ?? null}
+          navigationLockedRef={navigationLockedRef}
+          onClearSelection={() => onSelect(null)}
+          onWheelNavigation={onWheelNavigation}
+          onKeyboardNavigationStart={onKeyboardNavigationStart}
+          onKeyboardNavigationStop={onKeyboardNavigationStop}
+        />
+      )}
       <CameraStateRecorder
         mode={controlMode}
         target={state.editorCamera.target}

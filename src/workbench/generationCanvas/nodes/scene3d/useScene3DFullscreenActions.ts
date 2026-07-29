@@ -28,6 +28,7 @@ import {
   makeCamera,
 } from './scene3dMath'
 import { nextAvailableObjectPosition } from './scene3dObjects'
+import { addObjectTrajectoryBinding } from './useScene3DTrajectoryEditing'
 import { removeTrajectoryBindingsForNode } from './scene3dTrajectoryState'
 import { useScene3DTrajectoryEditing } from './useScene3DTrajectoryEditing'
 import { trajectoryPointTimeRatio } from './trajectory'
@@ -325,6 +326,9 @@ type KeyboardShortcutsOptions = {
   deleteSceneItem: (target: Exclude<Scene3DSelection, null>) => void
   exitCameraViewEdit: () => void
   handleClose: () => void
+  // 成片预览态空格 = 播放/暂停（第2期空格三态拆分）；非预览态空格归 fly(上升)/操控(跳跃)，此处不碰。
+  previewMode: boolean
+  onTogglePlayback: () => void
 }
 
 export function useScene3DKeyboardShortcuts({
@@ -336,6 +340,8 @@ export function useScene3DKeyboardShortcuts({
   deleteSceneItem,
   exitCameraViewEdit,
   handleClose,
+  previewMode,
+  onTogglePlayback,
 }: KeyboardShortcutsOptions) {
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -351,6 +357,19 @@ export function useScene3DKeyboardShortcuts({
         event.preventDefault()
         event.stopPropagation()
         setTransformMode((mode) => (mode === 'rotate' ? 'translate' : 'rotate'))
+        return
+      }
+      // 成片预览态：空格 = 播放/暂停（对齐剪辑软件）。非预览态不拦——空格归 fly 上升 / 操控跳跃（按模式拆分）。
+      if (
+        event.code === 'Space' &&
+        previewMode &&
+        !event.repeat &&
+        !isModifierShortcut &&
+        !isEditableKeyboardTarget(event.target)
+      ) {
+        event.preventDefault()
+        event.stopPropagation()
+        onTogglePlayback()
         return
       }
       if (isModifierShortcut && !event.altKey && !isEditableKeyboardTarget(event.target)) {
@@ -386,7 +405,7 @@ export function useScene3DKeyboardShortcuts({
     }
     window.addEventListener('keydown', handleKeyDown, { capture: true })
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true })
-  }, [cameraViewEditId, copySelection, deleteSceneItem, exitCameraViewEdit, handleClose, pasteClipboard, selectionRef, setTransformMode])
+  }, [cameraViewEditId, copySelection, deleteSceneItem, exitCameraViewEdit, handleClose, onTogglePlayback, pasteClipboard, previewMode, selectionRef, setTransformMode])
 }
 
 // 「添加对象/相机/群众」三个动作（从 Scene3DFullscreen 抽出，防巨壳 R9）。行为与原内联实现等价：
@@ -585,6 +604,7 @@ export function useScene3DExportActions({
   onPickCamera,
   captureViewport,
   captureSelectedCamera,
+  setState,
 }: {
   state: Scene3DState
   stateRef: React.MutableRefObject<Scene3DState>
@@ -595,6 +615,7 @@ export function useScene3DExportActions({
   onPickCamera?: (cameraId: string) => void
   captureViewport: () => boolean
   captureSelectedCamera: () => boolean
+  setState: React.Dispatch<React.SetStateAction<Scene3DState>>
 }) {
   // P3-14：正在出片的 take 节点 id——产物卡盯它的 meta.cameraMoveVideo 等渲染完成
   const [exportingTakeId, setExportingTakeId] = React.useState<string | null>(null)
@@ -689,31 +710,67 @@ export function useScene3DExportActions({
     exportingTimerRef.current = window.setTimeout(() => setSlowHint(true), 60_000)
   }, [])
 
+  // 出片核心：把「裁时长 + 触发离屏渲染」抽出——正常出片与「一键补（绑相机后立即出片）」共用同一份，
+  // 后者传入绑定后的 state，不依赖 setState 时序（绑完还没生效就出片 = 又一次静默失败）。
+  // 时长裁到真实运动终点：编辑器时间轴默认 10s（UI 宽度用），预设只落 3s 轨迹时若按 10s 渲染，
+  // mp4 会带 7s 定格尾巴——喂给下游的参考视频大半静止。录 take 路径不经此处（录多久写多久）。
+  const exportWithState = React.useCallback((source: Scene3DState) => {
+    if (!onRecordTake) return
+    const motionEnd = Math.max(
+      source.trajectoryBindings.reduce((max, binding) => Math.max(max, binding.endTime), 0),
+      source.objects.reduce((max, object) => (
+        (object.poseTrack ?? []).reduce((inner, keyframe) => Math.max(inner, keyframe.time), max)
+      ), 0),
+    )
+    const exportState = motionEnd > 0 && motionEnd < source.sceneTimeline.totalDuration
+      ? { ...source, sceneTimeline: { ...source.sceneTimeline, totalDuration: motionEnd } }
+      : source
+    const takeId = onRecordTake(exportState)
+    trackTakeExport(typeof takeId === 'string' ? takeId : null)
+  }, [onRecordTake, trackTakeExport])
+
+  // 「一键补」：轨迹没绑相机时绑第一台可用相机、返回绑定后 state 供立即出片（addObjectTrajectoryBinding 纯函数同步构造 next，不依赖 setState 时序）。
+  const bindCameraForExport = React.useCallback((): Scene3DState | null => {
+    const current = stateRef.current
+    const boundIds = new Set(current.trajectoryBindings.flatMap((binding) => binding.objects.map((object) => object.objectId)))
+    const trajectoryToBind = current.trajectories.find((candidate) => candidate.points.length >= 2)
+    const cameraToBind = current.cameras.find((camera) => !boundIds.has(camera.id)) ?? current.cameras[0]
+    if (!trajectoryToBind || !cameraToBind) return null
+    const next = addObjectTrajectoryBinding(current, trajectoryToBind.id, cameraToBind.id, 0)
+    setState(next)
+    return next
+  }, [setState, stateRef])
+
   const handleExportReferenceVideo = React.useCallback(() => {
     if (!onRecordTake) {
       toast(i18n.t('scene3d.export.referenceVideoUnsupported'), 'warning')
       return
     }
-    if (!isCameraMoveReady(stateRef.current)) {
+    const current = stateRef.current
+    if (!isCameraMoveReady(current)) {
+      // 「点了没反应」根治：分清差哪一步，缺步就地补，别甩一句拒绝。
+      const hasUsableTrajectory = current.trajectories.some((t) => t.points.length >= 2)
+      const cameraIds = new Set(current.cameras.map((c) => c.id))
+      const hasCameraBinding = current.trajectoryBindings.some((b) => b.objects.some((o) => cameraIds.has(o.objectId)))
+      if (hasUsableTrajectory && !hasCameraBinding && current.cameras.length > 0) {
+        // 只差「把轨迹绑到相机」→ 一键补：可点 toast，点了就绑上相机 + 用绑定后 state 立即出片。
+        useToastStore.getState().push({
+          message: i18n.t('scene3d.export.bindCameraFirst'),
+          type: 'warning',
+          actionLabel: i18n.t('scene3d.export.bindAndGenerate'),
+          onAction: () => {
+            const bound = bindCameraForExport()
+            if (bound && isCameraMoveReady(bound)) exportWithState(bound)
+          },
+        })
+        return
+      }
+      // 差轨迹 / 没相机 → 精确引导（指向真实入口）。
       toast(i18n.t('scene3d.export.cameraMoveRequired'), 'warning')
       return
     }
-    // 用当前 state（含已有轨迹）触发 take 录制流程 → 宿主建节点 + CameraMoveCaptureHost 渲染 mp4。
-    // 时长裁到真实运动终点：编辑器时间轴默认 10s（UI 宽度用），预设只落 3s 轨迹时若按 10s 渲染，
-    // mp4 会带 7s 定格尾巴——喂给下游的参考视频大半静止。录 take 路径不经此处（录多久写多久）。
-    const current = stateRef.current
-    const motionEnd = Math.max(
-      current.trajectoryBindings.reduce((max, binding) => Math.max(max, binding.endTime), 0),
-      current.objects.reduce((max, object) => (
-        (object.poseTrack ?? []).reduce((inner, keyframe) => Math.max(inner, keyframe.time), max)
-      ), 0),
-    )
-    const exportState = motionEnd > 0 && motionEnd < current.sceneTimeline.totalDuration
-      ? { ...current, sceneTimeline: { ...current.sceneTimeline, totalDuration: motionEnd } }
-      : current
-    const takeId = onRecordTake(exportState)
-    trackTakeExport(typeof takeId === 'string' ? takeId : null)
-  }, [onRecordTake, stateRef, trackTakeExport])
+    exportWithState(current)
+  }, [bindCameraForExport, exportWithState, onRecordTake, stateRef])
 
   const handleExportScreenshotViewport = React.useCallback(() => {
     const captured = captureViewport()

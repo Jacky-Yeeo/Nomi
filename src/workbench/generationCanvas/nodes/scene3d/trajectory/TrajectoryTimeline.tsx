@@ -62,63 +62,20 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
-function TimelinePlayhead({
-  totalDuration,
-  containerRef,
-  playheadRef,
-}: {
-  totalDuration: number
-  containerRef: React.RefObject<HTMLDivElement>
-  playheadRef: React.MutableRefObject<number>
-}): JSX.Element {
-  const { t } = useTranslation()
+// 播放头 = 纯视觉指示器（pointer-events-none）：seek/scrub 统一由轨道容器处理（对齐剪辑软件——
+// 点/拖标尺任意处播放头跟随），播放头本身不再独占拖拽入口，避免"只能拖那颗球"。
+function TimelinePlayhead({ totalDuration }: { totalDuration: number }): JSX.Element {
   const playheadSeconds = useScene3DTrajectoryRuntimeStore((state) => state.playheadSeconds)
-  const draggingRef = React.useRef(false)
-
-  const setPlayheadFromClientX = React.useCallback((clientX: number) => {
-    const container = containerRef.current
-    if (!container) return
-    const rect = container.getBoundingClientRect()
-    const ratio = rect.width > 0 ? clamp((clientX - rect.left) / rect.width, 0, 1) : 0
-    const nextSeconds = ratio * totalDuration
-    playheadRef.current = nextSeconds
-    setScene3DPlayheadSeconds(nextSeconds)
-  }, [containerRef, playheadRef, totalDuration])
-
-  React.useEffect(() => {
-    const handleMove = (event: PointerEvent) => {
-      if (!draggingRef.current) return
-      setPlayheadFromClientX(event.clientX)
-    }
-    const handleUp = () => {
-      draggingRef.current = false
-    }
-    window.addEventListener('pointermove', handleMove)
-    window.addEventListener('pointerup', handleUp)
-    return () => {
-      window.removeEventListener('pointermove', handleMove)
-      window.removeEventListener('pointerup', handleUp)
-    }
-  }, [setPlayheadFromClientX])
-
   const left = `${clamp(playheadSeconds / Math.max(0.001, totalDuration), 0, 1) * 100}%`
 
   return (
-    <button
-      className="absolute inset-y-0 z-[2] grid w-4 -translate-x-1/2 place-items-center border-0 bg-transparent p-0"
+    <div
+      className="pointer-events-none absolute inset-y-0 z-[2] grid w-4 -translate-x-1/2 place-items-center"
       style={{ left }}
-      type="button"
-      title={t('scene3d.trajectory.dragPlayhead')}
-      onPointerDown={(event) => {
-        event.preventDefault()
-        event.stopPropagation()
-        draggingRef.current = true
-        setPlayheadFromClientX(event.clientX)
-      }}
     >
       <span className="h-full min-h-10 w-0.5 rounded-full bg-[var(--nomi-ink)] shadow-sm" />
       <span className="absolute top-0 size-3 rounded-full border border-[var(--nomi-ink)] bg-[var(--nomi-paper)]" />
-    </button>
+    </div>
   )
 }
 
@@ -282,6 +239,34 @@ export function TrajectoryTimeline({
     })
   }, [])
 
+  // 点/拖轨道空白处 = seek（对齐剪辑软件；绑定条与点球各自 stopPropagation，不会落到这）。
+  // 单一 seek 真相源：写 playheadRef + setScene3DPlayheadSeconds，与播放头渲染 / reset / 播放共用。
+  const scrubbingRef = React.useRef(false)
+  const seekFromClientX = React.useCallback((clientX: number) => {
+    const lane = laneRef.current
+    if (!lane) return
+    const rect = lane.getBoundingClientRect()
+    const ratio = rect.width > 0 ? clamp((clientX - rect.left) / rect.width, 0, 1) : 0
+    const nextSeconds = ratio * totalDuration
+    playheadRef.current = nextSeconds
+    setScene3DPlayheadSeconds(nextSeconds)
+  }, [playheadRef, totalDuration])
+
+  React.useEffect(() => {
+    const handleMove = (event: PointerEvent) => {
+      if (scrubbingRef.current) seekFromClientX(event.clientX)
+    }
+    const handleUp = () => {
+      scrubbingRef.current = false
+    }
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', handleUp)
+    return () => {
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleUp)
+    }
+  }, [seekFromClientX])
+
   if (!visible) return null
 
   return (
@@ -434,7 +419,12 @@ export function TrajectoryTimeline({
           </div>
           <div
             ref={laneRef}
-            className="relative mt-2 grid max-h-[calc(34vh-54px)] min-w-0 gap-1 overflow-auto pr-1"
+            data-coach="timeline-lane"
+            className="relative mt-2 grid max-h-[calc(34vh-54px)] min-w-0 cursor-pointer gap-1 overflow-auto pr-1"
+            onPointerDown={(event) => {
+              scrubbingRef.current = true
+              seekFromClientX(event.clientX)
+            }}
           >
             {rows.length === 0 ? (
               <div className="grid h-12 place-items-center text-micro text-[var(--nomi-ink-40)]">
@@ -460,7 +450,7 @@ export function TrajectoryTimeline({
               </div>
             ))}
             {rows.length > 0 ? (
-              <TimelinePlayhead totalDuration={totalDuration} containerRef={laneRef} playheadRef={playheadRef} />
+              <TimelinePlayhead totalDuration={totalDuration} />
             ) : null}
           </div>
         </div>

@@ -10,7 +10,6 @@ import { hasSeenScene3DCoach, resetScene3DCoachSeen } from '../../../onboarding/
 import { cloneScene3DState } from './scene3dSerializer'
 import {
   type CaptureApi,
-  type Scene3DCamera,
   type Scene3DCaptureResult,
   type Scene3DControlMode,
   type Scene3DObject,
@@ -24,7 +23,6 @@ import { SCENE_FIT_FOCUS_ID } from './scene3dFitView'
 import {
   levelEditorCameraRotation,
   applyEditorCameraPose,
-  vectorAlmostEqual,
 } from './scene3dMath'
 import { useScene3DCameraFraming } from './useScene3DCameraFraming'
 import { SceneObjectList } from './scene3dInspector'
@@ -284,37 +282,10 @@ export default function Scene3DFullscreen({
     onPickCamera: (cameraId) => setSelection({ type: 'camera', id: cameraId }),
     captureViewport,
     captureSelectedCamera,
+    setState,
   })
   // 首尾帧离屏导出（F2：两张节点建好 → markKeyframesExported 弹持久结果卡）。放在 exportActions 后拿其回调。
   const { exportCameraMoveFrames, moveFrameCapture } = useScene3DMoveFrameExport({ stateRef, onScreenshot, onKeyframesExported: markKeyframesExported })
-
-  const updateEditorCamera = React.useCallback((editorCamera: Scene3DState['editorCamera']) => {
-    latestEditorCameraRef.current = editorCamera
-    setState((current) => {
-      const nextEditorCamera = {
-        ...current.editorCamera,
-        ...editorCamera,
-      }
-      if (
-        current.editorCamera.mode === nextEditorCamera.mode &&
-        vectorAlmostEqual(current.editorCamera.position, nextEditorCamera.position) &&
-        vectorAlmostEqual(current.editorCamera.rotation, nextEditorCamera.rotation) &&
-        vectorAlmostEqual(current.editorCamera.target, nextEditorCamera.target)
-      ) {
-        return current
-      }
-      return {
-        ...current,
-        editorCamera: nextEditorCamera,
-      }
-    })
-  }, [])
-
-  const handleWheelNavigation = React.useCallback((editorCamera: Scene3DState['editorCamera']) => {
-    setViewLocked(false)
-    setFocusId('')
-    updateEditorCamera(editorCamera)
-  }, [updateEditorCamera])
 
   const unlockViewForSceneEdit = React.useCallback(() => {
     suppressCanvasMissedSelectionRef.current = true
@@ -340,7 +311,7 @@ export default function Scene3DFullscreen({
     latestEditorCameraRef.current = editorCamera
   }, [])
 
-  const { enterCameraViewEdit, exitCameraViewEdit, toggleCameraViewEdit, levelSelectedCamera } =
+  const { enterCameraViewEdit, exitCameraViewEdit, toggleCameraViewEdit, levelSelectedCamera, previewMode, setPreviewMode, handleTogglePreview, updateEditorCamera } =
     useScene3DCameraViewEdit({
       readOnly,
       selectedCamera,
@@ -354,9 +325,17 @@ export default function Scene3DFullscreen({
       setCameraViewEditId,
       setViewLocked,
       setFocusId,
-      updateEditorCamera,
+      setState,
       patchCamera,
+      setTimelineOpen: trajectory.setTimelineOpen,
     })
+
+  // 滚轮导航（工作视图）：解锁取景 + 写回编辑器相机（updateEditorCamera 现由取景 hook 提供，R9 迁移后）。
+  const handleWheelNavigation = React.useCallback((editorCamera: Scene3DState['editorCamera']) => {
+    setViewLocked(false)
+    setFocusId('')
+    updateEditorCamera(editorCamera)
+  }, [updateEditorCamera])
 
   const recordPoseResumeRef = React.useRef<() => void>(() => {}) // #4 ref 转发破环 drive↔recorder 初始化先后
   // #A ref 转发（同上一行范本）：退出操控前先收尾录制。takeRecorder 在 characterDrive 之后才创建（它需要
@@ -485,6 +464,8 @@ export default function Scene3DFullscreen({
     deleteSceneItem,
     exitCameraViewEdit,
     handleClose,
+    previewMode,
+    onTogglePlayback: () => requestTrajectoryPlayChange(!trajectory.isPlaying),
   })
 
   React.useEffect(() => () => {
@@ -586,7 +567,7 @@ export default function Scene3DFullscreen({
             fence={<div className="absolute inset-0 grid place-items-center text-caption text-[var(--nomi-ink-60)]">{t('scene3d.fullscreen.initializing')}</div>}
             camera={canvasCamera}
             dpr={[1, 2]}
-            frameloop={trajectory.isPlaying || takeRecorder.isRecording ? 'always' : 'demand'}
+            frameloop={trajectory.isPlaying || takeRecorder.isRecording || previewMode ? 'always' : 'demand'}
             gl={{ antialias: true, preserveDrawingBuffer: false }}
             onCreated={({ camera, gl, invalidate }) => {
               applyEditorCameraPose(camera, initialEditorCameraRef.current)
@@ -643,6 +624,9 @@ export default function Scene3DFullscreen({
               }}
               onDeleteTrajectory={trajectory.deleteTrajectory}
               onBindTargetToTrajectory={bindTargetToTrajectoryForMode}
+              previewMode={previewMode}
+              playheadRef={trajectory.playheadRef}
+              previewTrajectoryIds={trajectory.activeTrajectoryIds}
             />
             <Scene3DTrajectoryLayer
               state={state}
@@ -699,7 +683,9 @@ export default function Scene3DFullscreen({
             viewIdentity={taskFlow.viewIdentity}
             statusSentence={taskFlow.statusSentence}
             recordCountdown={taskFlow.recordCountdown}
-            onToggleOutputView={taskFlow.handleToggleOutputView}
+            previewActive={previewMode}
+            onTogglePreview={handleTogglePreview}
+            onToggleOutputView={() => { setPreviewMode(false); taskFlow.handleToggleOutputView() }}
             onSnapshotViewport={handleExportScreenshotViewport}
           />
           <Scene3DViewportToolPill

@@ -26,6 +26,47 @@ const NEW_TRAJECTORY_SECOND_POINT_OFFSET = 3
 
 type Scene3DStateSetter = React.Dispatch<React.SetStateAction<Scene3DState>>
 
+// 绑定对象到轨迹的纯逻辑（单一真相源）：bindObject 与「一键补出片」共用。
+// 「一键补」要「构造绑定后的 state 立即出片」来绕开 setState 异步（绑完还没生效就出片 = 又一次静默失败），
+// 所以绑定必须有纯函数版、不能只有 setState 版——两处若各写一遍就是并行实现（违 P1）。
+export function addObjectTrajectoryBinding(
+  state: Scene3DState,
+  trajectoryId: string,
+  objectId: string,
+  offsetRatio = 0,
+): Scene3DState {
+  if (state.trajectoryBindings.some((binding) => binding.objects.some((object) => object.objectId === objectId))) {
+    return state
+  }
+  const boundObject: Scene3DTrajectoryBoundObject = { objectId, offsetRatio }
+  const existing = state.trajectoryBindings.find((binding) => binding.trajectoryId === trajectoryId)
+  if (existing) {
+    return {
+      ...state,
+      trajectoryBindings: state.trajectoryBindings.map((binding) => (
+        binding.id === existing.id
+          ? { ...binding, objects: [...binding.objects, boundObject] }
+          : binding
+      )),
+    }
+  }
+  const binding: Scene3DTrajectoryBinding = {
+    id: createScene3DTrajectoryBindingId(),
+    trajectoryId,
+    objects: [boundObject],
+    startTime: 0,
+    endTime: Math.max(0.1, state.sceneTimeline.totalDuration),
+    direction: 'forward',
+  }
+  return {
+    ...state,
+    trajectoryBindings: [...state.trajectoryBindings, binding],
+    sceneTimeline: binding.endTime > state.sceneTimeline.totalDuration
+      ? { ...state.sceneTimeline, totalDuration: binding.endTime }
+      : state.sceneTimeline,
+  }
+}
+
 export type Scene3DTrajectoryEditing = {
   activeTrajectoryId: string | null
   activePointId: string | null
@@ -336,40 +377,7 @@ export function useScene3DTrajectoryEditing({
 
   const bindObject = React.useCallback((trajectoryId: string, objectId: string, offsetRatio = 0) => {
     if (readOnly) return
-    setState((current) => {
-      if (current.trajectoryBindings.some((binding) => (
-        binding.objects.some((object) => object.objectId === objectId)
-      ))) {
-        return current
-      }
-      const boundObject: Scene3DTrajectoryBoundObject = { objectId, offsetRatio }
-      const existing = current.trajectoryBindings.find((binding) => binding.trajectoryId === trajectoryId)
-      if (existing) {
-        return {
-          ...current,
-          trajectoryBindings: current.trajectoryBindings.map((binding) => (
-            binding.id === existing.id
-              ? { ...binding, objects: [...binding.objects, boundObject] }
-              : binding
-          )),
-        }
-      }
-      const binding: Scene3DTrajectoryBinding = {
-        id: createScene3DTrajectoryBindingId(),
-        trajectoryId,
-        objects: [boundObject],
-        startTime: 0,
-        endTime: Math.max(0.1, current.sceneTimeline.totalDuration),
-        direction: 'forward',
-      }
-      return {
-        ...current,
-        trajectoryBindings: [...current.trajectoryBindings, binding],
-        sceneTimeline: binding.endTime > current.sceneTimeline.totalDuration
-          ? { ...current.sceneTimeline, totalDuration: binding.endTime }
-          : current.sceneTimeline,
-      }
-    })
+    setState((current) => addObjectTrajectoryBinding(current, trajectoryId, objectId, offsetRatio))
   }, [readOnly, setState])
 
   const patchBinding = React.useCallback((bindingId: string, patch: Partial<Scene3DTrajectoryBinding>) => {
