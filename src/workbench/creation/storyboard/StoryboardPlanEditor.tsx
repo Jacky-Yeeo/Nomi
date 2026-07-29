@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { IconAlertTriangle, IconCheck, IconMovie, IconLockOpen, IconPlus } from '@tabler/icons-react'
 import { alertDialog, confirmDialog, WorkbenchButton } from '../../../design'
 import { useWorkbenchStore } from '../../workbenchStore'
-import { applyCanvasToolCall } from '../../generationCanvas/agent/applyCanvasToolCall'
+import { applyCanvasToolCall, resolveCanvasToolNodeId } from '../../generationCanvas/agent/applyCanvasToolCall'
+import { useGenerationCanvasStore } from '../../generationCanvas/store/generationCanvasStore'
 import { resolveStoryboardImageDefault, resolveStoryboardVideoDefault } from '../../generationCanvas/agent/availableModels'
 import { useModelOptionsState } from '../../../config/useModelOptions'
 import { storyboardPlanToCreateNodesArgs } from '../../generationCanvas/agent/storyboardPlan'
@@ -96,6 +97,11 @@ export default function StoryboardPlanEditor(): JSX.Element | null {
       // 揭示新落的镜头：请画布平滑 fit 一次。否则新节点落在已加载画布的视口外，
       // 用户点完「确认落画布」看着像「没反应」（useAutoFitOnLoad 只在首次加载/切分类触发）。
       requestCanvasFit()
+      // 落画布即自动全选这批新节点（样张拍板 2026-07-29）→ 既有多选浮条「生成 N 个」直接浮现，
+      // 批量入口不再靠用户自己发现框选；点浮条整批确认生成，依赖波次照旧（定妆/首帧先、镜头后）。
+      // clientId 经注册表换真实节点 id；≤1 个不选（浮条本就只在多选时出现，单节点一键生成足矣）。
+      const landedIds = args.nodes.map((created) => resolveCanvasToolNodeId(created.clientId))
+      if (landedIds.length > 1) useGenerationCanvasStore.getState().selectNodes(landedIds)
     } catch (error: unknown) {
       await alertDialog({
         title: t('storyboardEditor.landFailed'),

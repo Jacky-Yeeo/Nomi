@@ -368,6 +368,8 @@ export const zhGenerationCommon = {
     generating: '生成中…',
     generateReferencesFirst: '先生成参考，再生成本镜',
     regenerate: '重新生成',
+    variantCountAria: '连发张数（点击在 1、2、4 之间切换）',
+    variantCountTitle: '每次生成 {{count}} 张（点击切换）',
     generate: '生成',
     generateAsset: '生成素材',
     uploading: '上传中',
@@ -679,6 +681,7 @@ export const zhGenerationCommon = {
     preview: '全景预览',
   },
   batchPlan: {
+    retryFailed: '重试失败的 {{count}} 个',
     waveTitle: '第 {{wave}} 波执行',
     summary: '执行计划 · {{count}} 个节点 · {{waves}} 波',
     firstWave: '第 1 波 {{count}} 个并行，确认前不调用不扣费',
@@ -1216,6 +1219,8 @@ export const enGenerationCommon = {
     generating: 'Generating…',
     generateReferencesFirst: 'Generate references before this shot',
     regenerate: 'Regenerate',
+    variantCountAria: 'Variants per run (click to cycle 1/2/4)',
+    variantCountTitle: 'Generate {{count}} per run (click to cycle)',
     generate: 'Generate',
     generateAsset: 'Generate asset',
     uploading: 'Uploading',
@@ -1533,6 +1538,7 @@ export const enGenerationCommon = {
     preview: 'Panorama preview',
   },
   batchPlan: {
+    retryFailed: 'Retry {{count}} failed',
     waveTitle: 'Run in wave {{wave}}',
     summary: 'Execution plan · {{count}} nodes · {{waves}} waves',
     firstWave: 'Wave 1 runs {{count}} in parallel. Nothing is called or charged before confirmation.',

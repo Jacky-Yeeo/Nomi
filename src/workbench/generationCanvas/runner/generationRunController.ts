@@ -386,6 +386,50 @@ export async function confirmAndRunNode(nodeId: string, opts: { rerun?: boolean 
   }
 }
 
+/**
+ * 同一镜头 ×N 变体连发（2026-07-29 批量体检 C，样张拍板）：一次轻确认按 N 张报成本，
+ * 随后逐次铸令牌+跑。**串行**——同节点的进度/状态是单通道，并发会互踩；N≤4 体感可接受。
+ * 出图走 addNodeResult 既有堆叠（新图设主图、旧图进历史里挑）。中途失败即停：
+ * 剩余次数不再扣费（对坏通道不连烧；失败原因已落节点卡片），已出的变体保留。
+ */
+export async function confirmAndRunNodeVariants(
+  nodeId: string,
+  count: number,
+  options: RunGenerationNodeOptions = {},
+): Promise<void> {
+  const id = String(nodeId || '').trim()
+  if (!id) return
+  const total = Math.max(1, Math.min(8, Math.floor(count)))
+  const node = useGenerationCanvasStore.getState().nodes.find((n) => n.id === id)
+  const ok = await useSpendConfirmStore.getState().requestConfirm({
+    title: i18n.t('generationCommon.spend.startGeneration'),
+    message: describeGenerationCost(total, node ? spendCostKind(node.kind) : 'image'),
+    confirmLabel: i18n.t('generationCommon.spend.generate'),
+    light: true,
+  })
+  if (!ok) return
+  for (let index = 0; index < total; index += 1) {
+    let grantId: string
+    try {
+      grantId = await mintSpendGrant([id])
+    } catch (error) {
+      toast(
+        error instanceof Error && error.message
+          ? error.message
+          : i18n.t('generationCommon.batchPlan.authorizationFailed'),
+        'error',
+      )
+      return
+    }
+    try {
+      const result = await runGenerationNode(id, { ...options, grantId })
+      useWorkbenchStore.getState().reconcileTimelineForUpdatedNodes(id, result)
+    } catch {
+      return // 失败已落节点卡片（人话错误）；停发剩余变体
+    }
+  }
+}
+
 export async function rerunGenerationNodeAsNewNode(
   nodeId: string,
   options: RunGenerationNodeOptions = {},

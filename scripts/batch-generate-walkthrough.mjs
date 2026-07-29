@@ -6,7 +6,7 @@ import { _electron as electron } from 'playwright'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { mkdirSync, copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, copyFileSync, existsSync, readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs'
 import os from 'node:os'
 
 const require = createRequire(import.meta.url)
@@ -121,6 +121,30 @@ try {
   console.log('  终态: ' + JSON.stringify(final) + '（耗时 ' + Math.round((Date.now() - started) / 1000) + 's）')
   await shot(win, '05-batch-final.png') // 验：3 张图都出来（或失败原因可见）
 
+  // ── B1：失败汇总 toast 一键「重试失败的 N 个」（样张拍板 2026-07-29）──
+  // 点击 → 只对失败节点重建波次 → 弹轻确认卡；这里点「取消」= 零调用零扣费，只验接线。
+  if (final.error > 0) {
+    const retryToast = win.getByText('重试失败的', { exact: false })
+    if ((await retryToast.count()) === 0) {
+      console.log('  ✗ [B1] 失败后没看到「重试失败的 N 个」toast')
+      failed = true
+    } else {
+      await shot(win, '05b-retry-toast.png') // 验：失败 toast 尾部带重试动作
+      await retryToast.first().click()
+      await win.waitForTimeout(900)
+      const retryConfirm = await win.getByText('开始生成', { exact: true }).count()
+      await shot(win, '05c-retry-confirm.png') // 验：重试也走轻确认（不静默扣费）
+      if (retryConfirm === 0) { console.log('  ✗ [B1] 点重试没弹出确认卡'); failed = true }
+      else {
+        console.log('  ✓ [B1] 失败 toast 一键重试 → 轻确认卡弹出（本走查点取消，零扣费）')
+        await win.locator('.fixed.inset-0').last().getByRole('button', { name: '取消', exact: true }).first().click().catch(() => {})
+      }
+      await win.waitForTimeout(600)
+    }
+  } else {
+    console.log('  ℹ [B1] 本轮批量全成功（默认模型上游已恢复），失败重试路径本轮无从验证')
+  }
+
   // ── Phase 2：失败记忆避让闭环（2026-07-29 根治验证）──
   // 第一批若全败（默认模型上游挂）→ 健康记忆已记账 → 新建第 4 个节点的自动默认应避让坏模型，
   // 单发生成必须成功。第一批本就成功（上游恢复）→ 第 4 个照常成功。两种剧本 PASS 判据相同。
@@ -133,7 +157,11 @@ try {
   await editor4.click()
   await win.keyboard.type('一颗红苹果放在白色盘子里', { delay: 10 })
   await win.waitForTimeout(500)
-  await shot(win, '06-fourth-node-default-model.png') // 验：composer 模型位不再是坏默认
+  // C：×N 变体档位（样张拍板 2026-07-29）——点一次切到 ×2，一次确认连发两张堆同一节点
+  const variantChip = win.locator('[aria-label="连发张数（点击在 1、2、4 之间切换）"]').last()
+  if ((await variantChip.count()) === 0) { console.log('  ✗ [C] 连发档位芯片没找到'); failed = true }
+  else { await variantChip.click(); await win.waitForTimeout(300); console.log('  [C] 档位切到 ×2') }
+  await shot(win, '06-fourth-node-default-model.png') // 验：composer 模型位不再是坏默认 + ×2 芯片点亮
   await win.locator('[aria-label="生成素材"]').last().click()
   await win.waitForTimeout(900)
   const confirm4 = win.locator('.fixed.inset-0').last().getByRole('button', { name: '生成', exact: true })
@@ -154,6 +182,30 @@ try {
   await shot(win, '07-fourth-node-final.png') // 验：第 4 节点出图（避让生效）
   if (fourth.done !== 1) { console.log('  ✗ [Phase2] 第 4 节点没出图（避让未生效或新默认也坏）'); failed = true }
   else console.log('  ✓ [Phase2] 第 4 节点出图——失败记忆避让闭环生效')
+
+  // C 断言：×2 连发 = 第二张也落进同一节点（persist 每跑一次写盘 → 轮询项目文件看 history 堆叠）
+  const newestProjectJson = () => {
+    const dirs = readdirSync(isolatedProjects)
+      .map((name) => path.join(isolatedProjects, name))
+      .filter((p) => { try { return statSync(p).isDirectory() } catch { return false } })
+      .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)
+    return dirs.length ? path.join(dirs[0], '.nomi', 'project.json'): null
+  }
+  const startedC = Date.now()
+  let stacked = -1
+  while (Date.now() - startedC < 180000) {
+    try {
+      const pj = newestProjectJson()
+      const nodes = pj ? JSON.parse(readFileSync(pj, 'utf8'))?.payload?.generationCanvas?.nodes || [] : []
+      const target = nodes.find((n) => String(n.prompt || '').includes('红苹果'))
+      stacked = target ? (target.result ? 1 : 0) + (Array.isArray(target.history) ? target.history.length : 0) : -1
+      if (stacked >= 2) break
+    } catch { /* 写盘瞬间读到半截 → 下轮再读 */ }
+    await win.waitForTimeout(4000)
+  }
+  await shot(win, '08-variant-stacked.png')
+  if (stacked >= 2) console.log(`  ✓ [C] ×2 连发落定：同节点共 ${stacked} 张（主图+历史堆叠）`)
+  else { console.log(`  ✗ [C] 连发第二张没出现（累计 ${stacked} 张）`); failed = true }
 
   if (final.done === 3) console.log('  ✓ 批量产出 3/3 成功')
   else console.log(`  ℹ 第一批 ${final.done}/3（默认模型上游坏时的预期剧本，看 Phase2 避让）`)

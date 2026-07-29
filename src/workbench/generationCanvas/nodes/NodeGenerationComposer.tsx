@@ -12,7 +12,7 @@ import { promptToContent } from '../../assets/promptEditorContent'
 import { resolveReferenceSlots } from '../runner/referenceSlots'
 import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
-import { canRunGenerationNode, confirmAndRunNode, regenerateNodeInPlace } from '../runner/generationRunController'
+import { canRunGenerationNode, confirmAndRunNode, confirmAndRunNodeVariants, regenerateNodeInPlace } from '../runner/generationRunController'
 import { collectUngeneratedReferenceAncestors } from '../runner/referenceAncestors'
 import { buildDependencyWaves } from '../runner/dependencyWaves'
 import { useBatchPlanPreviewStore } from '../components/batchPlanPreview'
@@ -278,6 +278,8 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
   const [promptEditor, setPromptEditor] = React.useState<Editor | null>(null)
   const [promptPickerOpen, setPromptPickerOpen] = React.useState(false)
   const [promptPickerItems, setPromptPickerItems] = React.useState<PromptPickerItem[]>([])
+  // ×N 变体档位（样张拍板 2026-07-29）：会话态不落盘；点击循环 1→2→4，>1 时生成走变体连发。
+  const [variantCount, setVariantCount] = React.useState<1 | 2 | 4>(1)
   const [promptPickerPosition, setPromptPickerPosition] = React.useState<PromptPickerPosition | null>(null)
   const promptPickerButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const promptPickerPopoverRef = React.useRef<HTMLDivElement | null>(null)
@@ -432,6 +434,11 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
       return
     }
     if (!canRunGenerationNode(node, { nodes: state.nodes, edges: state.edges })) return
+    // ×N 变体连发（样张拍板 2026-07-29）：一次确认按 N 张报成本，串行连跑，出图堆进本节点历史。
+    if (variantCount > 1) {
+      await confirmAndRunNodeVariants(node.id, variantCount)
+      return
+    }
     // 已有结果的「重新生成」原地回填：新图进当前节点堆叠并设为主图，不再复制新节点。
     if (hasResult) await regenerateNodeInPlace(node.id)
     else await confirmAndRunNode(node.id)
@@ -701,6 +708,26 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
         ) : null}
         {(nodeExecutionKind === 'image' || nodeExecutionKind === 'video') && !node.locked ? (
           <NodePromptOptimizer node={node} isVideo={nodeExecutionKind === 'video'} />
+        ) : null}
+        {(nodeExecutionKind === 'image' || nodeExecutionKind === 'video') && !node.locked ? (
+          <button
+            type="button"
+            className={cn(
+              'inline-flex h-7 shrink-0 items-center rounded-full border border-nomi-line bg-transparent px-2.5',
+              'cursor-pointer text-caption text-nomi-ink-60 hover:text-nomi-ink hover:bg-nomi-ink-05',
+              'transition-[background,color] duration-[var(--nomi-transition-fast)]',
+              variantCount > 1 && 'border-nomi-accent text-nomi-accent',
+            )}
+            aria-label={t('generationCommon.composer.variantCountAria')}
+            title={t('generationCommon.composer.variantCountTitle', { count: variantCount })}
+            disabled={isGenerating}
+            onClick={(event) => {
+              event.stopPropagation()
+              setVariantCount((prev) => (prev === 1 ? 2 : prev === 2 ? 4 : 1))
+            }}
+          >
+            ×{variantCount}
+          </button>
         ) : null}
         {(() => {
           const disabledReason = !canGenerateNow && !isGenerating

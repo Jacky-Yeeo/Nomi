@@ -1,11 +1,11 @@
 // 批量执行计划预览态(harness S2b,样张方案 A:画布原位确认)。
 // 语义铁律:进入预览 ≠ 开始生成——确认前零 vendor 调用零扣费;取消即散,画布零变化。
 import { create } from 'zustand'
-import { toast } from '../../../ui/toast'
+import { toast, useToastStore } from '../../../ui/toast'
 import { runGenerationNodesByPlan, spendCostKindForNodes } from '../runner/generationRunController'
 import { mintSpendGrant } from '../../api/taskApi'
 import { confirmAndMintGrant, describeGenerationCost } from '../spend/spendConfirm'
-import type { DependencyWavePlan } from '../runner/dependencyWaves'
+import { buildDependencyWaves, type DependencyWavePlan } from '../runner/dependencyWaves'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import { verifyShotsAndReport } from '../agent/shotVerifyStore'
 import i18n from '../../../i18n'
@@ -120,17 +120,25 @@ export async function runPlanWithToasts(plan: DependencyWavePlan, grantId?: stri
     const tail = notice ? i18n.t('generationCommon.batchPlan.blockedTail', { notice }) : ''
     if (failCount === 0) {
       toast(i18n.t('generationCommon.batchPlan.completed', { count: okCount, tail }), notice ? 'warning' : 'success')
-    } else if (okCount === 0) {
-      toast(i18n.t('generationCommon.batchPlan.failed', { count: failCount, tail }), 'error')
     } else {
-      toast(
-        i18n.t('generationCommon.batchPlan.partiallyCompleted', {
-          successes: okCount,
-          failures: failCount,
-          tail,
-        }),
-        'warning',
-      )
+      // 失败汇总挂「重试失败的 N 个」一键动作（样张拍板 2026-07-29）：只对失败节点重建依赖波次
+      // → 重新轻确认（新令牌，不绕付费闸）→ 并发重跑；成功的不重付。上游仍缺果的会再次被
+      // 人话拦下（describeBlockedNotice），不静默。ttl 放宽到 12s 给动作留点击窗口。
+      const failureIds = result.failures.map((failure) => failure.nodeId)
+      const message =
+        okCount === 0
+          ? i18n.t('generationCommon.batchPlan.failed', { count: failCount, tail })
+          : i18n.t('generationCommon.batchPlan.partiallyCompleted', { successes: okCount, failures: failCount, tail })
+      useToastStore.getState().push({
+        message,
+        type: okCount === 0 ? 'error' : 'warning',
+        ttl: 12_000,
+        actionLabel: i18n.t('generationCommon.batchPlan.retryFailed', { count: failCount }),
+        onAction: () => {
+          const state = useGenerationCanvasStore.getState()
+          void confirmAndRunPlan(buildDependencyWaves(failureIds, { nodes: state.nodes, edges: state.edges }))
+        },
+      })
     }
     // Stage 1:生成完成 → 对成功的「镜头」节点(有 shotIndex,排除锚卡)跑画面校验(fire-and-forget,
     // 不阻塞完成 toast;verify 失败静默,绝不把生成完成拖红)。
