@@ -216,7 +216,12 @@ export function OnboardingWizard({ opened, onClose, onCommitted, initialPreset }
         setFetchModelsMsg(t('modelSetup.noModelsListedHint'))
       } else {
         setCandidateModels([])
-        setFetchModelsMsg(t('modelSetup.noModelsFetchedHint'))
+        // 把上游真原因说出来（401 Invalid token / 超时 / 代理…）。旧版一律吞掉只报「没拉到」，
+        // 用户面对零线索无从下手——错在哪就说哪（对齐「测试连接」的失败透传）。
+        const reason = (res.error || '').trim()
+        setFetchModelsMsg(reason
+          ? t('modelSetup.noModelsFetchedWithReason', { error: reason })
+          : t('modelSetup.noModelsFetchedHint'))
       }
     } finally {
       setFetchAttempted(true)
@@ -228,11 +233,16 @@ export function OnboardingWizard({ opened, onClose, onCommitted, initialPreset }
     if (!bridge?.onboarding?.testConnection) return
     setTestState('testing')
     setTestMessage('')
-    const firstModelId = models.map(m => m.id.trim()).find(Boolean)
+    // 协议探测发的是**文字聊天**请求，所以只能拿文本模型去探。上游只接了图片/视频模型时
+    // （中转接 Seedance/可灵 很常见），拿视频模型 id 发 chat/completions 必被上游拒 → 旧实现
+    // 一律报「连不上」，把「我们探错了」说成「你接不通」。此时改探「地址+Key 通不通」。
+    const firstTextModelId = models.filter(m => m.kind === 'text').map(m => m.id.trim()).find(Boolean)
+    const reachabilityOnly = !firstTextModelId
     const res = await bridge.onboarding.testConnection({
       baseUrl: baseUrl.trim(),
       apiKey: userApiKey.trim(),
-      modelId: firstModelId,
+      modelId: firstTextModelId,
+      ...(reachabilityOnly ? { probe: 'reachability' as const } : {}),
       // 专家锁定 → 强制走该协议；否则交主进程 auto-probe（chat↔responses，anthropic 按 hostname）。
       ...(kindForced ? { providerKind } : { autoProbe: true }),
       headers: buildHeadersObject(),
@@ -241,11 +251,20 @@ export function OnboardingWizard({ opened, onClose, onCommitted, initialPreset }
       // 探测出的协议存回 state → 保存时就用它；并显式告诉用户「替你选对了哪个」。
       if (res.detectedKind) setProviderKind(res.detectedKind)
       setTestState('ok')
-      setTestMessage(res.detectedKind
-        ? t('modelSetup.connectedProtocol', { protocol: PROVIDER_KIND_LABEL[res.detectedKind] })
-        : t('modelSetup.connected'))
+      setTestMessage(res.reachabilityOnly
+        ? t('modelSetup.connectedReachabilityOnly')
+        : res.detectedKind
+          ? t('modelSetup.connectedProtocol', { protocol: PROVIDER_KIND_LABEL[res.detectedKind] })
+          : t('modelSetup.connected'))
     } else {
       setTestState('fail')
+      if (reachabilityOnly) {
+        // 纯图片/视频上游：协议跟它无关，别把用户往「换个协议试试」上引（那是错误指路）。
+        setTestMessage(res.error
+          ? t('modelSetup.connectionFailedCheckUrlKey', { error: res.error })
+          : t('modelSetup.connectionFailedCheckUrlKeyPlain'))
+        return
+      }
       // 失败指路（设计/真实用户评审）：把「可能是协议不对，手动指定」摆出来，展开高级区+覆盖区当逃生口。
       setShowAdvanced(true)
       setShowKindOverride(true)

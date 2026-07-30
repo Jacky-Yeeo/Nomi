@@ -8,7 +8,7 @@ import {
   authQueryParams as buildAuthQueryParams,
   looksLikeLogicalError,
 } from "../ai/requestPipeline";
-import { describeIllegalHeader, findIllegalHeader, firstString, isJsonRecord, readNestedRecord } from "../jsonUtils";
+import { describeIllegalHeader, findIllegalHeader, isJsonRecord, pickUpstreamMessage } from "../jsonUtils";
 import { fetchVendorWithBaseFallback } from "./vendorBaseFallback";
 import type { Vendor } from "../catalog/types";
 
@@ -176,21 +176,8 @@ async function requestVendor(
   // body with no asset URL to the result builder and report a silent dud.
   const logicalCode = looksLikeLogicalError(record);
   if (!response.ok || logicalCode != null) {
-    const rawUpstream = firstString(
-      record.msg,
-      record.message,
-      record.error,
-      // RunningHub：业务错误在 errorMessage（如「标准模型API仅限企业级-共享API Key调用」）。
-      record.errorMessage,
-      readNestedRecord(record, ["error", "message"]),
-      readNestedRecord(record, ["data", "msg"]),
-      // ModelScope（及同类）失败体是复数 `errors`：{ "errors": { "message": "..." } }——
-      // 轮询侧 mapping 早就读这个键（modelscopeVendor.ts:41），但提交/错误侧此前漏读，
-      // 真正的 400 原因被压成「(no detail from provider)」。补齐复数 errors 的 message/detail。
-      readNestedRecord(record, ["errors", "message"]),
-      readNestedRecord(record, ["errors", "detail"]),
-      record.errors,
-    );
+    // 键优先级表住 jsonUtils.pickUpstreamMessage（全仓唯一，onboarding 拉模型/测连接同读一份）。
+    const rawUpstream = pickUpstreamMessage(record);
     const statusLabel = logicalCode != null ? `code ${logicalCode}` : `HTTP ${response.status}`;
     // "No message available" is Spring's default placeholder — surface the URL
     // and status so the failure is diagnosable instead of opaque.

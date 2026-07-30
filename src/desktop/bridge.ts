@@ -557,6 +557,12 @@ export type DesktopBridge = {
       providerKind?: ProviderKind
       /** true = 自动探测 chat↔responses（anthropic 按 hostname 提示）。 */
       autoProbe?: boolean
+      /**
+       * 'reachability' = 只验「地址+Key 通不通」（GET /models），不发聊天请求、不探协议。
+       * 用于上游一个文本模型都没有时（纯图片/视频中转）——协议只管文本，那时探协议毫无意义，
+       * 拿视频模型 id 发 chat/completions 只会被上游拒、误报「连不上」。
+       */
+      probe?: 'reachability'
       headers?: Record<string, string>
     }) => Promise<{
       ok: boolean
@@ -564,6 +570,8 @@ export type DesktopBridge = {
       error?: string
       /** 探测/确认成功的协议——渲染层据此显示「用的是 X 协议」并存盘。 */
       detectedKind?: ProviderKind
+      /** true = 这次只验了可达性（没探协议），文案要如实说清，别谎称「模型能用」。 */
+      reachabilityOnly?: boolean
     }>
     listModels: (payload: {
       baseUrl: string

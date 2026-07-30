@@ -29,6 +29,7 @@ export const zhModelSetup = {
   noModelsListed: '这个地址没自动列出模型',
   noModelsListedHint: '这个地址没自动列出模型，可在「选择模型」里手动输入 id，或重新拉取',
   noModelsFetchedHint: '没自动拉到模型，可在「选择模型」里手动输入 id，或重新拉取',
+  noModelsFetchedWithReason: '没自动拉到模型：{{error}}。可在「选择模型」里手动输入 id，或重新拉取',
   manualSelect: '手动选择 →',
   fetchHint: '填好接入地址和 Key，会自动拉取这个上游开放的模型',
   fetchModels: '拉取模型',
@@ -47,8 +48,11 @@ export const zhModelSetup = {
   testConnection: '测试连接',
   connectedProtocol: '已连上 · 用的是 {{protocol}} 协议',
   connected: '连接正常',
+  connectedReachabilityOnly: '地址和 Key 没问题 · 你选的都是图片 / 视频模型，不走「接口协议」，能不能出片要真跑一次才知道',
   connectionFailedWithReason: '连不上：{{error}}。可在下方「接口协议」手动指定再试',
   connectionFailed: '连不上。可在下方「接口协议」手动指定，或检查地址 / Key',
+  connectionFailedCheckUrlKey: '连不上：{{error}}。检查接入地址和 Key（图片 / 视频模型不受「接口协议」影响）',
+  connectionFailedCheckUrlKeyPlain: '连不上。检查接入地址和 Key（图片 / 视频模型不受「接口协议」影响）',
   saveFirstWarning: '建议先点「测试连接」确认可连上；也可直接保存',
   saveSecondWarning: '未验证连接，再次点击将直接保存',
   saveAnyway: '仍要保存',
@@ -111,6 +115,8 @@ export const enModelSetup = {
     'This endpoint did not list models automatically. Enter an ID manually in Choose models, or fetch again.',
   noModelsFetchedHint:
     'Models could not be fetched automatically. Enter an ID manually in Choose models, or fetch again.',
+  noModelsFetchedWithReason:
+    'Models could not be fetched: {{error}}. Enter an ID manually in Choose models, or fetch again.',
   manualSelect: 'Choose manually →',
   fetchHint: 'After you enter the Base URL and key, Nomi will fetch the models available from this upstream',
   fetchModels: 'Fetch models',
@@ -130,8 +136,14 @@ export const enModelSetup = {
   testConnection: 'Test connection',
   connectedProtocol: 'Connected · Using the {{protocol}} protocol',
   connected: 'Connection successful',
+  connectedReachabilityOnly:
+    'URL and key are fine · You picked only image / video models, which do not use the protocol setting. Run one generation to confirm they work.',
   connectionFailedWithReason: 'Could not connect: {{error}}. Choose a protocol below and try again.',
   connectionFailed: 'Could not connect. Choose a protocol below or check the URL and key.',
+  connectionFailedCheckUrlKey:
+    'Could not connect: {{error}}. Check the URL and key (image / video models are not affected by the protocol setting).',
+  connectionFailedCheckUrlKeyPlain:
+    'Could not connect. Check the URL and key (image / video models are not affected by the protocol setting).',
   saveFirstWarning: 'Testing the connection first is recommended, but you can save directly.',
   saveSecondWarning: 'The connection is unverified. Select again to save anyway.',
   saveAnyway: 'Save anyway',
