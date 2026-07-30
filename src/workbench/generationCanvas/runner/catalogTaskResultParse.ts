@@ -88,7 +88,7 @@ export function normalizeCatalogTaskResult(
   // C5: 文本任务没有 asset，文本在 raw 里。单独成支，不走下面的图片/视频 asset 逻辑。
   if (TEXT_TASK_KINDS.has(result.kind)) {
     const text = extractTextFromChatRaw(result.raw)
-    if (!text) throw new Error('模型任务完成但没有返回文本内容')
+    if (!text) throw new Error(i18n.t('generationCommon.error.noText'))
     const provenance = extractProvenanceFromTaskResult(result)
     return {
       id: `${node.id}-${result.id || Date.now()}`,
@@ -108,7 +108,7 @@ export function normalizeCatalogTaskResult(
   const firstImageAsset = result.assets.find((item) => item.type === 'image' && asTrimmedString(item.url))
   const firstAudioAsset = result.assets.find((item) => item.type === 'audio' && asTrimmedString(item.url))
   const asset = firstVideoAsset || firstImageAsset || firstAudioAsset || result.assets.find((item) => asTrimmedString(item.url))
-  if (!asset) throw new Error(inferredType === 'video' ? '模型任务完成但没有返回视频地址' : inferredType === 'audio' ? '配音生成完成但没有返回音频' : '模型任务完成但没有返回图片地址')
+  if (!asset) throw new Error(i18n.t(inferredType === 'video' ? 'generationCommon.error.noVideoUrl' : inferredType === 'audio' ? 'generationCommon.error.noAudio' : 'generationCommon.error.noImageUrl'))
   const type = (asset.type === 'video' || asset.type === 'image' || asset.type === 'audio') ? asset.type : inferredType
   // E11: propagate provenance from electron TaskResult into the node result.
   const provenance = extractProvenanceFromTaskResult(result)
