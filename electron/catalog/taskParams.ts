@@ -141,7 +141,10 @@ export function imageEditGuardError(kind: string, request: TaskParamsInput, hasM
     return `${what}缺少参考图：这次请求里没有任何图片可以发给模型。请连接一张图片节点（或在参考槽添加图片）后再生成${kind === "image_edit" ? "，或切回「文生图」" : ""}。`;
   }
   if (!hasMapping) {
-    return `模型「${modelLabel}」在本机没有配置「${kind === "image_edit" ? "图生图（改图）" : "图生视频"}」通道，参考图不会生效。旧版本接入的模型不含此能力：请在「模型接入」里删除该模型后重新接入一次，或改用支持${what}的模型。`;
+    // 别再让用户「删除后重新接入一次」——中转视频模型缺这条通道的根因在接入路径本身（它从来不建
+    // image_to_video），重接一万次也一样；已由 catalogCommit 补齐 + v8 迁移给存量自愈。走到这里说明
+    // 这个上游/模型确实没有该能力，如实说，别给假动作。
+    return `模型「${modelLabel}」没有「${kind === "image_edit" ? "图生图（改图）" : "图生视频"}」通道，参考图发不出去。请改用支持${what}的模型${kind === "image_edit" ? "，或断开参考图走纯文生图" : "，或断开参考图走纯文生视频"}。`;
   }
   return null;
 }

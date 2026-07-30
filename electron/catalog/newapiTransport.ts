@@ -247,7 +247,11 @@ export const NEWAPI_STANDARD_IMAGE_PARAMS: ParamControl[] = [
 export const NEWAPI_STANDARD_VIDEO_PARAMS: ParamControl[] = [
   { key: "duration", label: "时长(秒)", type: "number", options: [], min: 1, max: 30, defaultValue: 5 },
   { key: "size", label: "比例 / 尺寸", type: "select", options: sel(["16:9", "9:16", "1:1", "1280x720", "720x1280"]), defaultValue: "16:9" },
-  { key: "image", label: "首帧图(图生视频，可选)", type: "image-url", options: [] },
+  // 键必须叫 image_url（= body 模板读的那个键、= taskParams 聚合首帧的那个键）。曾叫 image：
+  // 于是 commit 的 reconcile 发现「声明了 image 但 body 里没有 {{request.params.image}}」，就把
+  // body 的 `image: "{{request.params.image_url}}"` **覆盖**成 `{{request.params.image}}` ——
+  // 而 taskParams 从不产出 image，连线的首帧从此静默到不了线上。同一个东西只准一个名字。
+  { key: "image_url", label: "首帧图(图生视频，可选)", type: "image-url", options: [] },
 ];
 
 // ── 配音(TTS)：OpenAI 兼容同步 create（POST /v1/audio/speech → **直接回二进制音频**，runner 读 arrayBuffer）──
@@ -274,18 +278,25 @@ export const NEWAPI_STANDARD_AUDIO_PARAMS: ParamControl[] = [
   { key: "speed", label: "语速", type: "number", options: [], min: 0.25, max: 4, defaultValue: 1 },
 ];
 
-/** 一个 new-api 模型的传输配方（按 kind 取 create/query + taskKind；图像另带 image_edit 改图 op）。 */
+/** 一个 new-api 模型的传输配方（按 kind 取 create/query + taskKind；图像另带 image_edit 改图 op、
+ *  视频另带 image_to_video 图生视频 op）。 */
 export function newapiTransportFor(kind: "image" | "video" | "audio"): {
   taskKind: ProfileKind;
   create: HttpOperation;
   /** 图像专有：图生图/改图 mapping（chat/completions 多模态）。落库时按 taskKind:"image_edit" 注册。 */
   edit?: HttpOperation;
+  /** 视频专有：图生视频 mapping。落库时按 taskKind:"image_to_video" 注册（与 create 共用轮询 query）。 */
+  imageToVideo?: HttpOperation;
   query?: HttpOperation;
   statusMapping?: Record<string, string[]>;
   params: ParamControl[];
 } {
   if (kind === "video") {
-    return { taskKind: "text_to_video", create: NEWAPI_VIDEO_CREATE_OP, query: NEWAPI_VIDEO_QUERY_OP, statusMapping: NEWAPI_STATUS_MAPPING, params: NEWAPI_STANDARD_VIDEO_PARAMS };
+    // 图生视频与文生视频是**同一条 wire**：new-api 的 /v1/video/generations 本就带可选 image（首帧）。
+    // 但 taskKind 必须各注册一条 mapping——runtime 按 taskKind 选投递通道，只有 text_to_video 时
+    // 图生视频请求找不到通道，参考图整条掉地（imageEditGuardError 会拒发）。共用同一个 op 对象，
+    // 不造第二份形状（P1）。
+    return { taskKind: "text_to_video", create: NEWAPI_VIDEO_CREATE_OP, imageToVideo: NEWAPI_VIDEO_CREATE_OP, query: NEWAPI_VIDEO_QUERY_OP, statusMapping: NEWAPI_STATUS_MAPPING, params: NEWAPI_STANDARD_VIDEO_PARAMS };
   }
   if (kind === "audio") {
     return { taskKind: "text_to_audio", create: NEWAPI_AUDIO_TTS_OP, params: NEWAPI_STANDARD_AUDIO_PARAMS };

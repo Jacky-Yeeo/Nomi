@@ -134,6 +134,7 @@ export function commitOnboardedModelToCatalog(payload: {
   // nothing. Inject the missing field keys at the param nesting level.
   const mappingCreate = draft.mappingCreate as HttpOperation | undefined;
   const mappingEdit = draft.mappingEdit as HttpOperation | undefined;
+  const mappingImageToVideo = draft.mappingImageToVideo as HttpOperation | undefined;
   const mappingQuery = draft.mappingQuery as HttpOperation | undefined;
   // 协议判定：multipart 与 xai-json 都落 /images/edits，靠 op.multipart 分辨（multipart 描述符=二进制文件上传）。
   const imageEditProtocol = targetKind === "image" && mappingEdit
@@ -209,6 +210,24 @@ export function commitOnboardedModelToCatalog(payload: {
     }
     // 4b. 图生图/改图 mapping（image_edit）：按 modelKey 精确绑定，同一 vendor 内允许不同协议并存。
     // 不 reconcile：edit body 是协议刻意造型，不能把通用参数盲塞进去。
+    // 4c. 图生视频 mapping（image_to_video）：与文生视频同一条 wire（new-api 视频端点带可选 image 首帧），
+    // 但 runtime 按 taskKind 选通道，必须各注册一条。带上同一条轮询 query（视频是异步任务）。
+    // reconcile 与文生视频一致：body 缺的标准参数要补，否则时长/尺寸发不出去。
+    if (mappingImageToVideo && targetKind === "video") {
+      const reconciledI2v =
+        mappingImageToVideo.body !== undefined && reconcileKeys.length > 0
+          ? { ...mappingImageToVideo, body: mergeMissingParamsIntoBody(mappingImageToVideo.body, reconcileKeys) }
+          : mappingImageToVideo;
+      tx.upsertMapping({
+        vendorKey,
+        taskKind: "image_to_video",
+        modelKey,
+        name: `${modelDisplayName} · 图生视频`,
+        enabled: true,
+        create: reconciledI2v,
+        ...(mappingQuery ? { query: mappingQuery } : {}),
+      });
+    }
     if (mappingEdit && targetKind === "image") {
       tx.upsertMapping({
         vendorKey,
@@ -297,6 +316,7 @@ function draftShapeForKind(
   modelFields: JsonRecord[];
   mappingCreate?: HttpOperation;
   mappingEdit?: HttpOperation;
+  mappingImageToVideo?: HttpOperation;
   mappingQuery?: HttpOperation;
 } {
   if (kind === "image") {
@@ -307,7 +327,15 @@ function draftShapeForKind(
   }
   if (kind === "video") {
     const t = newapiTransportFor("video");
-    return { targetKind: "video", modelFields: paramsToOnboardingFields(t.params), mappingCreate: t.create, ...(t.query ? { mappingQuery: t.query } : {}) };
+    return {
+      targetKind: "video",
+      modelFields: paramsToOnboardingFields(t.params),
+      mappingCreate: t.create,
+      // 图生视频通道：不注册它，连了参考图/首帧的视频节点会被 imageEditGuardError 拒发（「没有配置
+      // 图生视频通道」）——中转接入的视频模型此前一律缺这条。
+      ...(t.imageToVideo ? { mappingImageToVideo: t.imageToVideo } : {}),
+      ...(t.query ? { mappingQuery: t.query } : {}),
+    };
   }
   if (kind === "audio") {
     // 中转配音(TTS)：OpenAI 兼容 /v1/audio/speech 同步出二进制音频（无 query）。命中 seed-tts 档案 → UI 出火山音色。
@@ -399,6 +427,7 @@ export function commitManualOpenAiCompatibleModels(payload: {
         modelFields: shape.modelFields,
         ...(shape.mappingCreate ? { mappingCreate: shape.mappingCreate } : {}),
         ...(shape.mappingEdit ? { mappingEdit: shape.mappingEdit } : {}),
+        ...(shape.mappingImageToVideo ? { mappingImageToVideo: shape.mappingImageToVideo } : {}),
         ...(shape.mappingQuery ? { mappingQuery: shape.mappingQuery } : {}),
       },
     };

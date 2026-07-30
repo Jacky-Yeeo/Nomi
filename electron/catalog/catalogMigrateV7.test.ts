@@ -11,6 +11,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CURRENT_CATALOG_VERSION } from "./types";
 
 let mockedUserDataRoot = "";
 const tempRoots: string[] = [];
@@ -65,7 +66,8 @@ describe("v6 → v7：存量 gpt-image 图生图重迁移到 multipart", () => {
     const { readCatalog } = await import("./catalogStore");
     const state = readCatalog();
 
-    expect(state.version).toBe(7);
+    // 迁移链一路跑到当前版（v7 之后又加了 v8=存量中转视频补图生视频通道），所以断当前版而不是钉死 7。
+    expect(state.version).toBe(CURRENT_CATALOG_VERSION);
     const edits = state.mappings.filter((m) => m.taskKind === "image_edit");
     const exact = edits.find((m) => m.modelKey === "gpt-image-2");
     expect(exact?.create.path).toBe("/v1/images/edits");
@@ -73,8 +75,8 @@ describe("v6 → v7：存量 gpt-image 图生图重迁移到 multipart", () => {
     expect(((exact?.create.multipart as { imageField?: string }) || {}).imageField).toBe("image[]");
     const model = state.models.find((m) => m.modelKey === "gpt-image-2");
     expect((model?.meta as { imageOptions?: { imageEditProtocol?: string } })?.imageOptions?.imageEditProtocol).toBe("openai-multipart-edits");
-    // 磁盘被写回 v7（下次开机不再重迁）。
-    expect(JSON.parse(fs.readFileSync(catalogFile(), "utf8")).version).toBe(7);
+    // 磁盘被写回当前版（下次开机不再重迁）。
+    expect(JSON.parse(fs.readFileSync(catalogFile(), "utf8")).version).toBe(CURRENT_CATALOG_VERSION);
   });
 
   it("幂等：v7 catalog 再读不再改动（迁移只在版本门触发一次）", async () => {

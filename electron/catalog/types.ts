@@ -410,8 +410,13 @@ export function billingKindForTaskKind(kind: ProfileKind): BillingModelKind {
  *  docs/plan/2026-07-06-i2i-reference-reliability.md（L1）。只碰非内置 vendor + OpenAI 兼容形状。 */
 /*  v6 把 image_edit 从 vendor 级单协议升级为 modelKey 精确协议：Grok Imagine 的 JSON /images/edits
  *  不再误走 Nano Banana 的 /chat/completions；存量目录自动补精确 mapping。 */
-export type CatalogVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7;
-export const CURRENT_CATALOG_VERSION: CatalogVersion = 7;
+/*  v7 重跑 v6 的协议分流（v6 那次跑在 gpt-image/dall-e-2 接上 multipart edits 之前，存量被留在
+ *  chat/completions）。迁移幂等，靠 bump 强制重跑。 */
+/*  v8 给存量中转 video 条目补「图生视频」通道(image_to_video mapping)。接入路径此前只建 text_to_video，
+ *  视频节点一连参考图/首帧就报「没有配置图生视频通道·请删除后重新接入」，而重接也不会建（根因在接入
+ *  路径，已同 commit 修）。只碰非内置 vendor + /video/generations 形状。 */
+export type CatalogVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+export const CURRENT_CATALOG_VERSION: CatalogVersion = 8;
 
 export type CatalogState = {
   version: CatalogVersion;

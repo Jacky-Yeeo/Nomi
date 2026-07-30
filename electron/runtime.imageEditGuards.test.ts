@@ -81,7 +81,9 @@ describe("runTask L3 护栏 — 图生图/图生视频绝不静默退化", () =>
       request: { kind: "image_edit", prompt: "放在一起", extras: { modelKey: "some-image-model", referenceImages: ["https://cdn.example.com/dog.png"], grantId: mintSpendGrant({ nodeIds: [] }) } },
     }).catch((e: Error) => e);
     expect(error).toBeInstanceOf(Error);
-    expect(String((error as Error).message)).toMatch(/没有配置「图生图（改图）」通道/);
+    expect(String((error as Error).message)).toMatch(/没有「图生图（改图）」通道/);
+    // 不再指路「删除该模型后重新接入」——那是假动作（接入路径本来就不建这条通道，重接也没用）。
+    expect(String((error as Error).message)).not.toMatch(/重新接入/);
     expect(fetchFn).not.toHaveBeenCalled();
   }, 15_000);
 

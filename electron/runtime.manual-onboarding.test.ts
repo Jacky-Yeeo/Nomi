@@ -348,6 +348,34 @@ describe("manual entry — per-model kind（Issue #8 中转图片/视频接入�
     expect(mp?.query?.path).toBe("/v1/video/generations/{{providerMeta.task_id}}");
   });
 
+  it("视频模型同时建「图生视频」通道（缺它 → 连了首帧的节点被拒发「没有图生视频通道」）", () => {
+    commitManualOpenAiCompatibleModels({
+      vendorName: "我的中转",
+      baseUrl: "https://relay.example.com",
+      apiKey: "sk-x",
+      models: [{ id: "doubao-seedance-2-0-260128", kind: "video" }],
+    });
+    const i2v = listModelCatalogMappings().find(
+      (x) => x.taskKind === "image_to_video" && x.modelKey === "doubao-seedance-2-0-260128",
+    );
+    expect(i2v).toBeTruthy();
+    expect(i2v?.create.path).toBe("/v1/video/generations");
+    // 首帧位必须读 image_url（taskParams 聚合首帧/参考图的那个键）。回归：参数键曾叫 image，
+    // commit 的 reconcile 就把 body 的 image_url 槽覆盖成 {{request.params.image}}——那个键
+    // taskParams 从不产出，连线的首帧静默到不了 wire（通道建了也白建）。
+    const i2vBody = JSON.stringify(i2v?.create.body);
+    expect(i2vBody).toContain("request.params.image_url");
+    expect(i2vBody).not.toContain("request.params.image}}");
+    // 文生视频那条同一个 body 模板，同样不许被覆盖。
+    const t2vBody = JSON.stringify(
+      listModelCatalogMappings().find((x) => x.taskKind === "text_to_video" && x.create.path === "/v1/video/generations")?.create.body,
+    );
+    expect(t2vBody).toContain("request.params.image_url");
+    expect(t2vBody).not.toContain("request.params.image}}");
+    // 视频是异步任务：图生视频这条也得带轮询，否则拿到 task_id 就断了。
+    expect(i2v?.query?.path).toBe("/v1/video/generations/{{providerMeta.task_id}}");
+  });
+
   it("混合一把加：图片+视频+文本各落对类型", () => {
     const res = commitManualOpenAiCompatibleModels({
       vendorName: "我的中转",
