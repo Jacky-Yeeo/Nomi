@@ -396,7 +396,7 @@ export async function runTask(payload: unknown): Promise<TaskResult> {
     mapping?.create?.defaultParams,
   ); // headless 缺参兜底(档案默认+mapping)
   // L3 诚实护栏：图生图/图生视频缺参考或缺 mapping → 付费守卫之前拒发人话，绝不静默退化纯文生（判定在 taskParams.imageEditGuardError）。
-  const guardError = imageEditGuardError(kind, request, Boolean(mapping), model.labelZh || model.modelKey);
+  const guardError = imageEditGuardError(kind, request, Boolean(mapping), model.labelZh || model.modelKey, mapping?.create?.body);
   if (guardError) throw new Error(guardError);
   // 第四路 audio：TTS/Whisper 同步收口（二进制/multipart）。付费守卫：必发 vendor，进来即校验消费令牌。
   if (wantedKind === "audio") {

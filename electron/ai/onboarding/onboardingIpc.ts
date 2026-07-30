@@ -160,6 +160,23 @@ export function registerOnboardingIpc(): void {
       // 改图协议判定（探测优先 → 智能默认 → chat 兜底）。只对**图片模型且智能默认落 chat（歧义）**的做免费
       // 探测（gpt-image/dall-e/grok 已由智能默认判定、无需探）；用户/UI 显式给了 imageEditProtocol 则直接用。
       // 探测发 multipart 缺 image 的请求读报错形状，**不触发付费生成**；带超时兜底，永不阻塞保存。
+      // 原生报文探测（每个 probePath 只探一次，结果在本次提交内复用）：模型命中内置档案且这家中转
+      // 真提供该档案的原生端点 → 用那份完整报文而不是通用最小模板。探测只发 GET、不建任务、不计费。
+      const { archetypeIdForModel } = await import("../../catalog/archetypeIdentity");
+      const { nativeWireProfileForArchetype } = await import("../../catalog/nativeWireProfiles");
+      const { probeNativeEndpoint } = await import("../../catalog/nativeEndpointProbe");
+      const nativeProbeCache = new Map<string, Promise<boolean>>();
+      const nativeArchetypeIdFor = async (id: string): Promise<string | undefined> => {
+        const archetypeId = archetypeIdForModel(id);
+        const profile = nativeWireProfileForArchetype(archetypeId);
+        if (!profile) return undefined;
+        let pending = nativeProbeCache.get(profile.probePath);
+        if (!pending) {
+          pending = probeNativeEndpoint(baseUrl, profile.probePath, apiKey).then((r) => r.exists).catch(() => false);
+          nativeProbeCache.set(profile.probePath, pending);
+        }
+        return (await pending) ? profile.archetypeId : undefined;
+      };
       const models = await Promise.all(rawModels.map(async (m) => {
         const id = String(m?.id || "");
         const k = m?.kind;
@@ -167,6 +184,10 @@ export function registerOnboardingIpc(): void {
         const displayName = m?.displayName ? String(m.displayName) : undefined;
         const explicit = typeof m?.imageEditProtocol === "string" ? (m.imageEditProtocol as "chat-completions-image-url" | "xai-json-edits" | "openai-multipart-edits") : undefined;
         const effectiveKind = kind || (id ? guessModelKind(id) : undefined);
+        if (effectiveKind === "video" && id) {
+          const nativeWireArchetypeId = await nativeArchetypeIdFor(id);
+          return { id, displayName, kind, ...(nativeWireArchetypeId ? { nativeWireArchetypeId } : {}) };
+        }
         if (effectiveKind !== "image" || !id) return { id, displayName, kind };
         if (explicit) return { id, displayName, kind, imageEditProtocol: explicit };
         if (smartDefaultImageEditProtocol(id) !== "chat-completions-image-url") return { id, displayName, kind };

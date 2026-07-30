@@ -740,6 +740,8 @@ if (hasSingleInstanceLock)
       } catch (error) {
         console.error("[nomi:desktop] ensureBuiltinModelSeeds failed:", error);
       }
+      // 存量中转模型升级到厂商原生报文（异步不挡窗口、幂等、失败静默；细节见该模块头注释）。
+      void import("./catalog/relayNativeWireUpgrade").then((m) => m.scheduleRelayNativeWireUpgrade()).catch(() => {});
       registerIpc();
       // E(冷启动 P0)：代理探测与能力核都不是窗口首帧的依赖，挡在窗口前是纯浪费。
       //  · applySystemProxy：窗口创建后延迟后台探测；低内存模式更晚加载，避免列表页常驻代理栈。

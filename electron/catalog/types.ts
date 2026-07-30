@@ -210,6 +210,15 @@ export type Model = {
 export type HttpOperation = {
   method: string;
   path: string;
+  /**
+   * 路径从**主机根**拼，而不是从 vendor 的 baseUrl 拼。默认（缺省）= 从 baseUrl 拼。
+   *
+   * 为什么需要：某些厂商的原生端点不在 OpenAI 兼容的 /v1 命名空间下（火山方舟是
+   * `/api/v3/contents/generations/tasks`）。中转用户常把接入地址填成 `https://host:8443/v1`
+   * （拉模型要那个地址），直接拼就成了 `/v1/api/v3/...` 打不中。置位后 buildHttpRequest 先剥掉
+   * baseUrl 尾部的版本段（/v1、/v3、…）再 join。显式声明，不在 joinUrl 里塞按路径猜的魔法。
+   */
+  pathFrom?: "host-root";
   headers?: Record<string, string>;
   query?: Record<string, unknown>;
   body?: unknown;

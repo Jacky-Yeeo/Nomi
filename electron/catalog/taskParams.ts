@@ -7,6 +7,7 @@
 import { firstString, type JsonRecord } from "../jsonUtils";
 import { referenceInputParams } from "./archetypeInput";
 import { ARCHETYPE_WIRE_DEFAULTS } from "./archetypeWireDefaults.generated";
+import { bodyReferencedParamKeys } from "./paramTranslate";
 
 /** taskTemplateParams 实际用到的 TaskRequest 子集（结构化，避免与 runtime 的 TaskRequest 循环依赖）。 */
 export type TaskParamsInput = {
@@ -128,13 +129,71 @@ export function hasImageEditReferences(request: TaskParamsInput): boolean {
   return containsRefUrl([extras.image, referenceInputParams(extras)]);
 }
 
+/** 本次请求真正携带的参考素材，按人话类别分组（只认 URL 形状的值）。 */
+function carriedReferences(extras: JsonRecord): Array<{ label: string; url: string }> {
+  const out: Array<{ label: string; url: string }> = [];
+  const push = (label: string, value: unknown): void => {
+    const list = Array.isArray(value) ? value : [value];
+    for (const item of list) {
+      const url = typeof item === "string" ? item.trim() : "";
+      if (url && REF_URL_RE.test(url)) out.push({ label, url });
+    }
+  };
+  push("首帧", extras.firstFrameUrl);
+  push("尾帧", extras.lastFrameUrl);
+  push("角色参考图", extras.referenceImageUrls);
+  push("参考视频", extras.referenceVideoUrls);
+  push("参考音频", extras.referenceAudioUrls);
+  return out;
+}
+
+/**
+ * L3 诚实护栏第三闸（纯函数）：**这条 wire 的 body 到底读不读得到我要发的参考素材**。
+ *
+ * 为什么需要：UI 的能力由**模型档案**声明（供应商无关，同一模型走哪家都显示同一套槽位），而真正
+ * 发出去的 body 由渠道模板决定。两者不匹配时——典型是「通用中转接入」用的是最小模板 {model,
+ * prompt, duration, size, image}——用户连上的尾帧/角色图/参考视频/参考音频**在 body 里根本不出现**，
+ * 于是静默退化成纯文生：生成成功、扣费成功、和参考素材毫无关系。
+ *
+ * 判据完全 derive，不 hardcode 任何 vendor 键名：把 body 引用到的 `{{request.params.X}}` 取出来，
+ * 渲染出它们的值，看这次携带的每条参考 URL 在不在里面。在 = 发得出；不在 = 发不出。
+ * 对所有渠道、所有模式成立。
+ *
+ * @returns 发不出去的参考类别（人话），空数组 = 全都发得出。
+ */
+export function unreachableReferenceLabels(request: TaskParamsInput, createBody: unknown): string[] {
+  const carried = carriedReferences(request.extras || {});
+  if (carried.length === 0) return [];
+  const params = taskTemplateParams(request);
+  const referencedKeys = bodyReferencedParamKeys(createBody);
+  if (referencedKeys.length === 0) return [];
+  const reachable = JSON.stringify(referencedKeys.map((key) => params[key]));
+  const missing = new Set<string>();
+  for (const ref of carried) if (!reachable.includes(ref.url)) missing.add(ref.label);
+  return [...missing];
+}
+
 /**
  * L3 诚实护栏（runTask 前置闸，纯函数）：图生图/图生视频「参考图缺失」或「无传输 mapping」→ 返回
  * 人话错误（调用方在付费守卫/vendor 调用之前拒发，零扣费）；其余情况 null。此前会静默退化成纯文生
  * ——模板引擎丢空键 / fallback body 根本没有图片位——生成成功、扣费成功、和原图毫无关系，
  * 正是「图生图不按原图」的用户体感（docs/plan/2026-07-06-i2i-reference-reliability.md）。
  */
-export function imageEditGuardError(kind: string, request: TaskParamsInput, hasMapping: boolean, modelLabel: string): string | null {
+export function imageEditGuardError(
+  kind: string,
+  request: TaskParamsInput,
+  hasMapping: boolean,
+  modelLabel: string,
+  /** 这条 mapping 的 create body。给了就多过一道闸：body 读不到的参考素材直接拒发（见上）。 */
+  createBody?: unknown,
+): string | null {
+  // 第三闸对**所有 kind** 生效（运镜的参考视频可能挂在 t2v/omni 上），且只在真带了参考时才可能触发。
+  if (typeof createBody !== "undefined") {
+    const unreachable = unreachableReferenceLabels(request, createBody);
+    if (unreachable.length > 0) {
+      return `模型「${modelLabel}」在这个接入方式下发不出：${unreachable.join(" / ")}。连上的这些素材不会进入请求——为免白扣费这次不发。请断开它们，或换一个支持这些参考的渠道/模型。`;
+    }
+  }
   if (kind !== "image_edit" && kind !== "image_to_video") return null;
   const what = kind === "image_edit" ? "图生图" : "图生视频";
   if (!hasImageEditReferences(request)) {

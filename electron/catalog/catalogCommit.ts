@@ -2,6 +2,7 @@ import { firstString, isJsonRecord, nowIso, trim, type JsonRecord } from "../jso
 import { humanizeModelKey } from "./modelLabel";
 import { newapiImageEditProfileForModel, newapiTransportFor, type NewapiImageEditProtocol } from "./newapiTransport";
 import { consumedCanonicalKeys } from "./paramTranslate";
+import { nativeWireProfileForArchetype, type NativeWireProfile } from "./nativeWireProfiles";
 import { guessModelKind } from "./modelKindHeuristic";
 import { hardenedFetchText } from "../hardenedFetch";
 import type { AiSdkProviderKind, BillingModelKind, HttpOperation, Model, ProfileKind, Vendor } from "./types";
@@ -136,6 +137,10 @@ export function commitOnboardedModelToCatalog(payload: {
   const mappingEdit = draft.mappingEdit as HttpOperation | undefined;
   const mappingImageToVideo = draft.mappingImageToVideo as HttpOperation | undefined;
   const mappingQuery = draft.mappingQuery as HttpOperation | undefined;
+  const mappingStatus = draft.mappingStatus as Record<string, string[]> | undefined;
+  // 这个模型实际用的是哪套 wire：命中原生报文时记档案 id，否则通用 new-api 模板。诚实标注，
+  // 排障与「这条路发不发得出某个参考」的护栏都读它。
+  const wireProfileId = typeof draft.wireProfileId === "string" ? draft.wireProfileId : undefined;
   // 协议判定：multipart 与 xai-json 都落 /images/edits，靠 op.multipart 分辨（multipart 描述符=二进制文件上传）。
   const imageEditProtocol = targetKind === "image" && mappingEdit
     ? (mappingEdit.multipart
@@ -150,7 +155,10 @@ export function commitOnboardedModelToCatalog(payload: {
   // （如 aspect_ratio/resolution → size）不该再以裸键注入 body——否则通用中转会收到无用的 aspect_ratio
   // 裸字段（严格端点可能 400）。这是 P2 根因修（不是逐 op 打补丁）。
   const consumed = new Set(consumedCanonicalKeys(mappingCreate?.paramMap));
-  const reconcileKeys = onboardingFields.map((f) => f.key).filter((k) => !consumed.has(k));
+  // 原生报文（wireProfile）是厂商契约的刻意造型：content 数组 + ratio/resolution/generate_audio，
+  // **绝不能** reconcile —— 盲塞通用键会把 size/image_url 硬加进去（甚至覆盖已有槽，正是首帧位
+  // 被覆盖那个 bug 的同款）。只有通用 new-api 模板才需要对账补参。
+  const reconcileKeys = wireProfileId ? [] : onboardingFields.map((f) => f.key).filter((k) => !consumed.has(k));
   const reconciledCreate: HttpOperation | undefined = mappingCreate
     ? mappingCreate.body !== undefined && reconcileKeys.length > 0
       ? { ...mappingCreate, body: mergeMissingParamsIntoBody(mappingCreate.body, reconcileKeys) }
@@ -185,10 +193,16 @@ export function commitOnboardedModelToCatalog(payload: {
       kind: billingKind,
       enabled: true,
       // 只有真实存在 image_edit mapping 才声明参考图能力；协议随模型落库，避免 UI 展示能力却只能撞错端点。
-      meta: { parameters: metaParameters, ...(billingKind === "image" ? { imageOptions: {
-        supportsReferenceImages: Boolean(mappingEdit),
-        ...(imageEditProtocol ? { imageEditProtocol } : {}),
-      } } : {}) },
+      meta: {
+        parameters: metaParameters,
+        // 走原生报文 = 这个模型确实就是那个档案：标上 archetypeId，headless/MCP 缺参才有档案默认可兜
+        // （UI 路本来就由档案驱动、不受影响）。wireProfile 则记「这条 wire 是哪套」，供护栏与排障读。
+        ...(wireProfileId ? { wireProfile: wireProfileId, archetypeId: wireProfileId } : {}),
+        ...(billingKind === "image" ? { imageOptions: {
+          supportsReferenceImages: Boolean(mappingEdit),
+          ...(imageEditProtocol ? { imageEditProtocol } : {}),
+        } } : {}),
+      },
       onboarding: {
         addedVia: payload.addedVia ?? "agent",
         trialId: String(outcome.trialId || ""),
@@ -206,6 +220,7 @@ export function commitOnboardedModelToCatalog(payload: {
         enabled: true,
         create: reconciledCreate,
         ...(mappingQuery ? { query: mappingQuery } : {}),
+        ...(mappingStatus ? { statusMapping: mappingStatus } : {}),
       });
     }
     // 4b. 图生图/改图 mapping（image_edit）：按 modelKey 精确绑定，同一 vendor 内允许不同协议并存。
@@ -226,6 +241,7 @@ export function commitOnboardedModelToCatalog(payload: {
         enabled: true,
         create: reconciledI2v,
         ...(mappingQuery ? { query: mappingQuery } : {}),
+        ...(mappingStatus ? { statusMapping: mappingStatus } : {}),
       });
     }
     if (mappingEdit && targetKind === "image") {
@@ -311,6 +327,8 @@ function draftShapeForKind(
   kind: "text" | "image" | "video" | "audio",
   modelKey = "",
   imageEditProtocol?: NewapiImageEditProtocol | null,
+  /** 探测确认这家中转提供该模型档案的原生端点时传入 → 直接用那份完整报文，不用通用最小模板。 */
+  nativeProfile?: NativeWireProfile | null,
 ): {
   targetKind: "text" | "image" | "video" | "audio";
   modelFields: JsonRecord[];
@@ -318,7 +336,29 @@ function draftShapeForKind(
   mappingEdit?: HttpOperation;
   mappingImageToVideo?: HttpOperation;
   mappingQuery?: HttpOperation;
+  mappingStatus?: Record<string, string[]>;
+  /** 落 model.meta：这个模型实际用的是哪套 wire（诚实标注，护栏与排障都读它）。 */
+  wireProfileId?: string;
 } {
+  // 原生报文优先：命中档案且这家真提供该端点 → 复用已验证的完整形状（首尾帧/角色图/参考视频/
+  // 参考音频/generate_audio 全在），只换地址。通用做法，不是给某一家打补丁。
+  if (nativeProfile && kind === "video") {
+    const create = nativeProfile.create.text_to_video;
+    const i2v = nativeProfile.create.image_to_video;
+    if (create) {
+      return {
+        targetKind: "video",
+        // 不落通用标准参数：UI 本来就由档案驱动，而 headless 缺参由 archetypeWireDefaults 按档案 id
+        // 兜底。落了反而会让 reconcile 把 size/image_url 塞进原生 body（诚实：这条 wire 没这些键）。
+        modelFields: [],
+        mappingCreate: create,
+        ...(i2v ? { mappingImageToVideo: i2v } : {}),
+        ...(nativeProfile.query ? { mappingQuery: nativeProfile.query } : {}),
+        ...(nativeProfile.statusMapping ? { mappingStatus: nativeProfile.statusMapping } : {}),
+        wireProfileId: nativeProfile.archetypeId,
+      };
+    }
+  }
   if (kind === "image") {
     const t = newapiTransportFor("image");
     // 改图协议：探测/手动 override 优先，否则按模型族智能默认（gpt-image/dall-e → multipart edits）。
@@ -350,7 +390,14 @@ export function commitManualOpenAiCompatibleModels(payload: {
   baseUrl: string;
   apiKey: string;
   /** 每个模型可带 imageEditProtocol（来自免费探测或用户手选），图片模型据此选改图 wire；缺省=智能默认。 */
-  models: Array<{ id: string; displayName?: string; kind?: "text" | "image" | "video" | "audio"; imageEditProtocol?: NewapiImageEditProtocol }>;
+  models: Array<{
+    id: string;
+    displayName?: string;
+    kind?: "text" | "image" | "video" | "audio";
+    imageEditProtocol?: NewapiImageEditProtocol;
+    /** 探测确认这家提供该档案原生端点时由 onboardingIpc 传入 → 用原生完整报文替代通用最小模板。 */
+    nativeWireArchetypeId?: string;
+  }>;
   /** Endpoint shape. Defaults to "openai-compatible" (the common case). "anthropic"
    *  routes text/chat through the Messages API (createAnthropic, x-api-key). */
   providerKind?: AiSdkProviderKind;
@@ -396,6 +443,7 @@ export function commitManualOpenAiCompatibleModels(payload: {
         displayName: String(m?.displayName || "").trim(),
         kind: (k === "image" || k === "video" || k === "text" || k === "audio" ? k : guessModelKind(id)) as "text" | "image" | "video" | "audio",
         imageEditProtocol: m?.imageEditProtocol,
+        nativeWireArchetypeId: m?.nativeWireArchetypeId,
       };
     })
     .filter((m) => {
@@ -409,7 +457,7 @@ export function commitManualOpenAiCompatibleModels(payload: {
   for (const m of cleanModels) {
     const displayName = m.displayName || humanizeModelKey(m.id);
     // 图片/视频走 new-api 标准传输模板（per-model kind）；文本不带 mapping（chat 直连）。
-    const shape = draftShapeForKind(m.kind, m.id, m.imageEditProtocol);
+    const shape = draftShapeForKind(m.kind, m.id, m.imageEditProtocol, nativeWireProfileForArchetype(m.nativeWireArchetypeId));
     const outcome = {
       status: "success",
       trialId: "",
@@ -429,6 +477,8 @@ export function commitManualOpenAiCompatibleModels(payload: {
         ...(shape.mappingEdit ? { mappingEdit: shape.mappingEdit } : {}),
         ...(shape.mappingImageToVideo ? { mappingImageToVideo: shape.mappingImageToVideo } : {}),
         ...(shape.mappingQuery ? { mappingQuery: shape.mappingQuery } : {}),
+        ...(shape.mappingStatus ? { mappingStatus: shape.mappingStatus } : {}),
+        ...(shape.wireProfileId ? { wireProfileId: shape.wireProfileId } : {}),
       },
     };
     commitOnboardedModelToCatalog({ outcome, userApiKey: apiKey, addedVia: "manual" });
