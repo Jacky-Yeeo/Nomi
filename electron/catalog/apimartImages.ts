@@ -116,16 +116,15 @@ export const APIMART_IMAGE_MODELS: ApimartImageModel[] = [
     // 铁律迁移：gpt-image-2 已中性化（档案 params=比例+清晰度），apimart 字段是 size/resolution → 翻译。
     paramMap: GPT_IMAGE_2_APIMART_PARAM_MAP,
   }),
-  // 独占档案（apimart 专属，新建）：Qwen-Image / Imagen 4 / Z-Image-Turbo。
+  // 独占档案（apimart 专属，新建）：Qwen-Image / Z-Image-Turbo。
+  // Imagen 4 已退役（2026-07-30：上游 Google 确定性 404，见 seedBuiltins 的 RETIRED_APIMART_IMAGE_*）
+  // —— curated 与退役清单**互斥**，别在这儿加回来，否则每次启动 reconcileModels 插回、prune 再删，
+  // 来回抖。上游修好要恢复：这里加回 + 那边两条删掉，一次 commit。
   // Qwen-Image：变体（标准 qwen-image-2.0 / Pro qwen-image-2.0-pro）→ body model 取 {{request.params.model}}。
   imageModel({
     modelKey: "qwen-image-2.0", labelZh: "Qwen-Image 2.0", archetypeId: "qwen-image", modelRef: VARIANT_MODEL_REF,
     t2iBody: { size: SIZE, resolution: RESOLUTION, negative_prompt: NEGATIVE_PROMPT },
     editBody: { size: SIZE, resolution: RESOLUTION, image_urls: IMAGE_URLS, negative_prompt: NEGATIVE_PROMPT },
-  }),
-  imageModel({
-    modelKey: "imagen-4.0-apimart", labelZh: "Imagen 4", archetypeId: "imagen-4",
-    t2iBody: { size: SIZE }, // imagen 仅 t2i，无 resolution
   }),
   imageModel({
     modelKey: "z-image-turbo", labelZh: "Z-Image Turbo", archetypeId: "z-image-turbo",

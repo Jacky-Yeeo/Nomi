@@ -224,6 +224,18 @@ const RETIRED_APIMART_VIDEO_MODEL_KEYS: readonly string[] = [
 const RETIRED_KIE_VIDEO_MODEL_KEYS: readonly string[] = [
   "bytedance/seedance-2-fast",
 ];
+/**
+ * apimart Imagen 4 退役（2026-07-30 用户拍板）：上游 Google **确定性** 404
+ * `Requested entity was not found.`（直连探针两次实锤，`credits_cost: 0` 不计费），而它在图片模型里
+ * 排第一位 = 新装机自动默认必撞、开箱即死。apimart 侧并未下架（仍挂在 274 个在售模型列表里），
+ * 只能我们这边摘。
+ *
+ * ⚠️ 与 APIMART_CURATED_MODELS 互斥：curated 里必须**同时**删掉该条，否则 reconcileModels 每次启动
+ * 又插回来、和这里的 prune 来回抖。上游修好要恢复的话：curated 加回 + 删掉这两条，一次 commit。
+ */
+const RETIRED_APIMART_IMAGE_MODEL_KEYS: readonly string[] = ["imagen-4.0-apimart"];
+const RETIRED_APIMART_IMAGE_MAPPING_IDS: readonly string[] = ["seed-apimart-imagen-4-text_to_image"];
+
 const RETIRED_APIMART_VIDEO_MAPPING_IDS: readonly string[] = [
   "seed-apimart-seedance-2-apimart-fast-text_to_video",
   "seed-apimart-seedance-2-apimart-fast-image_to_video",
@@ -437,6 +449,10 @@ export function applyBuiltinSeeds(state: CatalogState, now: string): { state: Ca
   // 退役 curated 记录清理（变体合并迁移：删 Seedance 旧变体模型 + mapping 孤儿，picker 收成 1 项）。
   if (pruneRetiredModels(models, APIMART_VENDOR_SEED.key, RETIRED_APIMART_VIDEO_MODEL_KEYS)) changed = true;
   if (pruneRetiredMappings(mappings, RETIRED_APIMART_VIDEO_MAPPING_IDS)) changed = true;
+  // 上游确定性挂掉的模型下线（Imagen 4）——对老装机同样生效：种子不碰 enabled（那是用户数据），
+  // 只有走 prune 才摘得掉已经落在用户 catalog 里的那条。
+  if (pruneRetiredModels(models, APIMART_VENDOR_SEED.key, RETIRED_APIMART_IMAGE_MODEL_KEYS)) changed = true;
+  if (pruneRetiredMappings(mappings, RETIRED_APIMART_IMAGE_MAPPING_IDS)) changed = true;
   if (pruneRetiredModels(models, KIE_VENDOR_SEED.key, RETIRED_KIE_VIDEO_MODEL_KEYS)) changed = true;
 
   // 模型 insert + 对账（两家各跑同一套逻辑）。

@@ -18,7 +18,9 @@ const shot = async (win, name) => {
   console.log('  📸 ' + name)
 }
 
-const DEAD_MODEL = 'imagen-4.0-apimart'
+// Imagen 4 已退役（不在目录里了），改用同家另一个上游确定性 404 的模型来验「上游取不到」这一类
+// ——判据在错误类型，不在具体哪个模型。NOMI_WALK_DEAD_MODEL 可覆盖（换别的必死模型复验）。
+const DEAD_MODEL = process.env.NOMI_WALK_DEAD_MODEL || 'imagen-4.0-apimart'
 const isolatedSettings = path.join(os.tmpdir(), 'nomi-failure-walk-settings')
 const isolatedProjects = path.join(os.tmpdir(), 'nomi-failure-walk-projects')
 mkdirSync(isolatedSettings, { recursive: true })

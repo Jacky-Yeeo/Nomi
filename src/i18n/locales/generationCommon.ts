@@ -126,6 +126,12 @@ export const zhGenerationCommon = {
     technicalDetails: '技术详情',
   },
   observability: {
+    // 错误卡的动作按钮。main = 当主按钮时的说法，alt = 降为次要小字时的说法。
+    action: {
+      retry: { main: '重试', alt: '仍要重试' },
+      switchModel: { main: '换个模型', alt: '换个模型' },
+      modelAccess: { main: '去模型接入', alt: '去模型接入' },
+    },
     progress: {
       queued: '准备生成',
       resolving: '正在确认模型与参数',
@@ -161,7 +167,11 @@ export const zhGenerationCommon = {
       },
       modelUnavailableUpstream: {
         reason: '这个模型服务商这边取不到',
-        hint: '服务商上游回的是「该模型不存在」，重试还会是同样结果。请在节点上换一个模型再生成（这次失败不计费）。',
+        hint: '服务商上游回的是「该模型不存在」。这次失败不计费。',
+      },
+      modelRetired: {
+        reason: '这个模型已经下线了',
+        hint: '它在服务商那边一直失败，我们把它从模型列表里移除了。换一个模型就能继续。',
       },
       accountGate: {
         reason: '账号权限不足',
@@ -315,6 +325,8 @@ export const zhGenerationCommon = {
     configure: '去配置 →',
     model: '模型',
     selectModel: '选择模型',
+    // 模型下拉里病模型的右侧标注（沉底 + 灰化时替掉厂商名那一列）。
+    recentlyFailing: '最近多次失败',
     variant: '变体',
     generationParameters: '生成参数',
     parameters: '参数',
@@ -985,6 +997,11 @@ export const enGenerationCommon = {
     technicalDetails: 'Technical details',
   },
   observability: {
+    action: {
+      retry: { main: 'Retry', alt: 'Retry anyway' },
+      switchModel: { main: 'Switch model', alt: 'Switch model' },
+      modelAccess: { main: 'Open model access', alt: 'Open model access' },
+    },
     progress: {
       queued: 'Preparing generation',
       resolving: 'Checking the model and parameters',
@@ -1020,7 +1037,11 @@ export const enGenerationCommon = {
       },
       modelUnavailableUpstream: {
         reason: 'The provider cannot reach this model',
-        hint: 'The provider upstream reports that this model does not exist, so retrying will fail the same way. Pick a different model on the node and generate again (this failure is not billed).',
+        hint: 'The provider upstream reports that this model does not exist. This failure is not billed.',
+      },
+      modelRetired: {
+        reason: 'This model has been removed',
+        hint: 'It kept failing at the provider, so we took it out of the model list. Pick another model to continue.',
       },
       accountGate: {
         reason: 'Insufficient account access',
@@ -1179,6 +1200,7 @@ export const enGenerationCommon = {
     configure: 'Configure →',
     model: 'Model',
     selectModel: 'Select a model',
+    recentlyFailing: 'Failing recently',
     variant: 'Variant',
     generationParameters: 'Generation parameters',
     parameters: 'Parameters',

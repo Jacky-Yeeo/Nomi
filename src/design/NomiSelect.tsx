@@ -15,7 +15,7 @@ import { cn } from '../utils/cn'
  * label+原生 select，改用本组件 → 视觉一致、以后只改这一个文件。
  */
 
-export type NomiSelectTone = 'accent' | 'muted'
+export type NomiSelectTone = 'accent' | 'muted' | 'danger'
 
 export type NomiSelectOption = {
   value: string
@@ -24,6 +24,8 @@ export type NomiSelectOption = {
   trailing?: string
   trailingTone?: NomiSelectTone
   disabled?: boolean
+  /** 整行减淡（仍可点）——「能选但眼下不建议」，如近期连败的模型沉底后。 */
+  dimmed?: boolean
 }
 
 export type NomiSelectProps = {
@@ -51,6 +53,7 @@ const DROPDOWN_Z_INDEX = 4500
 
 function toneClass(tone: NomiSelectTone | undefined, kind: 'badge' | 'trailing'): string {
   if (tone === 'accent') return 'bg-nomi-accent-soft text-nomi-accent'
+  if (tone === 'danger') return 'text-workbench-danger'
   if (kind === 'badge') return 'bg-nomi-ink-10 text-nomi-ink-60'
   return 'text-nomi-ink-40'
 }
@@ -150,7 +153,9 @@ export function NomiSelect({
             const isSel = option.value === value
             return (
               <Combobox.Option value={option.value} key={option.value} disabled={option.disabled} active={isSel}>
-                <span className="flex items-center gap-2 w-full">
+                {/* dimmed：整行减淡但仍可点（「能选、眼下不建议」）。不用 disabled——那是"点不了"，
+                    两种语义别混（近期连败的模型仍允许手动选，是拍板过的原则）。 */}
+                <span className={cn('flex items-center gap-2 w-full', option.dimmed ? 'opacity-45' : '')}>
                   <span className={cn('min-w-0 truncate text-caption', isSel ? 'text-nomi-ink font-semibold' : 'text-nomi-ink-80')}>
                     {option.label}
                   </span>

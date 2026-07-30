@@ -354,3 +354,38 @@ describe("canonicalModelId（跨供应商去重键，2026-07-17）", () => {
     expect(healed?.enabled).toBe(false);
   });
 });
+
+describe("Imagen 4 退役（2026-07-30：上游 Google 确定性 404，用户拍板下掉）", () => {
+  it("空目录：不再种出 Imagen 4（新装机不会开箱就撞必死模型）", () => {
+    const { state } = applyBuiltinSeeds(emptyCatalog(), NOW);
+    expect(state.models.find((m) => m.modelKey === "imagen-4.0-apimart")).toBeUndefined();
+    expect(state.mappings.find((mp) => mp.id === "seed-apimart-imagen-4-text_to_image")).toBeUndefined();
+    // 同家其它图片模型不受连带（只摘这一个）。
+    expect(state.models.find((m) => m.modelKey === "z-image-turbo")).toBeTruthy();
+  });
+
+  it("老装机：已落在用户 catalog 里的那条被摘掉（改种子没用——enabled 属用户数据，只有 prune 摘得掉）", () => {
+    const seeded = applyBuiltinSeeds(emptyCatalog(), NOW).state;
+    // 模拟老版本装机：手动把退役前的记录塞回去。
+    seeded.models.push({
+      vendorKey: "apimart", modelKey: "imagen-4.0-apimart", kind: "image", enabled: true,
+      meta: { archetypeId: "imagen-4" }, createdAt: NOW, updatedAt: NOW,
+    } as CatalogState["models"][number]);
+    seeded.mappings.push({
+      id: "seed-apimart-imagen-4-text_to_image", vendorKey: "apimart", taskKind: "text_to_image",
+      modelKey: "imagen-4.0-apimart", name: "Imagen 4 · 文生图", enabled: true,
+      create: { method: "POST", path: "/v1/images/generations" }, createdAt: NOW, updatedAt: NOW,
+    } as CatalogState["mappings"][number]);
+
+    const { state, changed } = applyBuiltinSeeds(seeded, NOW);
+    expect(changed).toBe(true);
+    expect(state.models.find((m) => m.modelKey === "imagen-4.0-apimart")).toBeUndefined();
+    expect(state.mappings.find((mp) => mp.id === "seed-apimart-imagen-4-text_to_image")).toBeUndefined();
+  });
+
+  it("退役是稳定的：再跑一遍不会被 curated 插回来（curated 与退役清单互斥，否则来回抖）", () => {
+    let state = applyBuiltinSeeds(emptyCatalog(), NOW).state;
+    for (let i = 0; i < 3; i += 1) state = applyBuiltinSeeds(state, NOW).state;
+    expect(state.models.filter((m) => m.modelKey === "imagen-4.0-apimart")).toHaveLength(0);
+  });
+});

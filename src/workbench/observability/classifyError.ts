@@ -2,11 +2,24 @@
 // 与 narrate 同层（人话叶子层）：生成域（节点/批跑）与对话域（两个 agent）都从这里取错误文案，
 // reason/hint 永不散落第二处（P1）。从 generationRunController 抽出，避免把 515 行批跑器拖进
 // 对话 bundle；generationRunController 改 re-export 保持既有 import 不破。
-import { narrateGenerationError, type GenerationErrorKind } from './narrate'
+import {
+  narrateGenerationError,
+  narrateGenerationErrorActions,
+  type GenerationErrorAction,
+  type GenerationErrorKind,
+} from './narrate'
 import { parseVendorErrorFromMessage, stripVendorErrorMarker } from '../generationCanvas/runner/vendorErrorIpc'
 import i18n from '../../i18n'
 
 export type GenerationErrorReport = {
+  /** 分类结果本身（错误卡按它取动作/埋点，别再从 reason 文案反猜）。 */
+  kind: GenerationErrorKind
+  /**
+   * 这一类错误的**下一步动作**（2026-07-30）：确定性失败给「换个模型 / 去模型接入」，
+   * 偶发失败才给「重试」——以前一律「重试」，等于让用户对着确定失败的模型死磕。
+   */
+  primary: GenerationErrorAction
+  secondary: GenerationErrorAction
   /** Short human reason, e.g. 配额或限流. */
   reason: string
   /** Actionable suggestion sentence (empty for unknown errors). */
@@ -112,9 +125,15 @@ function detectLegacyErrorKind(raw: string): GenerationErrorKind | null {
     lower.includes('network')
   )
     return 'network'
+  // `Model is not enabled: x` = 目录里记录还在、只是被停用（退役下线走另一条专用签名）。
+  // 以前漏了 'not enabled' → 落 unknown 拿到「稍等重试」：停用的模型重试一万次也起不来，
+  // 该做的是去模型接入把它打开（2026-07-30 补）。
   if (
     lower.includes('model') &&
-    (lower.includes('not found') || lower.includes('未找到') || lower.includes('not configured'))
+    (lower.includes('not found') ||
+      lower.includes('未找到') ||
+      lower.includes('not configured') ||
+      lower.includes('not enabled'))
   )
     return 'model-config'
   if (lower.includes('content') && (lower.includes('policy') || lower.includes('safety') || lower.includes('filter')))
@@ -226,6 +245,29 @@ function detectModelUnavailableUpstream(upstream: string | undefined, raw: strin
   )
 }
 
+/**
+ * 「这个模型已经被我们下线了」—— 节点存的 modelKey 在目录里整条不见了（走 seedBuiltins 的退役
+ * 清单主动移除，如 apimart Imagen 4 上游确定性 404）。判据是 electron 侧
+ * `findExecutableModel` 抛的专用签名，不是猜文案（那句 `Model is not enabled` 留给「记录还在、
+ * 只是被停用」，归 model-config 去模型接入）。
+ *
+ * 没这条的话：删模型 = 老节点撞一句英文技术报错 + 误导的「稍等重试」——坑换坑。
+ */
+function detectModelRetired(raw: string): boolean {
+  return raw.includes('Model is retired:')
+}
+
+/**
+ * kind → 完整 report（文案 + 动作 + 上游原话）。收口原先重复 7 遍的四行样板：
+ * 每处都得记着调 narrate、算 providerMessage、带 raw——漏一样就是一处失语。
+ * `upstream` 给 undefined = 从 raw 里抠可读首行。
+ */
+function reportFor(kind: GenerationErrorKind, raw: string, upstream: string | undefined): GenerationErrorReport {
+  const { reason, hint } = narrateGenerationError(kind)
+  const providerMessage = pickProviderMessage(upstream ?? extractReadableErrorLine(raw), reason)
+  return { kind, reason, hint, raw, ...narrateGenerationErrorActions(kind), ...(providerMessage ? { providerMessage } : {}) }
+}
+
 export function classifyGenerationError(message: string): GenerationErrorReport {
   // S4-2:structured 优先(VendorRequestError 经 IPC 标记穿透,源头保留的事实,不是猜);
   // 老数据/非 vendor 错误退回 legacy 正则识别。两条路只产 kind,文案统一出自 narrate 词表。
@@ -234,45 +276,34 @@ export function classifyGenerationError(message: string): GenerationErrorReport 
     stripVendorErrorMarker(String(message || ''))
       .split('\n→')[0]
       .trim() || i18n.t('generationCommon.observability.error.unknown.reason')
-  // 账号档位闸（会员/企业 Key/网页授权）**最先**判——它的关键词（会员/授权/开通即梦会员）比
+  // 已退役下线**最先**判：判据是 electron 抛的专用签名（确定性事实），不该被任何猜文案的检测抢走。
+  if (detectModelRetired(cleanRaw)) return reportFor('model-retired', cleanRaw, undefined)
+  // 账号档位闸（会员/企业 Key/网页授权）先判——它的关键词（会员/授权/开通即梦会员）比
   // model-not-open 更具体；反过来放后面会被宽词抢走（即梦 CLI 兜底文案曾被判成「模型未开通」
   // 并给出火山 Ark 指引，2026-07-06 真机走查抓出）。reason 出自 narrate，服务商原话单独提到可见区。
   if (detectAccountGate(structured?.upstreamMsg, cleanRaw)) {
-    const { reason, hint } = narrateGenerationError('account-gate')
-    const providerMessage = pickProviderMessage(structured?.upstreamMsg ?? extractReadableErrorLine(cleanRaw), reason)
-    return { reason, hint, raw: cleanRaw, ...(providerMessage ? { providerMessage } : {}) }
+    return reportFor('account-gate', cleanRaw, structured?.upstreamMsg)
   }
   // 上游「模型不存在」先于 model-not-open 判——两者都是模型级问题，但动作不同：这条是**换模型**
   // （上游根本没这个模型，去控制台也开不出来），model-not-open 是去控制台开通。
   if (detectModelUnavailableUpstream(structured?.upstreamMsg, cleanRaw)) {
-    const { reason, hint } = narrateGenerationError('model-unavailable-upstream')
-    const providerMessage = pickProviderMessage(structured?.upstreamMsg ?? extractReadableErrorLine(cleanRaw), reason)
-    return { reason, hint, raw: cleanRaw, ...(providerMessage ? { providerMessage } : {}) }
+    return reportFor('model-unavailable-upstream', cleanRaw, structured?.upstreamMsg)
   }
-  // 模型未开通先于 category 判(理由见 detectModelNotOpen):reason 用 narrate 词表,
-  // 服务商原话(如「has not activated the model …」)单独提到 providerMessage 可见区。
+  // 模型未开通先于 category 判(理由见 detectModelNotOpen)。
   if (detectModelNotOpen(structured?.upstreamMsg, cleanRaw)) {
-    const { reason, hint } = narrateGenerationError('model-not-open')
-    const providerMessage = pickProviderMessage(structured?.upstreamMsg ?? extractReadableErrorLine(cleanRaw), reason)
-    return { reason, hint, raw: cleanRaw, ...(providerMessage ? { providerMessage } : {}) }
+    return reportFor('model-not-open', cleanRaw, structured?.upstreamMsg)
   }
   // 中转生图路由未开通先于 category 判——403 会被派生成 auth（「API Key 无效」），把「去中转
   // 控制台开分组」误导成「查密钥」（2026-07-24 y7api 真实报错定案）。
   if (detectImageRouteDisabled(structured?.upstreamMsg, cleanRaw)) {
-    const { reason, hint } = narrateGenerationError('image-route-disabled')
-    const providerMessage = pickProviderMessage(structured?.upstreamMsg ?? extractReadableErrorLine(cleanRaw), reason)
-    return { reason, hint, raw: cleanRaw, ...(providerMessage ? { providerMessage } : {}) }
+    return reportFor('image-route-disabled', cleanRaw, structured?.upstreamMsg)
   }
   // 余额不足/欠费先于 category 判——RunningHub 605/1620 数值会被派生成 server/input 误导。
   if (detectBalance(structured?.upstreamMsg, cleanRaw)) {
-    const { reason, hint } = narrateGenerationError('balance')
-    const providerMessage = pickProviderMessage(structured?.upstreamMsg ?? extractReadableErrorLine(cleanRaw), reason)
-    return { reason, hint, raw: cleanRaw, ...(providerMessage ? { providerMessage } : {}) }
+    return reportFor('balance', cleanRaw, structured?.upstreamMsg)
   }
   if (structured?.category && (STRUCTURED_KINDS as readonly string[]).includes(structured.category)) {
-    const { reason, hint } = narrateGenerationError(structured.category as GenerationErrorKind)
-    const providerMessage = pickProviderMessage(structured.upstreamMsg, reason)
-    return { reason, hint, raw: stripVendorErrorMarker(message), ...(providerMessage ? { providerMessage } : {}) }
+    return reportFor(structured.category as GenerationErrorKind, stripVendorErrorMarker(message), structured.upstreamMsg)
   }
   // Strip any legacy "\n→ hint" tail that older builds baked into node.error.
   const raw =
@@ -281,21 +312,21 @@ export function classifyGenerationError(message: string): GenerationErrorReport 
       .trim() || i18n.t('generationCommon.observability.error.unknown.reason')
   if (raw.includes('网页媒体下载失败')) {
     return {
+      kind: 'unknown',
       reason: i18n.t('generationCommon.observability.error.webMedia.reason'),
       hint: i18n.t('generationCommon.observability.error.webMedia.hint'),
       raw,
+      ...narrateGenerationErrorActions('unknown'),
     }
   }
   const kind = detectLegacyErrorKind(raw)
-  if (kind) {
-    const { reason, hint } = narrateGenerationError(kind)
-    const providerMessage = pickProviderMessage(extractReadableErrorLine(raw), reason)
-    return { reason, hint, raw, ...(providerMessage ? { providerMessage } : {}) }
-  }
+  if (kind) return reportFor(kind, raw, undefined)
   // 兜底:抠 raw 可读首行当 reason,通用建议出自 narrate 的 unknown 词条。
   return {
+    kind: 'unknown',
     reason: extractReadableErrorLine(raw) || narrateGenerationError('unknown').reason,
     hint: narrateGenerationError('unknown').hint,
     raw,
+    ...narrateGenerationErrorActions('unknown'),
   }
 }
