@@ -95,6 +95,8 @@ contextBridge.exposeInMainWorld("nomiDesktop", {
     importFile: (payload: unknown) => ipcRenderer.invoke("nomi:assets:import-file", payload),
     // 播放懒自愈：nomi-local 视频解不了（HEVC 存量/供应商 HEVC 产物）→ 主进程转码出新 MP4 资产。
     ensurePlayable: (payload: unknown) => ipcRenderer.invoke("nomi:assets:ensure-playable", payload),
+    // 引导示例项目：把随包成图落成项目资产，回 clientId → nomi-local URL（渲染侧算不出稳定地址）。
+    seedOnboardingDemo: (payload: unknown) => ipcRenderer.invoke("nomi:assets:seed-onboarding-demo", payload),
     download: (payload: unknown) =>
       ipcRenderer.invoke("nomi:assets:download", payload) as Promise<{
         ok: boolean;

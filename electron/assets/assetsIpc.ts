@@ -19,6 +19,11 @@ export function registerAssetsIpc(): void {
     const { ensurePlayableAsset } = await import("./localFileImport");
     return ensurePlayableAsset(payload);
   });
+  // 引导示例项目的预置成图 → 真项目资产（拿稳定 nomi-local URL；构建产物 URL 不配写进用户数据）。
+  ipcMain.handle("nomi:assets:seed-onboarding-demo", async (_event, payload) => {
+    const { seedOnboardingDemoAssets } = await import("../onboarding/demoAssetSeed");
+    return seedOnboardingDemoAssets(payload);
+  });
   ipcMain.handle("nomi:assets:download", async (_event, payload) => {
     const { downloadAssetToDisk } = await import("./downloadAsset");
     return downloadAssetToDisk(payload);

@@ -169,6 +169,7 @@
       "dist/**",
       "dist-electron/**",
       "public/**",
+      "resources/**",
       "build/icon.png",
       "build/icon.ico"
     ],

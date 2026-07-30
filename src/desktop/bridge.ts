@@ -331,6 +331,12 @@ export type DesktopBridge = {
     }) => Promise<DesktopAssetDto>
     /** 播放懒自愈：nomi-local 视频解不了（HEVC 存量/供应商 HEVC 产物）→ 转码出新 MP4 资产；不适用 → null。 */
     ensurePlayable?: (payload: { url: string }) => Promise<DesktopAssetDto | null>
+    /**
+     * 引导示例项目的预置成图 → 项目资产，回 clientId → nomi-local URL。
+     * 必须走主进程：渲染侧只有构建产物 URL（dev 是 dev-server 地址、打包版是带哈希的 file://），
+     * 那种易变值一旦被 addNodeResult 写进项目文件，换环境/重新构建就裂图（2026-07-30 根因修复）。
+     */
+    seedOnboardingDemo?: (payload: { projectId: string }) => Promise<Record<string, string>>
     download: (payload: {
       url: string
       suggestedName?: string
