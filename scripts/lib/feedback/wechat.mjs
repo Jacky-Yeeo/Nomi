@@ -23,6 +23,20 @@ const DECRYPT_PY = path.join(HERE, "decrypt_wechat.py");
 const DEFAULT_KEYS = path.join(os.homedir(), "welive", "wechat_keys.json");
 
 /**
+ * decrypt_wechat.py 单群解密的进程超时（ms）。为什么必须有：解密走 spawn python，若 py 卡死
+ * （库被微信独占锁 / hook 状态坏 / IO 挂起），无超时的 `await exec` 会**永不返回**、把整轮
+ * feedback:radar 连同定时任务一起挂死（fb-20260726）。给有限超时 → 到点 Node SIGKILL 掉子进程、
+ * exec reject，落进既有 catch 优雅跳过该群，不连累 GitHub/B站。默认 120s（实测 200 条 zstd 解压
+ * 亚秒级，120s 是大宽松），可用 NOMI_WECHAT_DECRYPT_TIMEOUT_MS 调整；非法/过小值回落默认。纯函数。
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {number} 有限正整数毫秒
+ */
+export function resolveDecryptTimeoutMs(env = process.env) {
+  const raw = Number(env?.NOMI_WECHAT_DECRYPT_TIMEOUT_MS);
+  return Number.isFinite(raw) && raw >= 5000 ? Math.floor(raw) : 120_000;
+}
+
+/**
  * 从一条导出文本里拆出 { author, body }。
  * 微信导出的每条消息形如 "wxid_xxx:\n正文" 或 "昵称:\n正文"（发言人前缀 + 换行 + 正文）；
  * 少数系统消息无前缀、直接是 <?xml...>。用非贪婪匹配定位**第一个** ":\n"（即发言人分隔符，
@@ -117,8 +131,19 @@ export async function collectWechat(cfg = {}) {
   for (const g of groups) {
     let stdout;
     try {
-      ({ stdout } = await exec(python, [DECRYPT_PY, "--group", g], { maxBuffer: 64 * 1024 * 1024, env }));
+      ({ stdout } = await exec(python, [DECRYPT_PY, "--group", g], {
+        maxBuffer: 64 * 1024 * 1024,
+        env,
+        // 有限超时 + SIGKILL：py 卡死时到点必被杀，绝不把整轮 radar 挂死（fb-20260726）。
+        timeout: resolveDecryptTimeoutMs(env),
+        killSignal: "SIGKILL",
+      }));
     } catch (e) {
+      // 超时（Node 到点杀子进程）单独报，比笼统「进程失败」更可行动。
+      if (e?.killed && (e?.signal === "SIGKILL" || e?.code === "ETIMEDOUT")) {
+        errors.push(`${g}: decrypt 超时(>${Math.round(resolveDecryptTimeoutMs(env) / 1000)}s)被杀，跳过本群（避免卡死整轮）`);
+        continue;
+      }
       // 进程级失败（python 缺失 / cryptography 未装 / 硬崩）——脱敏后带原文摘要，别吞真相。
       const safe = String(e?.stderr || e?.message || "").replace(/[0-9a-f]{32,}/gi, "<REDACTED>").replace(/\s+/g, " ").trim();
       errors.push(`${g}: decrypt 进程失败（${safe.slice(0, 120)}）`);

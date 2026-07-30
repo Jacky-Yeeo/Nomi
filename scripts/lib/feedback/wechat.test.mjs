@@ -3,7 +3,7 @@
 // 拆错前缀或漏滤结构化消息 → 噪音污染反馈日报。样本全是**合成**的（不含真实 wxid / 真实群消息）。
 
 import { describe, it, expect } from "vitest";
-import { splitSenderPrefix, isHumanText, mapMessage } from "./wechat.mjs";
+import { splitSenderPrefix, isHumanText, mapMessage, resolveDecryptTimeoutMs } from "./wechat.mjs";
 
 // 合成假发言人 id：拼接规避 check-no-secrets 的 wxid_ 字面量扫描（这不是真 id）。
 const FAKE_WXID = "wxid_" + "synthetic01";
@@ -99,5 +99,25 @@ describe("mapMessage（→ FeedbackSignal）", () => {
     const sig = mapMessage({ local_id: 3, text: "阿明:\n测试", create_time: undefined }, group);
     expect(sig).not.toBeNull();
     expect(sig.createdAt).toBe("");
+  });
+});
+
+// fb-20260726：decrypt_wechat.py 走 spawn，卡死会挂死整轮 radar → 必须有有限超时兜底。
+describe("resolveDecryptTimeoutMs（decrypt 进程超时兜底）", () => {
+  it("默认 120s（无 env 覆盖）", () => {
+    expect(resolveDecryptTimeoutMs({})).toBe(120_000);
+  });
+
+  it("env 合法值生效（取整）", () => {
+    expect(resolveDecryptTimeoutMs({ NOMI_WECHAT_DECRYPT_TIMEOUT_MS: "90000" })).toBe(90_000);
+    expect(resolveDecryptTimeoutMs({ NOMI_WECHAT_DECRYPT_TIMEOUT_MS: "45000.7" })).toBe(45_000);
+  });
+
+  it("非法 / 过小值回落默认（永远返回有限正整数，绝不 0/NaN/Infinity）", () => {
+    for (const bad of ["", "abc", "0", "1000", "-1", "Infinity", undefined]) {
+      const v = resolveDecryptTimeoutMs({ NOMI_WECHAT_DECRYPT_TIMEOUT_MS: bad });
+      expect(v).toBe(120_000);
+      expect(Number.isFinite(v) && v > 0).toBe(true);
+    }
   });
 });
