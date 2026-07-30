@@ -80,3 +80,8 @@ docs/feedback/*
 **/keys.json
 **/wechat-export/
 *.db
+
+# R13 走查截图产物（scripts/*-walkthrough.mjs 输出，纯本地证据，不进 git）
+.failure-walk/
+.failure-walk-ok/
+.batch-walk/

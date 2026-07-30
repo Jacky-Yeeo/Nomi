@@ -159,6 +159,10 @@ export const zhGenerationCommon = {
         reason: '模型未开通',
         hint: '这个模型你的服务商账户还没开通。请到服务商控制台开通它（火山方舟：在 Ark 控制台「开通管理」激活对应模型），或在「模型接入」换一个已开通的模型。',
       },
+      modelUnavailableUpstream: {
+        reason: '这个模型服务商这边取不到',
+        hint: '服务商上游回的是「该模型不存在」，重试还会是同样结果。请在节点上换一个模型再生成（这次失败不计费）。',
+      },
       accountGate: {
         reason: '账号权限不足',
         hint: '这个模型需要更高的账号档位才能用——按下方「服务商原话」开通对应会员 / 换企业级 API Key / 先在服务商网页端完成授权；也可在「模型接入」换一个能用的模型。',
@@ -804,6 +808,8 @@ export const zhGenerationCommon = {
     save: '保存',
   },
   error: {
+    /** 服务商既没在 profile 声明 error_message、响应里也扒不出任何原因时的兜底。 */
+    taskFailed: '模型任务执行失败',
     failedAria: '生成失败：{{reason}}',
     providerMessage: '服务商原话：',
     retryAria: '重试生成',
@@ -1006,6 +1012,10 @@ export const enGenerationCommon = {
       modelNotOpen: {
         reason: 'Model not activated',
         hint: 'Activate this model in the provider console, or choose an already activated model in Model access.',
+      },
+      modelUnavailableUpstream: {
+        reason: 'The provider cannot reach this model',
+        hint: 'The provider upstream reports that this model does not exist, so retrying will fail the same way. Pick a different model on the node and generate again (this failure is not billed).',
       },
       accountGate: {
         reason: 'Insufficient account access',
@@ -1667,6 +1677,7 @@ export const enGenerationCommon = {
     save: 'Save',
   },
   error: {
+    taskFailed: 'The model task failed',
     failedAria: 'Generation failed: {{reason}}',
     providerMessage: 'Provider message: ',
     retryAria: 'Retry generation',

@@ -585,3 +585,34 @@ describe('接入即验证（零额度）：每个档案/模式声明的参考槽
     }
   }
 })
+
+describe('normalizeCatalogTaskResult — 终态失败抛出的是上游真原因（2026-07-30 用户真机回归）', () => {
+  function failed(extra: Partial<TaskResultDto>): TaskResultDto {
+    return {
+      id: 'task_01KYRKKK35KCAASMFC7ND2PR6P',
+      kind: 'text_to_image',
+      status: 'failed',
+      assets: [],
+      raw: {},
+      ...extra,
+    }
+  }
+
+  it('用主进程给的一等字段 error，而不是「模型任务执行失败」', () => {
+    expect(() => normalizeCatalogTaskResult(failed({ error: 'Requested entity was not found.' }), imageNode())).toThrow(
+      /Requested entity was not found\./,
+    )
+  })
+
+  it('taskId / kind 仍带在后缀里（支持排查用）', () => {
+    expect(() => normalizeCatalogTaskResult(failed({ error: 'boom' }), imageNode())).toThrow(
+      /taskId=task_01KYRKKK35KCAASMFC7ND2PR6P, kind=text_to_image/,
+    )
+  })
+
+  it('主进程也扒不出原因时才落兜底文案（不编造）', () => {
+    expect(() =>
+      normalizeCatalogTaskResult(failed({ raw: { data: { status: 'failed' } } }), imageNode()),
+    ).toThrow(/模型任务执行失败/)
+  })
+})

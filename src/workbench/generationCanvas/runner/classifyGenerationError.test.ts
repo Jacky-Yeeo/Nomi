@@ -230,3 +230,28 @@ describe('即梦 CLI 错误不被误吞成「模型未开通/火山 Ark 指引�
     expect(report.reason).not.toBe('模型未开通')
   })
 })
+
+describe('上游「模型不存在」不再退化成一句 taskId（2026-07-30 用户真机 Imagen 4 报错）', () => {
+  // 用户看到的整条：「模型任务执行失败 (taskId=task_01KYQJG…, kind=text_to_image)」——上游真原因
+  // （Google 404 Requested entity was not found）被 profile 声明却无人读的 error_message 吞了。
+  // 修复后 describeTaskFailure 拿到的是真原话；这里锁的是拿到之后的分类不能再误导。
+  const REAL_UPSTREAM = 'Requested entity was not found. (taskId=task_01KYRKKK35KCAASMFC7ND2PR6P, kind=text_to_image)'
+
+  it('给「换个模型」而不是「稍等重试」——重试必再撞同一堵墙', () => {
+    const report = classifyGenerationError(REAL_UPSTREAM)
+    expect(report.reason).toBe('这个模型服务商这边取不到')
+    expect(report.hint).toMatch(/换一个模型/)
+    expect(report.hint).not.toMatch(/稍等|稍后再试/)
+  })
+
+  it('不误判成「模型未配置」（本地没配）或「模型未开通」（去控制台开）——动作完全不同', () => {
+    const report = classifyGenerationError(REAL_UPSTREAM)
+    expect(report.reason).not.toBe('模型未配置')
+    expect(report.reason).not.toBe('模型未开通')
+  })
+
+  it('短语取窄：素材/项目一类的 404 不被误吞', () => {
+    expect(classifyGenerationError('下载素材失败：404 Not Found').reason).not.toBe('这个模型服务商这边取不到')
+    expect(classifyGenerationError('项目不存在或已被删除').reason).not.toBe('这个模型服务商这边取不到')
+  })
+})

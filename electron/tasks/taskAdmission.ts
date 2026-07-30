@@ -23,25 +23,16 @@ export function wasTaskAdmitted(id: string): boolean {
  * - 未曾受理(wasAdmitted=false) → task_unknown：真·未知 id（调错/不存在）。
  * - 曾受理但已被驱逐/过期(wasAdmitted=true) → task_tracking_lost：本地追踪丢失，
  *   vendor 侧可能已完成 —— 引导去查/重试，而不是当作彻底失败。
- * message 落在 raw.message，渲染层 readFailureMessageFromRaw 能读到。
+ * 原因落在一等字段 error（与 vendor 终态失败同一个出口，渲染层只读这一处）。
  */
-export function classifyTaskCacheMiss(taskId: string, wasAdmitted: boolean): { status: "failed"; raw: JsonRecord } {
-  if (wasAdmitted) {
-    return {
-      status: "failed",
-      raw: {
-        code: "task_tracking_lost",
-        message: desktopT("tasks.trackingLost"),
-        taskId,
-      },
-    };
-  }
+export function classifyTaskCacheMiss(
+  taskId: string,
+  wasAdmitted: boolean,
+): { status: "failed"; error: string; raw: JsonRecord } {
+  const code = wasAdmitted ? "task_tracking_lost" : "task_unknown";
   return {
     status: "failed",
-    raw: {
-      code: "task_unknown",
-      message: desktopT("tasks.unknown"),
-      taskId,
-    },
+    error: desktopT(wasAdmitted ? "tasks.trackingLost" : "tasks.unknown"),
+    raw: { code, taskId },
   };
 }

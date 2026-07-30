@@ -206,6 +206,26 @@ function detectBalance(upstream: string | undefined, raw: string): boolean {
   )
 }
 
+/**
+ * 「模型在服务商上游根本不存在」——确定性失败，重试必再撞同一堵墙，所以不能落进 unknown
+ * 拿到「稍等重试」那句误导（同 output-truncated 的理由）。
+ *
+ * 实测来源（2026-07-30 用户真机 + 直连探针）：apimart 的 Imagen 4 提交成功、8 秒后终态失败，
+ * `data.error.message` 里裹着 Google 的原话 `{"error":{"code":404,"message":"Requested entity
+ * was not found.","status":"NOT_FOUND"}}`，且 `credits_cost: 0`（不计费）。
+ *
+ * 短语取得很窄（只认上游厂商的固定原话），不用「404 / not found」这类泛词——素材 404、
+ * 项目不存在等都会被误吞。
+ */
+function detectModelUnavailableUpstream(upstream: string | undefined, raw: string): boolean {
+  const text = `${upstream || ''} ${raw}`.toLowerCase()
+  return (
+    // Google / Vertex 家族：模型 ID 不存在或该 key 无权访问时的固定原话
+    text.includes('requested entity was not found') ||
+    text.includes('模型不存在')
+  )
+}
+
 export function classifyGenerationError(message: string): GenerationErrorReport {
   // S4-2:structured 优先(VendorRequestError 经 IPC 标记穿透,源头保留的事实,不是猜);
   // 老数据/非 vendor 错误退回 legacy 正则识别。两条路只产 kind,文案统一出自 narrate 词表。
@@ -219,6 +239,13 @@ export function classifyGenerationError(message: string): GenerationErrorReport 
   // 并给出火山 Ark 指引，2026-07-06 真机走查抓出）。reason 出自 narrate，服务商原话单独提到可见区。
   if (detectAccountGate(structured?.upstreamMsg, cleanRaw)) {
     const { reason, hint } = narrateGenerationError('account-gate')
+    const providerMessage = pickProviderMessage(structured?.upstreamMsg ?? extractReadableErrorLine(cleanRaw), reason)
+    return { reason, hint, raw: cleanRaw, ...(providerMessage ? { providerMessage } : {}) }
+  }
+  // 上游「模型不存在」先于 model-not-open 判——两者都是模型级问题，但动作不同：这条是**换模型**
+  // （上游根本没这个模型，去控制台也开不出来），model-not-open 是去控制台开通。
+  if (detectModelUnavailableUpstream(structured?.upstreamMsg, cleanRaw)) {
+    const { reason, hint } = narrateGenerationError('model-unavailable-upstream')
     const providerMessage = pickProviderMessage(structured?.upstreamMsg ?? extractReadableErrorLine(cleanRaw), reason)
     return { reason, hint, raw: cleanRaw, ...(providerMessage ? { providerMessage } : {}) }
   }

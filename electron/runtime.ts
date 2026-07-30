@@ -24,6 +24,7 @@ import {
   collectAssetUrls,
   firstMappedString,
   providerMetaFromResponse,
+  taskFailureMessageFromResponse,
   taskStatusFromResponse,
   valuesFromMapping,
 } from "./tasks/responseParsing";
@@ -142,6 +143,8 @@ export type TaskResult = {
     durationSeconds?: number;
   }>;
   raw: unknown;
+  /** failed 时的上游真实原因（tasks/responseParsing.taskFailureMessageFromResponse 取；渲染层只读这一处）。 */
+  error?: string;
   /**
    * E11: Complete provenance for reproducibility. Populated on successful
    * generation. Renderer copies this into GenerationNodeResult.provenance.
@@ -324,10 +327,9 @@ export async function buildProfileTaskResult(input: {
   const response = applyResponseTransform(input.operation.response_transform, input.response, {
     baseUrl: String(input.vendor?.baseUrlHint || ""),
   });
-  const responseMapping = isJsonRecord(input.operation.response_mapping) ? input.operation.response_mapping : null;
-  const providerMetaMapping = isJsonRecord(input.operation.provider_meta_mapping)
-    ? input.operation.provider_meta_mapping
-    : null;
+  const { response_mapping: rawResponseMapping, provider_meta_mapping: rawMetaMapping } = input.operation;
+  const responseMapping = isJsonRecord(rawResponseMapping) ? rawResponseMapping : null;
+  const providerMetaMapping = isJsonRecord(rawMetaMapping) ? rawMetaMapping : null;
   const providerMeta = providerMetaFromResponse(response, providerMetaMapping);
   const taskId = firstString(
     firstMappedString(response, responseMapping, "task_id"),
@@ -336,12 +338,9 @@ export async function buildProfileTaskResult(input: {
     extractTaskIdShared(response),
     input.taskIdFallback,
   );
-  const mappedAssetValues = [
-    ...valuesFromMapping(response, responseMapping, "assets"),
-    ...valuesFromMapping(response, responseMapping, "image_url"),
-    ...valuesFromMapping(response, responseMapping, "video_url"),
-    ...valuesFromMapping(response, responseMapping, "model_url"),
-  ];
+  const mappedAssetValues = ["assets", "image_url", "video_url", "model_url"].flatMap((key) =>
+    valuesFromMapping(response, responseMapping, key),
+  );
   const assetUrls = Array.from(
     new Set([...mappedAssetValues.flatMap(collectAssetUrls), ...collectAssetUrls(extractAssetUrl(response))]),
   );
@@ -359,6 +358,7 @@ export async function buildProfileTaskResult(input: {
       status,
       assets,
       raw: input.response,
+      ...(status === "failed" ? { error: taskFailureMessageFromResponse(response, responseMapping) } : {}),
       // S4-1:profile 主路径补 provenance(与 fallback 共用 buildTaskProvenance,单一真相)。
       ...(status === "succeeded" && input.vendor && input.model
         ? {

@@ -35,6 +35,12 @@ export type TaskResultDto = {
   assets: TaskAssetDto[]
   raw: unknown
   /**
+   * status==='failed' 时的真实失败原因（上游原话）。主进程 taskFailureMessageFromResponse 按
+   * profile 声明的 error_message 映射取出（取不到才按形状下钻）——渲染层直接用，
+   * 不再自己解析 raw 的形状（那份副本猜不到 failMsg/errorMessage 等家族专属字段）。
+   */
+  error?: string
+  /**
    * E11: Complete provenance for reproducibility. Populated by the electron
    * runtime on successful generation. Renderer copies into
    * GenerationNodeResult.provenance via extractProvenanceFromTaskResult.
