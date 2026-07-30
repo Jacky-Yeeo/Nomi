@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildCatalogTaskRequest, normalizeCatalogTaskResult, runCatalogGenerationTask } from './catalogTaskActions'
+import { buildCatalogTaskRequest, isSlowLaneBackend, normalizeCatalogTaskResult, resolvePollBudget, runCatalogGenerationTask } from './catalogTaskActions'
 import { resolveGenerationReferences } from './generationReferenceResolver'
 import { MODEL_ARCHETYPES } from '../../../config/modelArchetypes'
 import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
@@ -614,5 +614,29 @@ describe('normalizeCatalogTaskResult — 终态失败抛出的是上游真原因
     expect(() =>
       normalizeCatalogTaskResult(failed({ raw: { data: { status: 'failed' } } }), imageNode()),
     ).toThrow(/模型任务执行失败/)
+  })
+})
+
+// 群反馈 2026-07-30：Codex 生图「接入正常、到拉取步骤超时」——根因是本地生图(codex `codex exec $imagegen`,
+// 官方 smoke 就 ~75s)被按快道云 API 的 2min 硬超时腰斩。修法：按「后端时延」分档,本地进程后端进慢道。
+describe('resolvePollBudget / isSlowLaneBackend — 轮询超时按后端时延分档（本地生图不被云 API 的 2min 腰斩）', () => {
+  it('本地进程后端(codex-local/comfyui-local)的图像任务走慢道（5min 软 / 20min 硬），不是 2min', () => {
+    for (const vendor of ['codex-local', 'comfyui-local']) {
+      for (const kind of ['text_to_image', 'image_edit'] as const) {
+        expect(isSlowLaneBackend(kind, vendor)).toBe(true)
+        expect(resolvePollBudget(kind, vendor)).toEqual({ softMs: 300000, hardMs: 1200000 })
+      }
+    }
+  })
+
+  it('视频任务仍走慢道（与后端无关）', () => {
+    expect(isSlowLaneBackend('text_to_video', 'apimart')).toBe(true)
+    expect(resolvePollBudget('image_to_video', 'kie')).toEqual({ softMs: 300000, hardMs: 1200000 })
+  })
+
+  it('快道云图像 API（apimart/kie 等）保持 2min 软=硬，不被放宽', () => {
+    expect(isSlowLaneBackend('text_to_image', 'apimart')).toBe(false)
+    expect(resolvePollBudget('text_to_image', 'apimart')).toEqual({ softMs: 120000, hardMs: 120000 })
+    expect(resolvePollBudget('image_edit', 'kie')).toEqual({ softMs: 120000, hardMs: 120000 })
   })
 })

@@ -44,6 +44,26 @@ const POLL_FAILURE_GRACE_MS = 45000
 // 走流式文本通道的 kind(与 catalogTaskResultParse 的 TEXT_TASK_KINDS 同语义)。
 const TEXT_STREAM_KINDS = new Set<TaskKind>(['chat', 'prompt_refine', 'image_to_prompt'])
 
+// 本地进程/队列后端：codex(`codex exec $imagegen`,官方 smoke 就 ~75s)、本地 ComfyUI 队列(可达数分钟)——
+// 都跑在用户机器上,时延本质是「秒级到分钟级」且方差大,不能和「秒级返回的云图像 API」共用 2min 硬超时:
+// 否则本地图还在生成就被判超时落「可找回」,用户体验成「Codex 生图拉取步骤超时」(群反馈 2026-07-30 的根因)。
+// 判据用 vendor key(稳定:codex-local/comfyui-local 都是 local:// 或本机 127.0.0.1 后端)。
+const SLOW_LOCAL_BACKENDS = new Set(['codex-local', 'comfyui-local'])
+
+// 轮询按「后端时延」而非「视频 vs 图像」分档:慢道 = 视频 ∪ 本地进程后端。这样本地生图(codex/comfyui)
+// 不再被云 API 的 2min 硬超时腰斩,而 codex 进程真跑完(成功/失败)时 query 立即返回终态、循环自然结束,
+// 故放宽硬超时纯为「等它跑完」、不会平白多等(查结果免费、不重发、不二次扣费)。
+export function isSlowLaneBackend(kind: TaskKind, vendor: string): boolean {
+  return kind === 'text_to_video' || kind === 'image_to_video' || SLOW_LOCAL_BACKENDS.has(vendor)
+}
+
+/** 轮询预算(ms):慢道(视频/本地进程后端)5min 软 / 20min 硬;快道云 API 2min 软=硬。 */
+export function resolvePollBudget(kind: TaskKind, vendor: string): { softMs: number; hardMs: number } {
+  return isSlowLaneBackend(kind, vendor)
+    ? { softMs: 300000, hardMs: 1200000 }
+    : { softMs: 120000, hardMs: 120000 }
+}
+
 function buildReferenceExtras(
   node: GenerationCanvasNode,
   references: Partial<ResolvedGenerationReferences>,
@@ -203,11 +223,13 @@ async function waitForCatalogTaskResult(
 ): Promise<TaskResultDto> {
   if (TERMINAL_STATUSES.has(initialResult.status)) return initialResult
   const pollIntervalMs = options.pollIntervalMs ?? 1500
-  const isVideo = request.kind === 'text_to_video' || request.kind === 'image_to_video'
-  // 软超时：到点不报错，只把文案切成「仍在生成·已超常规时长」，后台继续等（视频 5min→续拉到 hard）。
-  // 硬超时：真停，抛可找回错误（视频 20min；非视频 2min）。options.pollTimeoutMs 覆盖时 soft=hard（测试可控）。
-  const softTimeoutMs = options.pollTimeoutMs ?? (isVideo ? 300000 : 120000)
-  const hardTimeoutMs = options.pollTimeoutMs ?? (isVideo ? 1200000 : 120000)
+  // 软超时：到点不报错，只把文案切成「仍在生成·已超常规时长」，后台继续等（慢道 5min→续拉到 hard）。
+  // 硬超时：真停，抛可找回错误（慢道=视频/本地进程后端 20min；快道云 API 2min）。
+  // 分档见 resolvePollBudget：按后端时延分,不再把本地生图(codex/comfyui)当快道云 API 腰斩。
+  // options.pollTimeoutMs 覆盖时 soft=hard（测试可控）。
+  const budget = resolvePollBudget(request.kind, vendor)
+  const softTimeoutMs = options.pollTimeoutMs ?? budget.softMs
+  const hardTimeoutMs = options.pollTimeoutMs ?? budget.hardMs
   const startedAt = Date.now()
   const fetchResult = options.fetchTaskResult || fetchWorkbenchTaskResultByVendor
 
