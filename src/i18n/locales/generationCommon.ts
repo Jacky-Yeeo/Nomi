@@ -70,6 +70,7 @@ export const zhGenerationCommon = {
     noImportableAssets: '没有可导入画布的素材',
     importedOne: '已导入画布',
     importedMany: '已导入 {{count}} 个素材到画布',
+    deletedNodesUndo: '已删除 {{count}} 个节点',
     edge: {
       aria: '节点连接线',
       select: '选择连接线：{{source}} 到 {{target}}',
@@ -941,6 +942,7 @@ export const enGenerationCommon = {
     noImportableAssets: 'No assets can be imported to the canvas',
     importedOne: 'Imported to canvas',
     importedMany: 'Imported {{count}} assets to the canvas',
+    deletedNodesUndo: 'Deleted {{count}} nodes',
     edge: {
       aria: 'Node connections',
       select: 'Select connection: {{source}} to {{target}}',
