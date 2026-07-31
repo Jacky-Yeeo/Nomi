@@ -90,6 +90,7 @@ docs/feedback/*
 .relay-fetch-walk/
 .relay-i2v-walk/
 .retired-walk/
+.error-card-walk/
 
 # Python 运行副产物（decrypt_wechat.py 等被 import/执行时生成，绝不入库）
 __pycache__/

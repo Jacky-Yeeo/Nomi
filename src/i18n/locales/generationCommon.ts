@@ -182,6 +182,14 @@ export const zhGenerationCommon = {
         hint: '这家中转给你的令牌分组没开 OpenAI 生图端点（/v1/images/*）。Nomi 已自动改走聊天路由出图；若仍失败，说明分组连聊天出图也没开——去中转控制台给令牌换分组或开通生图，或换一个模型。',
       },
       contentPolicy: { reason: '提示词被拦截', hint: '提示词触发了安全策略，请修改后重试。' },
+      inputImageBlocked: {
+        reason: '参考图被内容安全挡了',
+        hint: '服务商判定这张参考图「可能含真人」，在开始生成前就拒收了——写实人像通常都会被拦，与它是不是 AI 生成的无关。同一张图重试只会再被拦：换一张参考图，或换一个模型（各家对人像输入的限制不一样）。',
+      },
+      assetUploadFailed: {
+        reason: '参考图没能送到服务商',
+        hint: '这张图只存在你本机，而服务商要的是一个公网能取到的地址，Nomi 只好走免费匿名图床——这次图床挂了（服务商还没被请求到，不是它的问题，也不扣额度）。稍后重试通常就好；想彻底跳过这一步，接一个自带上传通道的服务商（KIE / apimart / 本地 ComfyUI），Nomi 会优先走它。',
+      },
       server: { reason: '服务商故障', hint: '服务商服务异常，请稍后重试，或换一个模型。' },
       input: {
         reason: '参数不被接受',
@@ -1052,6 +1060,14 @@ export const enGenerationCommon = {
         hint: 'Your relay token group has no access to the OpenAI image endpoints (/v1/images/*). Nomi already retried via the chat route; if it still fails, the group lacks chat image output too — switch the token group or enable image generation in the relay console, or pick another model.',
       },
       contentPolicy: { reason: 'Prompt blocked', hint: 'The prompt triggered a safety policy. Edit it and try again.' },
+      inputImageBlocked: {
+        reason: 'Reference image blocked by content safety',
+        hint: 'The provider rejected this reference image as possibly containing a real person, before generation even started. Photorealistic portraits are usually blocked whether or not they are AI-generated. Retrying the same image will be blocked again — use a different reference image, or choose another model (providers differ on portrait inputs).',
+      },
+      assetUploadFailed: {
+        reason: 'Reference image never reached the provider',
+        hint: 'This image only exists on your machine, but the provider needs a publicly reachable URL, so Nomi fell back to free anonymous image hosts — and they were down. The provider was never called, so nothing was charged. Retrying later usually works; to skip this step for good, connect a provider with its own upload channel (KIE, apimart, or local ComfyUI) and Nomi will prefer it.',
+      },
       server: {
         reason: 'Provider error',
         hint: 'The provider is unavailable. Try again later or choose another model.',
