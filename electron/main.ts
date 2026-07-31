@@ -46,6 +46,7 @@ import { setRendererTarget } from "./capabilityCore/rendererBridge";
 import { readMcpInfo, installMcp, uninstallMcp } from "./capabilityCore/mcpConfig";
 import { registerLocalProtocol } from "./protocol/localProtocol";
 import { installMainWindowInteractions } from "./mainWindowInteractions";
+import { getMainWindow, setMainWindow } from "./mainWindowRegistry";
 import { desktopT, registerI18nIpc, setDesktopLocale } from "./i18n";
 installCrashHandlers();
 
@@ -108,7 +109,6 @@ const isDev = Boolean(process.env.VITE_DEV_SERVER_URL || process.env.NOMI_DESKTO
 const devRemoteDebuggingPort = process.env.NOMI_DESKTOP_REMOTE_DEBUGGING_PORT;
 const DEV_RENDERER_LOAD_ATTEMPTS = 20;
 const DEV_RENDERER_LOAD_RETRY_MS = 500;
-let mainWindowRef: BrowserWindow | null = null;
 let isRecreatingMainWindow = false;
 const lowMemoryMode = process.env.NOMI_LOW_MEMORY_MODE === "1";
 const capabilityCoreDisabled =
@@ -301,10 +301,10 @@ async function createWindow(
       sandbox: false,
     },
   });
-  mainWindowRef = mainWindow;
+  setMainWindow(mainWindow); // 主窗口单一真相（registry）；closed 条件清理防窗口重建竞态误清新窗
   installMainWindowInteractions(mainWindow);
   mainWindow.on("closed", () => {
-    if (mainWindowRef === mainWindow) mainWindowRef = null;
+    if (getMainWindow() === mainWindow) setMainWindow(null);
   });
 
   // Windows 自绘标题栏需要知道最大化态来切「最大化/还原」图标。窗口级监听随窗口销毁回收（无泄漏）。
@@ -335,9 +335,8 @@ async function createWindow(
   // 转发进运行中的渲染层（所见即所得）。窗口销毁即清除，避免向死窗口发送。
   setRendererTarget(mainWindow.webContents);
   mainWindow.webContents.on("destroyed", () => {
-    if (!mainWindowRef || mainWindowRef === mainWindow || mainWindowRef.webContents === mainWindow.webContents) {
-      setRendererTarget(null);
-    }
+    const main = getMainWindow();
+    if (!main || main === mainWindow || main.webContents === mainWindow.webContents) setRendererTarget(null);
   });
 
   registerDevDiagnostics(mainWindow, rendererUrl);
