@@ -578,7 +578,6 @@ function BaseGenerationNodeImpl({
               rawUrl={node.result.url}
               data-node-preview-video="true"
               className={cn('w-full h-full min-h-0 object-contain pointer-events-auto', 'bg-nomi-ink-05 select-none')}
-              src={buildVideoPlaybackUrl(node.result.url)}
               priority={mediaPreviewPriority}
               crossOrigin="use-credentials"
               controls

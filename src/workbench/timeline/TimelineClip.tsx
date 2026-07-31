@@ -7,8 +7,7 @@ import { frameToPixel, pixelToFrame, clampGroupDelta, type ClipOrigin } from './
 import { buildSnapPoints, resolveSnap, pixelThresholdToFrames, type SnapResult } from './snapping'
 import type { TimelineClip as TimelineClipData } from './timelineTypes'
 import { resolveTimelineClipPreviewMedia } from './timelineClipPreview'
-import { buildVideoPlaybackUrl } from '../../media/videoPlaybackUrl'
-import { diagnoseVideoPlaybackFailure, logVideoPlaybackFailure } from '../../media/videoPlaybackDiagnostics'
+import { useVideoPlaybackHeal } from '../../media/useVideoPlaybackHeal'
 
 type TimelineClipProps = {
   clip: TimelineClipData
@@ -36,6 +35,8 @@ function TimelineClip({ clip }: TimelineClipProps): JSX.Element {
     // 时间轴可有几十个视频片段；默认不批量挂 <video>，只让正在编辑的单个片段加载真实帧。
     isSingleSelected: isSelected && selectedClipCount === 1,
   })
+  // 缩略图太小，放不下报错文案；但自愈得挂上——此前这里失败只写 console，坏视频在轨上永远是灰的。
+  const thumbHeal = useVideoPlaybackHeal({ rawUrl: previewMedia.kind === 'video' ? previewMedia.src : '' })
 
   // 吸附"咔哒"微反馈：WAAPI 实现，免改全局 CSS（规则 10）；不与 React 的 style.left 冲突。
   const pulseSnap = React.useCallback(() => {
@@ -240,15 +241,14 @@ function TimelineClip({ clip }: TimelineClipProps): JSX.Element {
           'workbench-timeline-clip__thumb',
           'block absolute inset-0 w-full h-full object-cover rounded-[inherit] bg-[var(--nomi-ink-10)]',
         )}
-        src={buildVideoPlaybackUrl(previewMedia.src)}
+        src={thumbHeal.playbackUrl}
         crossOrigin="use-credentials"
         muted
         playsInline
         preload="metadata"
         draggable={false}
-        onError={(event) => {
-          void diagnoseVideoPlaybackFailure(previewMedia.src, event.currentTarget.error).then(logVideoPlaybackFailure)
-        }}
+        onError={thumbHeal.onError}
+        onLoadedMetadata={thumbHeal.onLoadedMetadata}
       />
     ) : previewMedia.kind === 'image' ? (
       <NomiImage
