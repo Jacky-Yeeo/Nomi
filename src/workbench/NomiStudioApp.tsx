@@ -6,6 +6,7 @@ import ProjectLibraryPage from './library/ProjectLibraryPage'
 import {
   createLocalProject,
   deleteLocalProject,
+  renameLocalProject,
   useLocalProjects,
   type LocalProjectSummary,
 } from './library/localProjectStore'
@@ -468,6 +469,22 @@ export default function NomiStudioApp(): JSX.Element {
     [navigate, t],
   )
 
+  // 列表页「双击改名」：只改名不动内容；若改的正是当前打开的项目，同步顶栏显示名（activeProject）。
+  const renameLibraryProject = React.useCallback(
+    (projectId: string, name: string) => {
+      try {
+        const record = renameLocalProject(projectId, name)
+        if (record && activeProjectIdRef.current === projectId) {
+          setActiveProject((prev) => (prev && prev.id === projectId ? { ...prev, name: record.name } : prev))
+        }
+      } catch (error: unknown) {
+        console.error('project rename error', error)
+        toast(t('studio.renameFailed'), 'error')
+      }
+    },
+    [t],
+  )
+
   React.useEffect(() => {
     if (initialHydrationAttemptedRef.current) return
     initialHydrationAttemptedRef.current = true
@@ -608,6 +625,7 @@ export default function NomiStudioApp(): JSX.Element {
           projects={projects}
           onOpenProject={openProject}
           onDeleteProject={deleteProject}
+          onRenameProject={renameLibraryProject}
           onNewProject={() => void newProject()}
           onOpenFolder={() => void openWorkspaceFolder()}
           onRevealProjectFolder={revealProjectFolder}

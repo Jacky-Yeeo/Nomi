@@ -25,6 +25,8 @@ import type { ProjectTemplateId } from './projectTemplates'
 type Props = {
   onOpenProject: (projectId: string) => void
   onDeleteProject: (project: LocalProjectSummary) => void
+  /** 列表页双击项目名改名（不用点进项目）；缺省则名字不可编辑。 */
+  onRenameProject?: (projectId: string, name: string) => void
   onNewProject: (templateId?: ProjectTemplateId) => void
   onOpenFolder?: () => void
   onRevealProjectFolder?: (projectId: string) => void
@@ -75,6 +77,7 @@ const ThumbnailMosaic = React.memo(
 export default function ProjectLibraryPage({
   onOpenProject,
   onDeleteProject,
+  onRenameProject,
   onNewProject,
   onOpenFolder,
   onRevealProjectFolder,
@@ -88,6 +91,19 @@ export default function ProjectLibraryPage({
   const { t } = useTranslation()
   const [query, setQuery] = React.useState('')
   const [sourceFilter, setSourceFilter] = React.useState<'all' | 'native' | 'folder'>('all')
+  // 双击项目名进入 inline 编辑：editingId 记哪张卡在编辑、editValue 是输入中的名字。
+  const [editingId, setEditingId] = React.useState('')
+  const [editValue, setEditValue] = React.useState('')
+  const beginRename = (project: LocalProjectSummary): void => {
+    if (!onRenameProject || project.missing) return
+    setEditingId(project.id)
+    setEditValue(project.name)
+  }
+  const commitRename = (projectId: string, originalName: string): void => {
+    const next = editValue.trim()
+    if (next && next !== originalName) onRenameProject?.(projectId, next)
+    setEditingId('')
+  }
   const normalizedQuery = query.trim().toLowerCase()
   const searchedProjects = normalizedQuery
     ? projects.filter((project) => project.name.toLowerCase().includes(normalizedQuery))
@@ -384,7 +400,46 @@ export default function ProjectLibraryPage({
                   </div>
                   <div className="px-3 pt-2.5 pb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
                     <div className="min-w-0">
-                      <div className="text-body-sm font-medium text-nomi-ink truncate mb-0.5">{project.name}</div>
+                      {editingId === project.id ? (
+                        <input
+                          type="text"
+                          className={cn(
+                            'w-full text-body-sm font-medium text-nomi-ink mb-0.5 outline-none',
+                            'bg-nomi-paper border border-nomi-accent rounded-nomi-sm px-1.5 py-0.5',
+                          )}
+                          value={editValue}
+                          autoFocus
+                          aria-label={t('library.renameProject', { name: project.name })}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => {
+                            e.stopPropagation()
+                            if (e.key === 'Enter') commitRename(project.id, project.name)
+                            else if (e.key === 'Escape') setEditingId('')
+                          }}
+                          onBlur={() => commitRename(project.id, project.name)}
+                        />
+                      ) : (
+                        <div
+                          className={cn(
+                            'text-body-sm font-medium text-nomi-ink truncate mb-0.5',
+                            onRenameProject && !project.missing && 'cursor-text',
+                          )}
+                          title={onRenameProject && !project.missing ? t('library.renameHint') : undefined}
+                          // 名字区单击不打开项目（留给双击改名）；缩略图/「继续创作」仍单击打开。
+                          onClick={onRenameProject && !project.missing ? (e) => e.stopPropagation() : undefined}
+                          onDoubleClick={
+                            onRenameProject && !project.missing
+                              ? (e) => {
+                                  e.stopPropagation()
+                                  beginRename(project)
+                                }
+                              : undefined
+                          }
+                        >
+                          {project.name}
+                        </div>
+                      )}
                       <div className="text-micro text-nomi-ink-40">{formatUpdatedAt(project.updatedAt)}</div>
                     </div>
                     {onRevealProjectFolder && project.rootPath ? (
