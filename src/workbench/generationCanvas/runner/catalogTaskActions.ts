@@ -27,6 +27,8 @@ import {
   uniqueStrings,
 } from './catalogTaskResolve'
 import { normalizeCatalogTaskResult } from './catalogTaskResultParse'
+import { localizeRemoteResultUrl } from './resultAssetLocalization'
+import { getActiveWorkbenchProjectId } from '../../project/workbenchProjectSession'
 import { RecoverableTimeoutError } from './recoverableTimeout'
 
 // 重导出：实现已拆到 catalogTaskResolve（节点→vendor/model/kind 选择）与
@@ -316,5 +318,8 @@ export async function runCatalogGenerationTask(
   report('waiting', initialResult.id)
   const finalResult = await waitForCatalogTaskResult(vendor, request, initialResult, options)
   report('finalizing', initialResult.id)
-  return normalizeCatalogTaskResult(finalResult, executableNode)
+  const normalized = normalizeCatalogTaskResult(finalResult, executableNode)
+  // 结构闸：主进程漏本地化（projectId 时序为空）时，用「当前打开的项目」这一更可靠的 id 兜底，
+  // 绝不让厂商临时 URL 落进节点 → 隔天过期播不了。主进程已落地时这里判为非 http，零开销 no-op。
+  return localizeRemoteResultUrl(normalized, getActiveWorkbenchProjectId() ?? '', executableNode.id)
 }
