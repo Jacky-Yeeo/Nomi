@@ -126,6 +126,11 @@ def main():
     args = sys.argv[1:]
     explore = "--explore" in args
     group_frag = args[args.index("--group") + 1] if "--group" in args else "画布"
+    # --limit N：最新 N 条（默认 200）。全量梳理/回溯多天时调大；非法值回落默认。
+    try:
+        limit = max(1, int(args[args.index("--limit") + 1])) if "--limit" in args else 200
+    except (ValueError, IndexError):
+        limit = 200
 
     if not os.path.exists(KEYS_PATH):
         _log(f"没有 {KEYS_PATH}——先跑 hook_wechat_key 取钥")
@@ -204,7 +209,7 @@ def main():
             sc = _first(cols, "sender_username", "sender", "talker", "m_nsFromUsr", "strTalker")
             if explore:
                 _log(f"命中表 {hit}，列: {cols}")
-            for r in mc.execute(f'SELECT * FROM "{hit}" ORDER BY "{tc}" DESC LIMIT 200' if tc else f'SELECT * FROM "{hit}" LIMIT 200'):
+            for r in mc.execute(f'SELECT * FROM "{hit}" ORDER BY "{tc}" DESC LIMIT {limit}' if tc else f'SELECT * FROM "{hit}" LIMIT {limit}'):
                 d = dict(r)
                 txt = decode_content(d.get(cc)) if cc else ""
                 if not txt.strip():
