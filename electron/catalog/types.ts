@@ -94,7 +94,7 @@ export type AssetIngestion =
       responseIsPlainTextUrl?: boolean;
       /** file 字段名(默认 "file")。litterbox 用 "fileToUpload"。 */
       fileField?: string;
-      /** multipart 里除 file 外的固定文本字段(如 litterbox 的 reqtype=fileupload & time=1h)。 */
+      /** multipart 里除 file 外的固定文本字段(如 litterbox 的 reqtype=fileupload & time=24h)。 */
       extraFields?: Record<string, string>;
       /**
        * 可选:提取出 URL 后再做一次纯字符串替换。
