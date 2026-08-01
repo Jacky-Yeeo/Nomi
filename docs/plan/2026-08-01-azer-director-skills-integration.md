@@ -76,3 +76,17 @@ Nomi 反馈往外部 agent 界面送，按宿主能力路由（都由同一 MCP 
 - **Phase B · 确认门 surfacing**：rendererBridge 从「只确认花钱」推广到 方案/参考图/生成 三门（应用内卡），走查验。
 - **Phase C · MCP Apps 活生成 widget**：GUI 宿主内嵌 Nomi 面板。⚠️需支持该扩展的宿主才能真验（本机无）→建好+验能验的(HTML独立渲染+协议层serving单测)，渲染在 Claude/WorkBuddy 侧诚实标注待宿主验，不假报完成。
 - **Phase D · 落 main**：13+commit 正经合并（main 已并行分叉）→五门→push。
+
+## ✅ Phase A/B/C 已完成（2026-08-02·真机走查眼见链验）
+
+- **Phase A ✅ 应用内闭环端到端跑通并眼见链验**（`tests/ux/draft-loop.walk.mjs`，NOMI_R16_GEN=1 花真图额度）：真 GUI + 真文本大脑 + 真图片模型走完整旅程——创作区「拆成镜头·落画布」→ 规划师出 7–8 镜方案（物理化 prompt + 演时换算）→「确认落画布」落 10 节点（3 参考卡 + 7 镜，带参考边）→ 选中浮条付费确认 → 依赖波次真出图（参考先→镜头后，9 真资产，真电影级镜头）→ 时间轴「AI 拼片」按镜序排 8 镜 → 预览可播初稿 / 导出 MP4。**发现皆非 Nomi bug**：走查工具时序（已修）+ 供应商偶发超时（外部；应用侧「上游未生成」级联提示 + 重试都健全，真实用户点重试即恢复，走查已复现）。观察：「AI 拼片」是时间轴工具条纯图标按钮，可探索性可再打磨（未在本轮改，属独立打磨项）。
+- **Phase B ✅ 确认门 surfacing 推广 + 眼见链验**（`tests/ux/plan-gate.walk.mjs`，零额度）：确认桥从「只 spend.confirm」推广到 **方案门/参考图门/生成门**，全走全仓唯一漏斗 `useSpendConfirmStore`+`SpendConfirmDialog`（不建并行卡，遵 §3.5）。
+  - `SpendConfirmRequest.kind`（generation/reference/plan）→ 对话框图标/副标按门类派生（方案=分镜 IconMovie、参考图=相机 IconPhoto、生成=机器人/金币）。
+  - **方案门**：外部 MCP agent 批量落节点（≥2）时，`core.addProjectNodes` 经 `gateway.confirmPlan` → `requestRenderer('plan.confirm')` 弹应用内卡（app 开着；headless 免费可撤直放行，付费门/方案门按「可逆性」分级）。真机走查证实：外部 stdio agent → GUI 弹方案卡 → 点「落到画布」→ 3 节点真落。**走查抓出并修**：方案卡副标误用付费文案「需你确认花费」与「不花额度」自相矛盾 → 新增 `agentNoticePlan`「需你确认落画布」。
+  - **参考图门 vs 生成门**：`confirmSpendForAgent` 按 `node.meta.referenceSheet` 派生 kind（相机图标+「生成参考图」措辞 vs 机器人+「生成镜头」）。旧 spend 确认零回归（kind 缺省 → 原图标/文案不变）。
+  - 单测：`core.test.ts` 方案门（批准落/拒绝回 cancelled 零副作用/单节点不弹）。
+- **Phase C ✅ 建好 + 验能验的（渲染在宿主侧诚实标注待验）**：MCP Apps 扩展 `io.modelcontextprotocol/ui`（Stable 2026-01-26，R5 实查 ext-apps `specification/2026-01-26/apps.mdx`）。
+  - `electron/capabilityCore/mcpAppWidget.ts`：自包含活生成 widget HTML（Nomi 调色板光/暗双模 + 逐镜缩略图/状态点 + 视图↔宿主 postMessage 握手 `ui/initialize`/`ui/notifications/tool-result`/`ui/open-link`）。
+  - `mcpProtocol.ts`：initialize 捕获客户端 UI 扩展；`nomi_generate` 挂 `_meta.ui.resourceUri`；`resources/list` 列 `ui://`、`resources/read` 回 `text/html;profile=mcp-app` widget；结果带 `structuredContent.nomiDraft`。**全部 gated on 客户端声明扩展**——纯终端客户端零 widget 字段、原文本结果零回归。
+  - **验**：协议层 serving 8 单测（`nomiMcpApps.test.ts`）+ widget 独立浏览器渲染截图（light/dark/empty，本人 Read 亲眼看，Nomi 风格正确）。
+  - **诚实缺口**：在真 GUI 宿主（claude.ai 需域名签名 / Claude 桌面 / WorkBuddy）里的**内嵌渲染效果本机无法验**（无支持该扩展的宿主）→ 待宿主验，不假报「渲染在 Claude 里通了」。确认仍走 elicitation（已有）；widget = 活生成反馈面板那一半（对齐宿主适配表）。
