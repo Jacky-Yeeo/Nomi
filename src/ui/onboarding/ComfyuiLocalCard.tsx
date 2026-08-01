@@ -30,6 +30,10 @@ const BUILTIN_COMFYUI_TXT2IMG_MODEL_KEY = 'comfyui-txt2img'
 type ComfyuiHealth = { ok: true; summary: string; version?: string } | { ok: false; error: string }
 
 type ComfyuiLocalCardProps = {
+  /** 多实例：这张卡是哪一台（第一台=comfyui-local，第 2+ 台=comfyui-local-*）。缺省第一台。 */
+  vendorKey?: string
+  /** 这台的显示名（vendor.name）——卡头显示它，用户靠名字认机器。 */
+  instanceName?: string
   /** vendor.enabled（父组件从 listVendors 下传，单一来源）。 */
   enabled: boolean
   /** vendor.baseUrlHint（缺省回落默认端口）。 */
@@ -63,8 +67,8 @@ function readWorkflowDraft(meta: unknown): WorkflowDraft | null {
   return { text, binding: binding as WorkflowBinding }
 }
 
-function readWorkflowDraftFromMapping(mappings: ComfyuiLocalCardProps['mappings'], modelKey: string): WorkflowDraft | null {
-  const mapping = mappings?.find((item) => item.vendorKey === COMFYUI_VENDOR_KEY && item.modelKey === modelKey)
+function readWorkflowDraftFromMapping(mappings: ComfyuiLocalCardProps['mappings'], modelKey: string, vendorKeyForMapping: string): WorkflowDraft | null {
+  const mapping = mappings?.find((item) => item.vendorKey === vendorKeyForMapping && item.modelKey === modelKey)
   const create = mapping?.create
   const body = create && typeof create === 'object' ? (create as { body?: unknown }).body : null
   const prompt = body && typeof body === 'object' ? (body as { prompt?: unknown }).prompt : null
@@ -72,8 +76,11 @@ function readWorkflowDraftFromMapping(mappings: ComfyuiLocalCardProps['mappings'
   return { text: JSON.stringify(prompt, null, 2) }
 }
 
-export function ComfyuiLocalCard({ enabled, baseUrl, models, mappings, onChanged }: ComfyuiLocalCardProps): JSX.Element | null {
+export function ComfyuiLocalCard({ vendorKey, instanceName, enabled, baseUrl, models, mappings, onChanged }: ComfyuiLocalCardProps): JSX.Element | null {
   const { t } = useTranslation()
+  // 多实例：所有写操作都打到**这一台**（缺省第一台，存量调用零改动）。
+  const key = vendorKey || COMFYUI_VENDOR_KEY
+  const isFirstInstance = key === COMFYUI_VENDOR_KEY
   const catalog = getDesktopBridge()?.modelCatalog
   const [health, setHealth] = React.useState<ComfyuiHealth | null>(null)
   const [checking, setChecking] = React.useState(false)
@@ -112,7 +119,7 @@ export function ComfyuiLocalCard({ enabled, baseUrl, models, mappings, onChanged
     setBusy(true)
     try {
       const r = await probe()
-      catalog.upsertVendor({ key: COMFYUI_VENDOR_KEY, enabled: true }) // 只翻 enabled，applyVendorUpsert 保留 authType/baseUrl
+      catalog.upsertVendor({ key, enabled: true }) // 只翻 enabled，applyVendorUpsert 保留 authType/baseUrl
       onChanged()
       toast(r.ok ? t('onboardingProviders.comfyLocal.enabled') : t('onboardingProviders.comfyLocal.enabledWithoutConnection'), r.ok ? 'success' : 'info')
     } catch (e) {
@@ -125,7 +132,7 @@ export function ComfyuiLocalCard({ enabled, baseUrl, models, mappings, onChanged
   const handleDisable = () => {
     setBusy(true)
     try {
-      catalog.upsertVendor({ key: COMFYUI_VENDOR_KEY, enabled: false })
+      catalog.upsertVendor({ key, enabled: false })
       setHealth(null)
       onChanged()
       toast(t('onboardingProviders.comfyLocal.disabled'), 'success')
@@ -139,10 +146,32 @@ export function ComfyuiLocalCard({ enabled, baseUrl, models, mappings, onChanged
   const handleSaveAddr = async () => {
     const next = addrDraft.trim()
     if (!next) return
-    catalog.upsertVendor({ key: COMFYUI_VENDOR_KEY, baseUrlHint: next })
+    catalog.upsertVendor({ key, baseUrlHint: next })
     setEditing(false)
     onChanged() // 父组件重查 → baseUrl 变 → useEffect 重探
     toast(t('onboardingProviders.comfyLocal.addressUpdated'), 'success')
+  }
+
+  /** 整台移除（仅自己加的第 2+ 台）：连同它名下的工作流一起删——那些工作流指向的是这台的地址，留着是死的。 */
+  const handleRemoveInstance = async () => {
+    const ok = await confirmDialog({
+      title: t('onboardingProviders.comfyInstance.removeTitle'),
+      message: t('onboardingProviders.comfyInstance.removeMessage', { name: instanceName || key, count: models.length }),
+      confirmLabel: t('common.delete'),
+      danger: true,
+    })
+    if (!ok) return
+    setBusy(true)
+    try {
+      if (models.length > 0) catalog.deleteModels(models.map((m) => ({ vendorKey: key, modelKey: m.modelKey })))
+      catalog.deleteVendor?.(key)
+      onChanged()
+      toast(t('onboardingProviders.comfyInstance.removed', { name: instanceName || key }), 'success')
+    } catch (e) {
+      void alertDialog({ title: t('onboardingProviders.drawer.deleteFailed'), message: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setBusy(false)
+    }
   }
 
   const handleDeleteModel = async (model: { modelKey: string; labelZh: string }) => {
@@ -154,7 +183,7 @@ export function ComfyuiLocalCard({ enabled, baseUrl, models, mappings, onChanged
     })
     if (!ok) return
     try {
-      catalog.deleteModels([{ vendorKey: COMFYUI_VENDOR_KEY, modelKey: model.modelKey }])
+      catalog.deleteModels([{ vendorKey: key, modelKey: model.modelKey }])
       onChanged()
       toast(t('onboardingProviders.comfyLocal.workflowDeleted', { name: model.labelZh }), 'success')
     } catch (e) {
@@ -196,7 +225,7 @@ export function ComfyuiLocalCard({ enabled, baseUrl, models, mappings, onChanged
     <FoldableModelCard
       glyph={<IconServerBolt size={16} stroke={1.6} />}
       glyphTone="ink"
-      name={t('onboardingProviders.comfyLocal.cardName')}
+      name={instanceName || t('onboardingProviders.comfyLocal.cardName')}
       subtitle={t('onboardingProviders.comfyLocal.cloudSubtitle')}
       status={cardStatus}
       statusLabel={statusLabel}
@@ -243,7 +272,7 @@ export function ComfyuiLocalCard({ enabled, baseUrl, models, mappings, onChanged
             const isVideo = m.kind === 'video'
             const Icon = isVideo ? IconMovie : IconPhoto
             const canDelete = m.modelKey !== BUILTIN_COMFYUI_TXT2IMG_MODEL_KEY
-            const draft = canDelete ? readWorkflowDraft(m.meta) ?? readWorkflowDraftFromMapping(mappings, m.modelKey) : null
+            const draft = canDelete ? readWorkflowDraft(m.meta) ?? readWorkflowDraftFromMapping(mappings, m.modelKey, key) : null
             const canEdit = Boolean(draft)
             const actionsVisible = activeWorkflowActionKey === m.modelKey
             return (
@@ -296,6 +325,7 @@ export function ComfyuiLocalCard({ enabled, baseUrl, models, mappings, onChanged
               </div>
               {editingWorkflowKey === m.modelKey && draft ? (
                 <ComfyuiWorkflowImportPanel
+                  vendorKey={key}
                   initial={{ modelKey: m.modelKey, labelZh: m.labelZh, text: draft.text, binding: draft.binding }}
                   onCancel={() => setEditingWorkflowKey(null)}
                   onImported={() => { setEditingWorkflowKey(null); onChanged() }}
@@ -306,13 +336,13 @@ export function ComfyuiLocalCard({ enabled, baseUrl, models, mappings, onChanged
           })}
 
           {/* 模板库（T2）：读用户自己 ComfyUI 里的几百个官方模板——「我这台能用什么」的主入口 */}
-          <ComfyuiTemplateLibrary vendorKey={COMFYUI_VENDOR_KEY} modelLabels={models.map((m) => m.labelZh)} onImported={onChanged} />
+          <ComfyuiTemplateLibrary vendorKey={key} modelLabels={models.map((m) => m.labelZh)} onImported={onChanged} />
 
           {/* 预置模板（S5）：内置 WAN2.2，离线也有一条能用的路（ComfyUI 没模板包时的兜底） */}
           <ComfyuiPresetSection modelLabels={models.map((m) => m.labelZh)} onImported={onChanged} />
 
           {/* 自定义工作流导入（S4）：内置文生图之外，用户可导入自己的 WAN 文生/图生视频等工作流 */}
-          <ComfyuiWorkflowImportPanel onImported={onChanged} />
+          <ComfyuiWorkflowImportPanel vendorKey={key} onImported={onChanged} />
 
           {addrRow}
 
@@ -322,6 +352,12 @@ export function ComfyuiLocalCard({ enabled, baseUrl, models, mappings, onChanged
             </button>
             <span className="flex-1" />
             <button type="button" onClick={handleDisable} disabled={busy} className="text-caption text-nomi-ink-40 hover:text-workbench-danger disabled:opacity-50">{t('onboardingProviders.comfyLocal.disable')}</button>
+            {/* 多实例：自己加的那几台可以整台移除；第一台是种子（只能停用，不给删——删了种子会被重种回来） */}
+            {!isFirstInstance ? (
+              <button type="button" onClick={handleRemoveInstance} disabled={busy} className="text-caption text-nomi-ink-40 hover:text-workbench-danger disabled:opacity-50">
+                {t('onboardingProviders.comfyInstance.remove')}
+              </button>
+            ) : null}
           </div>
         </>
       )}
