@@ -690,6 +690,7 @@ export default function NomiStudioApp(): JSX.Element {
           projectName={activeProject?.name}
           onBackToLibrary={backToLibrary}
           onOpenModelCatalog={() => setModelCatalogOpened(true)}
+          onOpenSettings={() => setSettingsOpened(true)}
           onRenameProject={handleRenameProject}
         />
 
@@ -698,6 +699,7 @@ export default function NomiStudioApp(): JSX.Element {
             <OnboardingFloatingPanel opened={modelCatalogOpened} onClose={closeModelCatalog} />
           </React.Suspense>
         ) : null}
+        {settingsOpened ? <SettingsDialog onClose={() => setSettingsOpened(false)} /> : null}
 
         {promptLibraryOpened ? (
           <React.Suspense fallback={null}>

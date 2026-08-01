@@ -87,7 +87,21 @@ try {
   console.log(`  Esc 后关闭 = ${stillOpen === 0}`)
   if (stillOpen !== 0) { failed = true; console.error('  ❌ Esc 没关闭设置页') }
 
-  console.log(failed ? '\n❌ 走查有断言失败' : '\n✅ 集中设置页走查全过：齿轮→设置页→目录显示→开开关持久化→切tab→Esc关闭')
+  // studio 入口：新建项目进画布 → studio 顶栏齿轮 → 同一设置页（另一入口）
+  await win.getByText('新建空白项目', { exact: false }).first().click()
+  await win.waitForTimeout(2400)
+  await win.keyboard.press('Escape').catch(() => {})
+  // 限定 studio 顶栏（.nomi-appbar）——项目库是 hidden 切换不卸载，getByRole first() 会误点隐藏的项目库齿轮。
+  const studioGear = win.locator('.nomi-appbar').getByRole('button', { name: '设置', exact: true }).first()
+  await studioGear.waitFor({ timeout: 8000 })
+  await studioGear.click()
+  await win.waitForTimeout(700)
+  const studioDialog = await win.locator('[role="dialog"][aria-label="设置"]').count()
+  console.log(`  studio 顶栏齿轮开设置页 = ${studioDialog > 0}`)
+  if (studioDialog === 0) { failed = true; console.error('  ❌ studio 齿轮没开设置页') }
+  await shot(win, '04-studio-settings.png')
+
+  console.log(failed ? '\n❌ 走查有断言失败' : '\n✅ 集中设置页走查全过：项目库齿轮→设置页→开关持久化→Esc关闭；studio 顶栏齿轮也能开')
   if (errors.length) console.log('  ⚠️ 页面错误：', errors.slice(0, 5))
 } catch (e) {
   failed = true

@@ -41,7 +41,7 @@
 5. ✅ **接线**：`generationRunController:207 addNodeResult` 后调 auto-save（fire-and-forget，只新生成图/视频，找回不触发）
 6. ✅ **i18n**（`locales/settings.ts` zh+en）+ **真机走查**：齿轮→设置页→目录显示→开开关（download-prefs 落 enabled=true、目录不丢）→切 tab→Esc 关闭，亲眼核 2 截图
 
-**全链完成**（五门过）。剩：⬜ studio 工作区顶栏也加设置齿轮入口（WorkbenchShell→顶栏子组件传 prop，后续）；⬜ 端到端「生成→副本落盘」真机验证需真实生成（复制逻辑已 9 单测 + 接线）。
+**全链完成**（五门过）。✅ studio 工作区顶栏也加了设置齿轮（NomiAppBar 齿轮 + WorkbenchShell 传 prop + NomiStudioApp studio 分支挂 SettingsDialog）——真机走查两入口都能开同一设置页。剩：⬜ 端到端「生成→副本落盘」真机验证需真实生成（复制逻辑已 9 单测 + 接线）。
 
 ## 验收门
 
