@@ -7,6 +7,11 @@ const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8')
 const expect = (value, message) => {
   if (!value) throw new Error(`MARKETING HOME FAIL: ${message}`)
 }
+const expectBefore = (document, token, boundary, message) => {
+  const tokenIndex = document.indexOf(token)
+  const boundaryIndex = document.indexOf(boundary)
+  expect(tokenIndex >= 0 && boundaryIndex >= 0 && tokenIndex < boundaryIndex, message)
+}
 
 const zh = read('marketing/index.html')
 const en = read('marketing/en/index.html')
@@ -89,4 +94,14 @@ for (const label of ['Community', 'For Teams', 'Custom builds', 'Integrations', 
 }
 expect(readmeEn.includes('github.com/aqm857886159/Nomi/discussions'), 'English README keeps Discussions')
 expect(readmeEn.includes('business_inquiry.yml'), 'English README keeps business inquiry')
+const readmeHero = '[![Nomi director workflow]'
+const readmeZhHero = '[![Nomi 导演工作流]'
+for (const [token, label] of [
+  ['<img src="docs/media/nomi-canvas-group-wechat.png"', 'group QR'],
+  ['<img src="docs/media/qingyang-wechat.jpg"', 'maintainer QR'],
+  ['TZ857886159', 'textual WeChat fallback'],
+]) {
+  expectBefore(readmeEn, token, readmeHero, `English default README keeps ${label} before hero`)
+  expectBefore(readmeZh, token, readmeZhHero, `Chinese README keeps ${label} before hero`)
+}
 console.log('MARKETING HOME STATIC PASS')
