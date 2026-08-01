@@ -20,6 +20,7 @@ import {
   loadProjectConversations,
 } from './ai/conversationPersistence'
 import { initReviewEventBridge } from './generationCanvas/reviewEventBridge'
+import { initResultUrlRelocalizeBridge } from './generationCanvas/resultUrlRelocalizeBridge'
 import { setCanvasEventProjectIdProvider } from './generationCanvas/events/canvasEventEmitter'
 import { registerCapabilityApplyHandler } from './capability/capabilityApplyHandler'
 import { cn } from '../utils/cn'
@@ -264,6 +265,8 @@ export default function NomiStudioApp(): JSX.Element {
   React.useEffect(() => initConversationPersistence(() => activeProjectIdRef.current ?? null), [])
   // S4-2b:技术自检广播 → 节点 meta(⚠ 投影数据源)。
   React.useEffect(() => initReviewEventBridge(), [])
+  // 生成结果补救本地化:http(s) 结果趁链接活着落盘为 nomi-local(治「视频第二天加载不出来」存量)。
+  React.useEffect(() => initResultUrlRelocalizeBridge(), [])
   // S5-a:画布影子事件的 projectId(flush 时刻取值,防切换期错绑)。
   React.useEffect(() => setCanvasEventProjectIdProvider(() => activeProjectIdRef.current ?? null), [])
   // 能力核 A 模式实时桥:注册处理器,接主进程转发来的外部 MCP 画布读/写/付费确认(所见即所得)。

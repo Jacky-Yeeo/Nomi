@@ -51,6 +51,7 @@ export { localizedTaskAssetFileName };
 // 任务执行复用 catalog 状态（readCatalog + extractVendorExtraHeaders 纯函数）；
 // catalogStore 反向复用本文件任务引擎 → 运行期循环引用（CommonJS 安全）。
 import { extractVendorExtraHeaders, readCatalog } from "./catalog/catalogStore";
+import { activeTaskProjectFallback, unlocalizedTaskAsset } from "./tasks/activeProjectFallback";
 
 import type { BillingModelKind, HttpOperation, Mapping, Model, ProfileKind, Vendor } from "./catalog/types";
 import { billingKindForTaskKind, selectExecutableModel, selectTaskMapping } from "./catalog/types";
@@ -264,7 +265,7 @@ export async function executeProfileOperation(input: {
     return executeProcessOperation({
       process: input.operation.process,
       context,
-      projectId: trim(input.request.extras?.projectId),
+      projectId: trim(input.request.extras?.projectId) || activeTaskProjectFallback(),
       writeAsset,
     });
   }
@@ -349,7 +350,7 @@ export async function buildProfileTaskResult(input: {
     input.wantedKind === "video" ? "video" : input.wantedKind === "model3d" ? "model3d" : "image";
   const assets = input.projectId
     ? await Promise.all(assetUrls.map((url) => localizeTaskAsset(input.projectId || "", url, type, input.nodeId, input.vendor)))
-    : assetUrls.map((url) => ({ type, url, thumbnailUrl: type === "image" ? url : null }));
+    : assetUrls.map((url) => unlocalizedTaskAsset(type, url));
   return {
     providerMeta,
     result: {
@@ -383,7 +384,7 @@ export async function runTask(payload: unknown): Promise<TaskResult> {
   const wantedKind = billingKindForTaskKind(kind);
   const modelKey = firstString(request.extras?.modelKey, request.extras?.modelAlias);
   const { vendor, model, apiKey } = findExecutableModel(vendorKey, modelKey, wantedKind);
-  const projectId = trim(request.extras?.projectId);
+  const projectId = trim(request.extras?.projectId) || activeTaskProjectFallback();
   const nodeId = trim(request.extras?.nodeId);
   const grantId = trim(request.extras?.grantId);
   const taskId = `task-${crypto.randomUUID()}`;
@@ -527,8 +528,7 @@ export async function runTask(payload: unknown): Promise<TaskResult> {
   const type: "image" | "video" | "model3d" =
     wantedKind === "video" ? "video" : wantedKind === "model3d" ? "model3d" : "image";
   const asset: TaskResult["assets"][number] = projectId
-    ? await localizeTaskAsset(projectId, assetUrl, type, nodeId, vendor)
-    : { type, url: assetUrl, thumbnailUrl: type === "image" ? assetUrl : null };
+    ? await localizeTaskAsset(projectId, assetUrl, type, nodeId, vendor) : unlocalizedTaskAsset(type, assetUrl);
   // E11 provenance + S4-1 终态事件:与 profile 路径共用 vendor/provenance 模块(单一真相)。
   const provenance = buildTaskProvenance({ vendor, model, request, vendorRequestId: upstreamTaskId });
   traceVendorCompleted(projectId, { runId: upstreamTaskId, nodeId, status: "succeeded", assetCount: 1 });
