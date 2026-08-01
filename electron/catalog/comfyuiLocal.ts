@@ -31,6 +31,10 @@ function isRec(value: unknown): value is Record<string, unknown> {
 function comfyuiErrorMessage(status: Record<string, unknown>): string {
   const messages = Array.isArray(status.messages) ? status.messages : [];
   for (const m of messages) {
+    // 用户主动打断（遮罩取消按钮 /interrupt，或在 ComfyUI 网页端停止）→「已取消」，不当红色失败文案吓人。
+    if (Array.isArray(m) && m[0] === "execution_interrupted") {
+      return "已取消（在 ComfyUI 端被打断）";
+    }
     if (Array.isArray(m) && m[0] === "execution_error" && isRec(m[1])) {
       const detail = m[1] as Record<string, unknown>;
       if (typeof detail.exception_message === "string" && detail.exception_message.trim()) {
@@ -234,6 +238,9 @@ export const COMFYUI_VENDOR_SEED = {
 // ─────────────────────────────────────────────────────────────────────────────
 // meta.parameters 控件（parseModelParameterControls 消费）。default 走 UI 路；同表派生 create.defaultParams
 // 走 headless/MCP 路（单一真相源，不各写一份漂移）。prompt 走标准 {{request.prompt}} 槽、不在此表。
+/** 共享参数标签（comfyuiPresets 复用，i18n 字面量门单源）。 */
+export const COMFY_NEGATIVE_LABEL = "负向提示词";
+
 const TXT2IMG_PARAMETERS = [
   // ckpt_name 默认留空 = 提交时从本机 /object_info derive 第一个 checkpoint（"comfyui-prompt" 请求变换）。
   // 旧默认写死 v1-5-pruned-emaonly.safetensors——没这个文件的人首跑必炸（微信 #2921「没任何反应」族根因）。
@@ -247,7 +254,7 @@ const TXT2IMG_PARAMETERS = [
     options: ["euler", "euler_ancestral", "dpmpp_2m", "dpmpp_2m_sde", "dpmpp_sde", "ddim", "uni_pc"],
   },
   { key: "comfy_seed", label: "随机种子", type: "number", default: 156680208700286 },
-  { key: "comfy_negative", label: "负向提示词", type: "text", default: "", placeholder: "不想出现的内容（可留空）" },
+  { key: "comfy_negative", label: COMFY_NEGATIVE_LABEL, type: "text", default: "", placeholder: "不想出现的内容（可留空）" },
 ] as const;
 
 /** 从参数表派生 headless 兜底默认值（单一真相源：与 UI 控件 default 同表，避免两处漂移）。 */

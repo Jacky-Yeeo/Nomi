@@ -28,6 +28,12 @@ import {
 } from './catalogTaskResolve'
 import { normalizeCatalogTaskResult } from './catalogTaskResultParse'
 import { localizeRemoteResultUrl } from './resultAssetLocalization'
+import {
+  ComfyuiTaskCancelledError,
+  isComfyuiCancelRequested,
+  unwatchComfyuiProgress,
+  watchComfyuiProgress,
+} from './comfyuiTaskControl'
 import { getActiveWorkbenchProjectId } from '../../project/workbenchProjectSession'
 import { RecoverableTimeoutError } from './recoverableTimeout'
 import { parseVendorErrorFromMessage } from './vendorErrorIpc'
@@ -305,7 +311,10 @@ async function waitForCatalogTaskResult(
   let pollFailureStreakStartedAt: number | null = null
   // 连续被限流的次数 → 指数退避的指数。查成功或换成别的失败原因即复位。
   let rateLimitStreak = 0
+  const cancelNodeId = asTrimmedString(request.extras?.nodeId)
   while (!TERMINAL_STATUSES.has(current.status)) {
+    // P 轨遮罩取消：/interrupt 已发（免费幂等），这里把免费轮询也即刻停掉，不等 20min 硬超时。
+    if (cancelNodeId && isComfyuiCancelRequested(cancelNodeId)) throw new ComfyuiTaskCancelledError()
     const elapsedMs = Date.now() - startedAt
     if (elapsedMs > hardTimeoutMs) {
       // 超时≠失败：上游可能仍在跑/已出片 → 抛可找回错误，节点落 recoverable，给「重新拉取」入口。
@@ -377,7 +386,23 @@ export async function runCatalogGenerationTask(
   report('requesting')
   const initialResult = await runTask(vendor, request)
   report('waiting', initialResult.id)
-  const finalResult = await waitForCatalogTaskResult(vendor, request, initialResult, options)
+  // P 轨：本地 ComfyUI 提交成功即登记 ws 进度（prompt_id→节点）。桥不在/失败 = 没进度，轮询照常。
+  const comfyWatching = vendor === 'comfyui-local' && Boolean(initialResult.id)
+  if (comfyWatching) {
+    watchComfyuiProgress({
+      promptId: initialResult.id,
+      nodeId: asTrimmedString(request.extras?.nodeId),
+      projectId: asTrimmedString(request.extras?.projectId),
+      taskKind: request.kind,
+      modelKey: asTrimmedString(request.extras?.modelKey) || null,
+    })
+  }
+  let finalResult: TaskResultDto
+  try {
+    finalResult = await waitForCatalogTaskResult(vendor, request, initialResult, options)
+  } finally {
+    if (comfyWatching) unwatchComfyuiProgress(initialResult.id)
+  }
   report('finalizing', initialResult.id)
   const normalized = normalizeCatalogTaskResult(finalResult, executableNode)
   // 结构闸：主进程漏本地化（projectId 时序为空）时，用「当前打开的项目」这一更可靠的 id 兜底，

@@ -37,3 +37,13 @@
 ## 回滚
 
 各件独立可回滚：请求变换层未声明即 no-op；reconcile 是独立 IPC + 面板增量块；ckpt 默认值改回即回旧行为。
+
+---
+
+## Tier-2（同日样张拍板后落地：取消=A 遮罩位 · WAN 模板带缺件闸）
+
+**W 轨 · WAN2.2 预置模板**：`electron/catalog/comfyuiPresets.ts`（官方 `03_video_wan2_2_14B_i2v_subgraphed.json` 逐线转 API 图，字段名逐类核 ComfyUI 源码 INPUT_TYPES；6 个模型文件清单带官方 HF 链 + 目录）→ `ComfyuiPresetSection.tsx`（缺件红 chip/逐文件 ✓✗/复制名/下载链/重检；缺件不给启用；启用走既有 import 链）。测试含「清单↔图不漂移」不变量。**走查逼出的根治**：对账路径必须 `bustComfyObjectInfoCache`（用户刚装完模型点重检，60s 缓存会说谎）。
+
+**P 轨 · ws 进度/活预览/遮罩取消/队列**：`electron/comfyuiProgressSocket.ts`（undici WebSocket 主进程长连 `/ws?clientId=nomi`——CSP 拦渲染层直连；prompt_id→node 注册表；executing/progress/execution_cached 事件 → 整体百分比；二进制 `>II` 预览帧节流 450ms/1.5MB 上限；/queue 位次节流探测；重连+TTL 清理）→ IPC watch/unwatch/interrupt → `comfyuiProgressBridge.ts`（narrate 注册表出人话，taskId 必须随补丁带回——setNodeProgress 是整体替换）→ `GeneratingOverlay` 升级（determinate 圆环复用 RemoveBackgroundProgressMark + 预览 img + pointer-events-auto 取消 pill；props 全缺省=旧遮罩逐像素一致，云任务零变化）。取消=/interrupt{prompt_id}+/queue delete 双发 best-effort + 轮询即刻停 + **controller 收口兜竞态**（点取消瞬间轮询拉回 interrupted 终态会盖成红卡——cancelRequested 登记在 catch 里优先判，走查实锤后修）。`execution_interrupted` → 「已取消」人话（外部打断时不吓人）。
+
+**验收**：单测 8+ 新文件全绿；三条真机走查（`comfyui-preset-walkthrough.mjs` 缺→装→启用三景、`comfyui-progress-walkthrough.mjs` 进度环/节点人话/取消 pill→idle、`comfyui-reconcile-walkthrough.mjs` 回归）截图全部人眼核过；五门全过落 main。

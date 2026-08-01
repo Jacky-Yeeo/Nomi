@@ -16,7 +16,6 @@ import { useNodeDragResize } from './useNodeDragResize'
 import { useHasFrameSourceEdge, useShotIndex, useMountedCards } from '../hooks/useNodeRelationships'
 import { lazyWithChunkBoundary } from '../../../ui/chunkBoundary'
 import {
-  GeneratingOverlay,
   PendingGenerationPlaceholder,
   RemoveBackgroundPendingOverlay,
   RemoveBackgroundPendingPlaceholder,
@@ -34,6 +33,7 @@ import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
 import type { ConnectionAnchorSide } from '../store/canvasStoreTypes'
 import { useWorkbenchStore } from '../../workbenchStore'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
+import { NodeGeneratingOverlay } from './NodeGeneratingOverlay'
 import { encodeTimelineGenerationNodeDragPayload, TIMELINE_GENERATION_NODE_DRAG_MIME } from '../../timeline/timelineDragPayload'
 import { getTrackTypeForClipType } from '../../timeline/timelineTypes'
 import { buildGenerationNodeTimelineClip } from '../../timeline/buildGenerationNodeTimelineClip'
@@ -672,7 +672,7 @@ function BaseGenerationNodeImpl({
         />
       ) : null}
 
-      {isGenerating && !isRemoveBackgroundPending ? <GeneratingOverlay /> : null}
+      {isGenerating && !isRemoveBackgroundPending ? <NodeGeneratingOverlay node={node} /> : null}
       {showSideTimelineDrag ? (
         <SideTimelineDragHandle onAddAtPlayhead={handleAddToTimelineAtPlayhead} onDragStart={handleTimelineDragStart} />
       ) : null}

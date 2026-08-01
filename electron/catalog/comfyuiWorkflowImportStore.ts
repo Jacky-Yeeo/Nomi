@@ -12,7 +12,7 @@ import {
   type WorkflowAnalysis,
   type WorkflowBinding,
 } from "./comfyuiWorkflowImport";
-import { fetchComfyuiObjectInfoIndex } from "../comfyuiObjectInfo";
+import { bustComfyObjectInfoCache, fetchComfyuiObjectInfoIndex } from "../comfyuiObjectInfo";
 import { COMFYUI_VENDOR_KEY } from "./types";
 
 export type AnalyzeWorkflowResult = { ok: true; analysis: WorkflowAnalysis } | { ok: false; error: string };
@@ -39,7 +39,10 @@ export async function reconcileComfyWorkflowText(text: unknown): Promise<Reconci
   try {
     const graph = parseComfyApiWorkflow(String(text ?? ""));
     const vendor = readCatalog().vendors.find((v) => v.key === COMFYUI_VENDOR_KEY);
-    const index = await fetchComfyuiObjectInfoIndex(String(vendor?.baseUrlHint || ""));
+    const baseUrl = String(vendor?.baseUrlHint || "");
+    // 对账是用户动作（分析/重新检测）：爆缓存拿新鲜事实——刚装好的模型必须立刻被认出来。
+    bustComfyObjectInfoCache(baseUrl);
+    const index = await fetchComfyuiObjectInfoIndex(baseUrl);
     if (!index) return { ok: true, serverReachable: false, unknownNodeTypes: [], missingEnumValues: [] };
     return { ok: true, serverReachable: true, ...reconcileComfyWorkflow(graph, index) };
   } catch (e) {

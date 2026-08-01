@@ -255,6 +255,17 @@ contextBridge.exposeInMainWorld("nomiDesktop", {
         ipcRenderer.removeListener("nomi:tasks:text:event", listener as never);
       };
     },
+    // ComfyUI ws 进度桥（P 轨）：watch 登记 → 主进程推 progress/preview/queue/done；interrupt=取消。
+    comfyuiWatch: (payload: unknown) => ipcRenderer.invoke("nomi:tasks:comfyui:watch", payload),
+    comfyuiUnwatch: (promptId: string) => ipcRenderer.invoke("nomi:tasks:comfyui:unwatch", promptId),
+    comfyuiInterrupt: (promptId: string) => ipcRenderer.invoke("nomi:tasks:comfyui:interrupt", promptId),
+    onComfyuiProgress: (callback: (event: unknown) => void) => {
+      const listener = (_event: unknown, payload: unknown) => callback(payload);
+      ipcRenderer.on("nomi:tasks:comfyui:progress", listener as never);
+      return () => {
+        ipcRenderer.removeListener("nomi:tasks:comfyui:progress", listener as never);
+      };
+    },
   },
   events: {
     append: (projectId: string, events: unknown[]) =>
@@ -409,6 +420,7 @@ contextBridge.exposeInMainWorld("nomiDesktop", {
     probeComfyui: (baseUrl?: string) => ipcRenderer.invoke("nomi:model-catalog:comfyui:probe", baseUrl),
     analyzeComfyWorkflow: (text: string) => invokeSync("nomi:model-catalog:comfyui:analyze-workflow", text),
     reconcileComfyWorkflow: (text: string) => ipcRenderer.invoke("nomi:model-catalog:comfyui:reconcile-workflow", text),
+    listComfyuiPresets: () => invokeSync("nomi:model-catalog:comfyui:presets"),
     importComfyWorkflow: (payload: { text: string; binding: unknown; labelZh: string }) =>
       invokeSync("nomi:model-catalog:comfyui:import-workflow", payload),
     updateComfyWorkflow: (payload: { modelKey: string; text: string; binding: unknown; labelZh: string }) =>

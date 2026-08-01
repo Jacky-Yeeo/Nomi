@@ -22,6 +22,7 @@ import {
   loadProjectConversations,
 } from './ai/conversationPersistence'
 import { initReviewEventBridge } from './generationCanvas/reviewEventBridge'
+import { initComfyuiProgressBridge } from './generationCanvas/comfyuiProgressBridge'
 import { initResultUrlRelocalizeBridge } from './generationCanvas/resultUrlRelocalizeBridge'
 import { setCanvasEventProjectIdProvider } from './generationCanvas/events/canvasEventEmitter'
 import { registerCapabilityApplyHandler } from './capability/capabilityApplyHandler'
@@ -268,6 +269,8 @@ export default function NomiStudioApp(): JSX.Element {
   React.useEffect(() => initConversationPersistence(() => activeProjectIdRef.current ?? null), [])
   // S4-2b:技术自检广播 → 节点 meta(⚠ 投影数据源)。
   React.useEffect(() => initReviewEventBridge(), [])
+  // P 轨:本地 ComfyUI ws 进度/活预览 → 节点遮罩(comfyui-* phase + 瞬态预览 store)。
+  React.useEffect(() => initComfyuiProgressBridge(), [])
   // 生成结果补救本地化:http(s) 结果趁链接活着落盘为 nomi-local(治「视频第二天加载不出来」存量)。
   React.useEffect(() => initResultUrlRelocalizeBridge(), [])
   // S5-a:画布影子事件的 projectId(flush 时刻取值,防切换期错绑)。

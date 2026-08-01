@@ -396,3 +396,13 @@ describe("fillEmptyCheckpoint（ckpt_name 留空 → 本机第一个 checkpoint�
     expect(out["1"].inputs.ckpt_name).toBe("");
   });
 });
+
+describe("comfyui-history 打断态", () => {
+  it("execution_interrupted → 「已取消」人话（不吓人的红失败文案）", () => {
+    const out = comfyuiHistoryTransform(
+      { "p1": { status: { status_str: "error", completed: false, messages: [["execution_interrupted", { prompt_id: "p1" }]] }, outputs: {} } },
+      { baseUrl: "http://127.0.0.1:8188" },
+    ) as { error?: string };
+    expect(out.error).toContain("已取消");
+  });
+});

@@ -499,6 +499,11 @@ export type DesktopBridge = {
     runTextStream: (payload: unknown) => Promise<{ streamId: string }>
     cancelTextStream: (streamId: string) => Promise<unknown>
     onTextEvent: (streamId: string, callback: (event: unknown) => void) => () => void
+    /** ComfyUI ws 进度桥（P 轨）。旧 preload 可能没有 → 全部可选。 */
+    comfyuiWatch?: (payload: { promptId: string; nodeId: string; projectId?: string; taskKind?: string; modelKey?: string | null }) => Promise<{ ok: boolean }>
+    comfyuiUnwatch?: (promptId: string) => Promise<void>
+    comfyuiInterrupt?: (promptId: string) => Promise<{ ok: boolean }>
+    onComfyuiProgress?: (callback: (event: unknown) => void) => () => void
   }
   agents: {
     chatV2Start: (payload: unknown) => Promise<{ sessionId: string }>
@@ -671,6 +676,11 @@ export type DesktopBridge = {
       | { ok: true; serverReachable: boolean; unknownNodeTypes: string[]; missingEnumValues: Array<{ nodeId: string; classType: string; title?: string; inputKey: string; value: string }> }
       | { ok: false; error: string }
     >
+    /** ComfyUI 预置模板清单（S5）：静态数据，启用前走 reconcile 缺件闸。旧 preload 可能没有 → 可选。 */
+    listComfyuiPresets?: () => Array<{
+      key: string; labelZh: string; descZh: string; workflowText: string; binding: unknown
+      models: Array<{ file: string; dir: string; url: string }>
+    }>
     /** 按绑定落库为用户自有 model+mapping（同步）。 */
     importComfyWorkflow: (payload: { text: string; binding: unknown; labelZh: string }) =>
       { ok: true; modelKey: string; kind: string; taskKind: string } | { ok: false; error: string }

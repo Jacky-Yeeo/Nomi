@@ -65,7 +65,7 @@ const STRING_CONCAT_RE = /string.*concat|concat.*string/i;
 const TEXT_GENERATE_RE = /textgenerate/i;
 // 常见可暴露的数值 widget（按优先序去重，避免一张 WAN 图几十个数值全暴露成噪音）。
 const NUMERIC_PRIORITY = ["seed", "steps", "cfg", "denoise", "width", "height", "length", "frames", "num_frames", "fps", "frame_rate", "batch_size"];
-const NUMERIC_LABEL: Record<string, string> = {
+export const NUMERIC_LABEL: Record<string, string> = {
   seed: "随机种子", steps: "采样步数", cfg: "CFG 强度", denoise: "重绘幅度", width: "宽度", height: "高度",
   length: "帧数/时长", frames: "帧数", num_frames: "帧数", fps: "帧率", frame_rate: "帧率", batch_size: "批量",
 };

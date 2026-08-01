@@ -71,6 +71,18 @@ export function _resetComfyObjectInfoCacheForTest(): void {
   cache.clear();
 }
 
+/**
+ * 按 baseUrl 爆缓存。用户动作驱动的对账（导入分析 / 预置模板「重新检测」）必须拿新鲜事实——
+ * 用户刚把模型放进目录、点重检还看到 60s 前的「缺」是假话（走查实锤过）。提交路径的 checkpoints
+ * 缓存不受影响（那边 60s 内多次提交共享一份没问题）。
+ */
+export function bustComfyObjectInfoCache(baseUrl: string): void {
+  const prefix = normalizeBase(baseUrl);
+  for (const key of [...cache.keys()]) {
+    if (key.startsWith(prefix)) cache.delete(key);
+  }
+}
+
 /** 全量能力索引（导入对账用）。null = 服务器不可达/异常（调用方跳过核对，别当「没装任何节点」）。 */
 export async function fetchComfyuiObjectInfoIndex(baseUrl: string): Promise<ComfyObjectInfoIndex | null> {
   const url = `${normalizeBase(baseUrl)}/object_info`;
