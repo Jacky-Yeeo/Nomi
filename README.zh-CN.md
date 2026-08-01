@@ -12,10 +12,26 @@ Nomi 是本地优先、开源的 AI 视频导演工作台：把故事、分镜�
 
 ## 微信联系
 
-| 加入 Nomi 用户群 | 群码失效 / 商务合作 |
-|:---:|:---:|
-| <a href="docs/media/nomi-canvas-group-wechat.png"><img src="docs/media/nomi-canvas-group-wechat.png" alt="Nomi 用户群微信二维码" width="160" /></a> | <a href="docs/media/qingyang-wechat.jpg"><img src="docs/media/qingyang-wechat.jpg" alt="Nomi 作者青阳的微信二维码" width="160" /></a> |
-| 扫码加入“nomi 画布群”，反馈会直接进入产品迭代。 | 群码失效，或沟通定制开发、系统集成、贴牌交付与持续迭代，请添加作者微信 **TZ857886159**。 |
+### 加入 Nomi 用户群
+
+<p align="center">
+  <a href="docs/media/nomi-canvas-group-wechat.png"><img src="docs/media/nomi-canvas-group-wechat.png" alt="Nomi 用户群微信二维码" width="220" /></a>
+</p>
+
+<p align="center">
+  <strong>扫码加入 Nomi 用户群</strong><br />
+  群内反馈会直接进入产品迭代。
+</p>
+
+### 群码失效 / 项目合作
+
+<p align="center">
+  <a href="docs/media/qingyang-wechat.jpg"><img src="docs/media/qingyang-wechat.jpg" alt="Nomi 作者青阳的微信二维码" width="180" /></a>
+</p>
+
+<p align="center">
+  群码失效，或沟通定制开发、系统集成、贴牌交付与持续迭代，请添加作者微信 <strong>TZ857886159</strong>。
+</p>
 
 [参与 GitHub 讨论](https://github.com/aqm857886159/Nomi/discussions) · [提交商务咨询](https://github.com/aqm857886159/Nomi/issues/new?template=business_inquiry.yml)
 

@@ -22,12 +22,12 @@ GitHub 仓库首页自动展示根目录 README；官方文档只定义 `.github
 
 两份 README 都保持 Logo、标题、主张、简介和语言/官网导航不变。紧接导航链接、在 badges 与宣传片海报之前插入二维码转化块：
 
-1. 左列：`加入 Nomi 用户群 / Join the Nomi user group`，展示 `docs/media/nomi-canvas-group-wechat.png`。
-2. 右列：`群码失效或商务合作 / Maintainer & business`，展示 `docs/media/qingyang-wechat.jpg`，同时明文写出 `TZ857886159`。
+1. 第一块：`加入 Nomi 用户群 / Join the Nomi user group`，用 220 px 宽的纵向大图展示 `docs/media/nomi-canvas-group-wechat.png`，让中文用户先看到、先扫码。
+2. 第二块：`群码失效或项目合作 / Maintainer & project collaboration`，在用户群之后展示 `docs/media/qingyang-wechat.jpg`，同时明文写出 `TZ857886159`。
 3. 默认英文 README 的标题和说明采用中英文并列，并保留 GitHub Discussions 链接，避免微信成为国际用户唯一入口。
 4. 中文 README 使用中文主文案，保留官网、下载、夸克镜像、用户群和团队合作链接。
 
-二维码使用 GitHub 支持的 Markdown table + HTML `<img>`，单图宽度 160 px：桌面端并排，窄屏仍能在 GitHub 的表格容器内稳定显示。图片可点击打开原图，方便手机端长按识别或另一个设备扫码。
+二维码使用纵向 HTML `<p>` + `<img>`，不放进 Markdown table。真实 GitHub 窄屏走查证明双列表格会把左侧群二维码压缩到约 69 px，不利于扫码；纵向结构让群二维码在 390 px 窄屏仍保持 220 px，作者二维码保持 180 px。图片可点击打开原图，方便手机端长按识别或另一个设备扫码。
 
 ## 4. 不重复与不删除
 
@@ -43,13 +43,13 @@ GitHub 仓库首页自动展示根目录 README；官方文档只定义 `.github
 - 默认 `README.md` 必须直接包含群二维码 `<img>`、作者二维码 `<img>`、`TZ857886159` 与 Discussions。
 - 中文 `README.zh-CN.md` 必须直接包含相同两张二维码 `<img>` 与微信号。
 - 两份 README 中两张二维码的 `<img>` 位置都必须早于宣传片海报，保证它们不是“存在但又被下移”。
+- 首屏转化块不得使用会压缩列宽的 Markdown table；用户群二维码源码宽度必须保持 200–299 px，并且顺序早于作者二维码。
 - 两张二维码文件必须继续真实存在且非空；原有团队服务、下载、夸克镜像与 Business Inquiry 契约继续保留。
 
 ## 6. 验收标准
 
-1. 打开 GitHub 仓库首页，无需进入中文 README 就能在首屏看到群二维码与作者二维码。
+1. 打开 GitHub 仓库首页，无需进入中文 README 就能先看到可直接扫码的用户群二维码，作者二维码紧随其后。
 2. 进入中文 README，同样无需滚到下载或团队服务之后即可看到双二维码。
 3. 英文用户仍能直接进入 Website、Download、GitHub Discussions、For Teams 和英文文档。
 4. `TZ857886159` 以文字存在，即使图片无法加载也能联系。
 5. 删除任一默认首屏二维码、把二维码下移到宣传片海报之后，静态契约都会失败。
-
