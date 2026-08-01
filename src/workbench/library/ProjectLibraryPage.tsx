@@ -9,6 +9,7 @@ import {
   IconPlayerPlay,
   IconPlugConnected,
   IconPlus,
+  IconSettings,
   IconSparkles,
   IconTrash,
 } from '@tabler/icons-react'
@@ -31,6 +32,8 @@ type Props = {
   onOpenFolder?: () => void
   onRevealProjectFolder?: (projectId: string) => void
   onOpenModelCatalog?: () => void
+  /** 打开集中设置页（顶栏齿轮）；缺省则不渲染齿轮入口。 */
+  onOpenSettings?: () => void
   /** 看「60 秒预置回放」引导旅途（建示例项目 + 走一遍全流程）；缺省则不渲染该卡 */
   onPlayJourneyTour?: () => void
   /** 旅途是否看过——决定 CTA 文案在「看一遍 / 重看」之间切换 */
@@ -82,6 +85,7 @@ export default function ProjectLibraryPage({
   onOpenFolder,
   onRevealProjectFolder,
   onOpenModelCatalog,
+  onOpenSettings,
   onPlayJourneyTour,
   journeyTourSeen = false,
   onReplaySplash,
@@ -179,6 +183,20 @@ export default function ProjectLibraryPage({
         <IconBrowser size={14} stroke={1.8} aria-hidden="true" />
         {t('library.browser')}
       </button>
+      {onOpenSettings ? (
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          aria-label={t('settings.title')}
+          title={t('settings.title')}
+          className={cn(
+            'size-7 rounded-pill grid place-items-center border-0 bg-transparent cursor-pointer',
+            'text-nomi-ink-60 transition-colors hover:text-nomi-ink',
+          )}
+        >
+          <IconSettings size={15} stroke={1.8} aria-hidden="true" />
+        </button>
+      ) : null}
       <LanguageMenuButton className="size-7 rounded-pill" />
       <ThemeToggleButton className="size-7 rounded-pill" />
     </div>

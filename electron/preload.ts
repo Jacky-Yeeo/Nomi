@@ -103,6 +103,14 @@ contextBridge.exposeInMainWorld("nomiDesktop", {
         canceled?: boolean;
         path?: string;
       }>,
+    // 自动另存（生成完成即调，best-effort）+ 集中设置页读写/选目录。
+    autoSave: (payload: unknown) =>
+      ipcRenderer.invoke("nomi:assets:auto-save", payload) as Promise<{ ok: boolean; path?: string }>,
+    getAutoSavePrefs: () =>
+      ipcRenderer.invoke("nomi:settings:auto-save-get") as Promise<{ enabled: boolean; dir: string }>,
+    setAutoSavePrefs: (payload: unknown) =>
+      ipcRenderer.invoke("nomi:settings:auto-save-set", payload) as Promise<{ enabled: boolean; dir: string }>,
+    pickSaveDir: () => ipcRenderer.invoke("nomi:settings:pick-dir") as Promise<{ dir: string }>,
   },
   browser: {
     createView: (payload: unknown) => ipcRenderer.invoke("browser:view:create", payload) as Promise<{ viewId: number }>,

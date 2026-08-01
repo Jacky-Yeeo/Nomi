@@ -2,6 +2,7 @@ import { enModelSetup, zhModelSetup } from './locales/modelSetup'
 import { enBrowserAssets, zhBrowserAssets } from './locales/browserAssets'
 import { enTimelinePreview, zhTimelinePreview } from './locales/timelinePreview'
 import { enAssetLibrary, zhAssetLibrary } from './locales/assetLibrary'
+import { enSettings, zhSettings } from './locales/settings'
 import { enOnboardingProviders, zhOnboardingProviders } from './locales/onboardingProviders'
 import { enLibraries, zhLibraries } from './locales/libraries'
 import { enScene3d, zhScene3d } from './locales/scene3d'
@@ -276,6 +277,7 @@ export const zhCN = {
   browserAssets: zhBrowserAssets,
   timelinePreview: zhTimelinePreview,
   assetLibrary: zhAssetLibrary,
+  settings: zhSettings,
   onboardingProviders: zhOnboardingProviders,
   libraries: zhLibraries,
   scene3d: {
@@ -568,6 +570,7 @@ export const en = {
   browserAssets: enBrowserAssets,
   timelinePreview: enTimelinePreview,
   assetLibrary: enAssetLibrary,
+  settings: enSettings,
   onboardingProviders: enOnboardingProviders,
   libraries: enLibraries,
   scene3d: {

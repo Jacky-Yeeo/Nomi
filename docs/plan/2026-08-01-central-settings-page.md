@@ -36,12 +36,12 @@
 
 1. ✅ **持久化**（`electron/assets/downloadPrefs.ts`）：merge 写 + `getAutoSavePrefs`/`setAutoSavePrefs`（默认关）
 2. ✅ **runtime**（`electron/assets/autoSaveAsset.ts`）：`autoSaveAssetToDisk` 复用抽出的 `fetchAssetBytes`；best-effort（关/失败不打断生成）+ 同名不覆盖（-1/-2）。**9 单测过**
-3. ⬜ **IPC**：`nomi:assets:auto-save`（生成完成调）+ `nomi:settings:auto-save-get/set` + 目录选择（showOpenDialog）→ main.ts/preload/bridge
-4. ⬜ **UI** `src/workbench/settings/SettingsDialog.tsx`：左 tab 右内容（照已拍板样张）+ 顶栏齿轮入口（`ProjectLibraryPage`+`NomiStudioApp`）
-5. ⬜ **接线**：生成完成（`generationRunController:207 addNodeResult`）后调 auto-save IPC
-6. ⬜ **i18n** + **走查**：开设置→开自动另存→选目录→生成→亲眼看目录里出现副本
+3. ✅ **IPC**（`assetsIpc.ts`）：`nomi:assets:auto-save` + `nomi:settings:auto-save-get/set` + `pick-dir`（showOpenDialog）；preload/bridge 暴露
+4. ✅ **UI** `SettingsDialog.tsx`：左 tab 右内容（照样张，Portal+Esc+点遮罩关，DesignSwitch）+ 顶栏齿轮入口（`ProjectLibraryPage`+`NomiStudioApp`）
+5. ✅ **接线**：`generationRunController:207 addNodeResult` 后调 auto-save（fire-and-forget，只新生成图/视频，找回不触发）
+6. ✅ **i18n**（`locales/settings.ts` zh+en）+ **真机走查**：齿轮→设置页→目录显示→开开关（download-prefs 落 enabled=true、目录不丢）→切 tab→Esc 关闭，亲眼核 2 截图
 
-> 下轮从 ③ 起：IPC→UI→接线→走查，一轮做完 UI 层完整交付。地基（①②）已测过、五门过。
+**全链完成**（五门过）。剩：⬜ studio 工作区顶栏也加设置齿轮入口（WorkbenchShell→顶栏子组件传 prop，后续）；⬜ 端到端「生成→副本落盘」真机验证需真实生成（复制逻辑已 9 单测 + 接线）。
 
 ## 验收门
 
