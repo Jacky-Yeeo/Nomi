@@ -5,12 +5,14 @@ import { mutateCatalog, readCatalog, upsertModelCatalogModel, upsertModelCatalog
 import {
   parseComfyApiWorkflow,
   analyzeComfyWorkflow,
+  collectGraphEnumOptions,
   importComfyWorkflow,
   reconcileComfyWorkflow,
   slugifyModelKey,
   type MissingEnumValue,
   type WorkflowAnalysis,
   type WorkflowBinding,
+  type WorkflowEnumOption,
 } from "./comfyuiWorkflowImport";
 import { bustComfyObjectInfoCache, fetchComfyuiObjectInfoIndex } from "../comfyuiObjectInfo";
 import { COMFYUI_VENDOR_KEY } from "./types";
@@ -18,7 +20,7 @@ import { COMFYUI_VENDOR_KEY } from "./types";
 export type AnalyzeWorkflowResult = { ok: true; analysis: WorkflowAnalysis } | { ok: false; error: string };
 export type ImportWorkflowResult = { ok: true; modelKey: string; kind: string; taskKind: string } | { ok: false; error: string };
 export type ReconcileWorkflowResult =
-  | { ok: true; serverReachable: boolean; unknownNodeTypes: string[]; missingEnumValues: MissingEnumValue[] }
+  | { ok: true; serverReachable: boolean; unknownNodeTypes: string[]; missingEnumValues: MissingEnumValue[]; enumOptions: WorkflowEnumOption[] }
   | { ok: false; error: string };
 
 /** 校验 + 分析（供 UI 映射预览）。坏格式返回 { ok:false, error } 而非抛——IPC 好透传成人话提示。 */
@@ -43,22 +45,37 @@ export async function reconcileComfyWorkflowText(text: unknown): Promise<Reconci
     // 对账是用户动作（分析/重新检测）：爆缓存拿新鲜事实——刚装好的模型必须立刻被认出来。
     bustComfyObjectInfoCache(baseUrl);
     const index = await fetchComfyuiObjectInfoIndex(baseUrl);
-    if (!index) return { ok: true, serverReachable: false, unknownNodeTypes: [], missingEnumValues: [] };
-    return { ok: true, serverReachable: true, ...reconcileComfyWorkflow(graph, index) };
+    if (!index) return { ok: true, serverReachable: false, unknownNodeTypes: [], missingEnumValues: [], enumOptions: [] };
+    // enumOptions 顺手带出：导入/保存时烤进参数控件（checkpoint/LoRA 在画布变真实文件下拉）。
+    return { ok: true, serverReachable: true, ...reconcileComfyWorkflow(graph, index), enumOptions: collectGraphEnumOptions(graph, index) };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+/** IPC payload 里的 enumOptions 消毒（渲染层传来的 unknown → 严格形状，坏项丢弃）。 */
+function sanitizeEnumOptions(raw: unknown): WorkflowEnumOption[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: WorkflowEnumOption[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const { classType, inputKey, options } = item as { classType?: unknown; inputKey?: unknown; options?: unknown };
+    if (typeof classType !== "string" || typeof inputKey !== "string" || !Array.isArray(options)) continue;
+    const clean = options.filter((o): o is string => typeof o === "string");
+    if (clean.length > 0) out.push({ classType, inputKey, options: clean });
+  }
+  return out.length > 0 ? out : undefined;
 }
 
 /** 按用户确认的绑定落库（用户自有 model+mapping，走普通 upsert → 不被 seedBuiltins reconcile 覆盖）。
  *  uniq 供 modelKey 去重（默认时间戳；测试传固定值求确定）。 */
 export function importComfyWorkflowToCatalog(payload: unknown, uniq: string = Date.now().toString(36)): ImportWorkflowResult {
   try {
-    const p = (payload && typeof payload === "object" ? payload : {}) as { text?: string; binding?: WorkflowBinding; labelZh?: string };
+    const p = (payload && typeof payload === "object" ? payload : {}) as { text?: string; binding?: WorkflowBinding; labelZh?: string; enumOptions?: unknown };
     const labelZh = String(p.labelZh || "").trim() || "本地 ComfyUI 工作流";
     const modelKey = slugifyModelKey(labelZh, uniq);
     const r = importComfyWorkflow(
-      { text: String(p.text ?? ""), binding: p.binding ?? { numeric: [] }, labelZh, modelKey },
+      { text: String(p.text ?? ""), binding: p.binding ?? { numeric: [] }, labelZh, modelKey, enumOptions: sanitizeEnumOptions(p.enumOptions) },
       upsertModelCatalogModel,
       upsertModelCatalogMapping,
     );
@@ -76,6 +93,7 @@ export function updateComfyWorkflowInCatalog(payload: unknown): ImportWorkflowRe
       text?: string;
       binding?: WorkflowBinding;
       labelZh?: string;
+      enumOptions?: unknown;
     };
     const modelKey = String(p.modelKey || "").trim();
     if (!modelKey) throw new Error("缺少要编辑的工作流 modelKey。");
@@ -83,7 +101,7 @@ export function updateComfyWorkflowInCatalog(payload: unknown): ImportWorkflowRe
     return mutateCatalog((tx) => {
       tx.deleteModelMappings(COMFYUI_VENDOR_KEY, modelKey);
       const r = importComfyWorkflow(
-        { text: String(p.text ?? ""), binding: p.binding ?? { numeric: [] }, labelZh, modelKey },
+        { text: String(p.text ?? ""), binding: p.binding ?? { numeric: [] }, labelZh, modelKey, enumOptions: sanitizeEnumOptions(p.enumOptions) },
         tx.upsertModel,
         tx.upsertMapping,
       );

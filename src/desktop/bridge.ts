@@ -677,9 +677,15 @@ export type DesktopBridge = {
     >
     /** 校验 + 识别 workflow_api.json 可绑定节点（同步）。analysis 结构见 comfyuiWorkflowImport.WorkflowAnalysis。 */
     analyzeComfyWorkflow: (text: string) => { ok: true; analysis: unknown } | { ok: false; error: string }
-    /** 缺件对账（异步问本机 /object_info）：缺节点类 + 引用了本机没有的模型文件。旧 preload 可能没有 → 可选。 */
+    /** 缺件对账（异步问本机 /object_info）：缺节点类 + 引用了本机没有的模型文件 + combo 可选值。旧 preload 可能没有 → 可选。 */
     reconcileComfyWorkflow?: (text: string) => Promise<
-      | { ok: true; serverReachable: boolean; unknownNodeTypes: string[]; missingEnumValues: Array<{ nodeId: string; classType: string; title?: string; inputKey: string; value: string }> }
+      | {
+          ok: true
+          serverReachable: boolean
+          unknownNodeTypes: string[]
+          missingEnumValues: Array<{ nodeId: string; classType: string; title?: string; inputKey: string; value: string }>
+          enumOptions?: Array<{ classType: string; inputKey: string; options: string[] }>
+        }
       | { ok: false; error: string }
     >
     /** ComfyUI 预置模板清单（S5）：静态数据，启用前走 reconcile 缺件闸。旧 preload 可能没有 → 可选。 */
@@ -687,11 +693,11 @@ export type DesktopBridge = {
       key: string; labelZh: string; descZh: string; workflowText: string; binding: unknown
       models: Array<{ file: string; dir: string; url: string }>
     }>
-    /** 按绑定落库为用户自有 model+mapping（同步）。 */
-    importComfyWorkflow: (payload: { text: string; binding: unknown; labelZh: string }) =>
+    /** 按绑定落库为用户自有 model+mapping（同步）。enumOptions 可选 = combo 参数烤成真实文件下拉。 */
+    importComfyWorkflow: (payload: { text: string; binding: unknown; labelZh: string; enumOptions?: unknown }) =>
       { ok: true; modelKey: string; kind: string; taskKind: string } | { ok: false; error: string }
     /** 用同一 modelKey 更新已导入 workflow（同步）。 */
-    updateComfyWorkflow?: (payload: { modelKey: string; text: string; binding: unknown; labelZh: string }) =>
+    updateComfyWorkflow?: (payload: { modelKey: string; text: string; binding: unknown; labelZh: string; enumOptions?: unknown }) =>
       { ok: true; modelKey: string; kind: string; taskKind: string } | { ok: false; error: string }
   }
   skill: {

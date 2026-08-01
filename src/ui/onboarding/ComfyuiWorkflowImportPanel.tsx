@@ -37,6 +37,8 @@ type Reconcile = {
   serverReachable: boolean
   unknownNodeTypes: string[]
   missingEnumValues: Array<{ nodeId: string; classType: string; title?: string; inputKey: string; value: string }>
+  /** (classType, inputKey) → 本机 combo 可选值；导入/保存时烤进参数控件（画布真实文件下拉）。 */
+  enumOptions?: Array<{ classType: string; inputKey: string; options: string[] }>
 }
 type WorkflowEditInitial = { modelKey: string; labelZh: string; text: string; binding?: Binding }
 type ComfyuiWorkflowImportPanelProps = {
@@ -215,9 +217,11 @@ export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel }: Co
     setBusy(true)
     try {
       const name = labelZh.trim() || t('onboardingProviders.comfyWorkflow.defaultName')
+      // enumOptions（reconcile 带出）随导入/保存烤进参数控件——combo 参数在画布变成真实文件下拉。
+      const enumOptions = reconcile && reconcile.enumOptions?.length ? reconcile.enumOptions : undefined
       const r = editMode && initial
-        ? catalog.updateComfyWorkflow?.({ modelKey: initial.modelKey, text, binding, labelZh: name }) ?? { ok: false as const, error: t('onboardingProviders.comfyWorkflow.unsupportedEdit') }
-        : catalog.importComfyWorkflow({ text, binding, labelZh: name })
+        ? catalog.updateComfyWorkflow?.({ modelKey: initial.modelKey, text, binding, labelZh: name, enumOptions }) ?? { ok: false as const, error: t('onboardingProviders.comfyWorkflow.unsupportedEdit') }
+        : catalog.importComfyWorkflow({ text, binding, labelZh: name, enumOptions })
       if (!r.ok) { setError(r.error); return }
       const kindLabel = r.kind === 'video' ? t('onboardingProviders.comfyWorkflow.video') : t('onboardingProviders.comfyWorkflow.image')
       toast(t(editMode ? 'onboardingProviders.comfyWorkflow.saved' : 'onboardingProviders.comfyWorkflow.imported', { name, kind: kindLabel }), 'success')
@@ -225,7 +229,7 @@ export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel }: Co
       else { reset(); setOpen(false) }
       onImported()
     } finally { setBusy(false) }
-  }, [binding, catalog, editMode, initial, text, labelZh, onCancel, reset, onImported, paramKeyError, t])
+  }, [binding, catalog, editMode, initial, text, labelZh, onCancel, reset, onImported, paramKeyError, reconcile, t])
 
   if (!open && !editMode) {
     return (

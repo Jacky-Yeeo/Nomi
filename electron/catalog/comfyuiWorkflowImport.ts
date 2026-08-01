@@ -48,9 +48,11 @@ export type WorkflowAnalysis = {
   suggested: WorkflowBinding;
 };
 
-export type ParamControl = { key: string; label: string; type: WorkflowParamType; default: number | string | boolean };
+export type ParamControl = { key: string; label: string; type: WorkflowParamType | "select"; default: number | string | boolean; options?: string[] };
 export type ImportedWorkflow = { templatedGraph: ComfyGraph; parameters: ParamControl[]; kind: "image" | "video"; taskKind: "text_to_image" | "image_edit" | "text_to_video" | "image_to_video" };
 export type ComfyWorkflowImportDraft = { text: string; binding: WorkflowBinding };
+/** (classType, inputKey) → 本机 combo 可选值（reconcile 顺手带出；导入/保存时烤进参数控件）。 */
+export type WorkflowEnumOption = { classType: string; inputKey: string; options: string[] };
 
 // 节点类型识别（R5：class_type 命名——CLIPTextEncode/LoadImage/VHS_VideoCombine/SaveVideo/SaveImage/
 // WanVideoWrapper 系；宽松正则容社区变体）。
@@ -318,13 +320,42 @@ export function reconcileComfyWorkflow(graph: ComfyGraph, index: ComfyObjectInfo
   return { unknownNodeTypes: [...unknown], missingEnumValues };
 }
 
+/** 单个 combo 选项列表烤入上限（2000 个 LoRA 的机器别把 catalog 撑爆；对账/报错不受此限）。 */
+const ENUM_BAKE_CAP = 400;
+
+/**
+ * 收集「图里出现的 (classType, inputKey) → 本机 combo 可选值」（纯函数）。
+ * reconcile 时顺手带出，导入/保存时经 buildImportedWorkflow 烤进参数控件——
+ * checkpoint/LoRA 这类文件名参数在画布上变成列真实文件的下拉，不再手抄文件名拼错 400。
+ */
+export function collectGraphEnumOptions(graph: ComfyGraph, index: ComfyObjectInfoIndex): WorkflowEnumOption[] {
+  const seen = new Set<string>();
+  const out: WorkflowEnumOption[] = [];
+  for (const node of Object.values(graph)) {
+    const enums = index.enumsByClass.get(node.class_type ?? "");
+    if (!enums) continue;
+    const inputs = node.inputs && typeof node.inputs === "object" ? node.inputs : {};
+    for (const [inputKey, value] of Object.entries(inputs)) {
+      if (typeof value !== "string") continue; // combo widget 值必为字符串；连线/数值不核
+      const options = enums.get(inputKey);
+      if (!options || options.length === 0) continue;
+      const key = `${node.class_type} ${inputKey}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ classType: node.class_type ?? "", inputKey, options: options.slice(0, ENUM_BAKE_CAP) });
+    }
+  }
+  return out;
+}
+
 function setInput(graph: ComfyGraph, nodeId: string, inputKey: string, value: string): void {
   const node = graph[nodeId];
   if (node && node.inputs && typeof node.inputs === "object") node.inputs[inputKey] = value;
 }
 
-/** 按绑定把 widget 值替成注参占位，产出 templated 图 + 参数控件 + kind + taskKind。 */
-export function buildImportedWorkflow(graph: ComfyGraph, binding: WorkflowBinding): ImportedWorkflow {
+/** 按绑定把 widget 值替成注参占位，产出 templated 图 + 参数控件 + kind + taskKind。
+ *  enumOptions（可选，来自 reconcile）：文本型参数命中本机 combo → 烤成 select（画布下拉列真实文件名）。 */
+export function buildImportedWorkflow(graph: ComfyGraph, binding: WorkflowBinding, enumOptions?: WorkflowEnumOption[]): ImportedWorkflow {
   const templated: ComfyGraph = JSON.parse(JSON.stringify(graph)); // 深拷贝（纯 JSON 图），不改原图
   if (binding.promptNodeId && binding.promptInputKey) {
     setInput(templated, binding.promptNodeId, binding.promptInputKey, "{{request.prompt}}");
@@ -336,6 +367,7 @@ export function buildImportedWorkflow(graph: ComfyGraph, binding: WorkflowBindin
   if (binding.lastFrameNodeId && binding.lastFrameInputKey) {
     setInput(templated, binding.lastFrameNodeId, binding.lastFrameInputKey, "{{request.params.last_frame_url}}");
   }
+  const enumFor = new Map((enumOptions ?? []).map((e) => [`${e.classType} ${e.inputKey}`, e.options]));
   const parameters: ParamControl[] = [];
   const seen = new Set<string>();
   for (const np of normalizeParamBindings(binding)) {
@@ -344,7 +376,18 @@ export function buildImportedWorkflow(graph: ComfyGraph, binding: WorkflowBindin
     seen.add(paramKey);
     setInput(templated, np.nodeId, np.inputKey, `{{request.params.${paramKey}}}`);
     const defaultValue = typeof np.default === "undefined" ? "" : np.default;
-    parameters.push({ key: paramKey, label: np.label || np.inputKey, type: np.type ?? inferParamType(defaultValue), default: defaultValue });
+    const resolvedType = np.type ?? inferParamType(defaultValue);
+    const options = resolvedType === "text" ? enumFor.get(`${graph[np.nodeId]?.class_type ?? ""} ${np.inputKey}`) : undefined;
+    if (options && options.length > 0) {
+      // default 不在本机选项里（离线导入的作者值）→ 前置保留，绝不静默丢用户值。
+      const defaultText = String(defaultValue);
+      parameters.push({
+        key: paramKey, label: np.label || np.inputKey, type: "select", default: defaultValue,
+        options: options.includes(defaultText) ? options : [defaultText, ...options],
+      });
+      continue;
+    }
+    parameters.push({ key: paramKey, label: np.label || np.inputKey, type: resolvedType, default: defaultValue });
   }
   const outputKind = binding.outputKind ?? "image";
   const hasFrameInput = Boolean(
@@ -407,12 +450,12 @@ export function slugifyModelKey(labelZh: string, uniq: string): string {
 
 /** 编排：解析 → 建图 → 建 model+mapping → upsert（注入 store 写函数，可测、无副作用耦合）。 */
 export function importComfyWorkflow(
-  payload: { text: string; binding: WorkflowBinding; labelZh: string; modelKey: string },
+  payload: { text: string; binding: WorkflowBinding; labelZh: string; modelKey: string; enumOptions?: WorkflowEnumOption[] },
   upsertModel: (model: Record<string, unknown>) => void,
   upsertMapping: (mapping: Record<string, unknown>) => void,
 ): { modelKey: string; kind: "image" | "video"; taskKind: string } {
   const graph = parseComfyApiWorkflow(payload.text);
-  const built = buildImportedWorkflow(graph, payload.binding);
+  const built = buildImportedWorkflow(graph, payload.binding, payload.enumOptions);
   const { model, mapping } = buildComfyImportModelMapping(built, {
     modelKey: payload.modelKey,
     labelZh: payload.labelZh,

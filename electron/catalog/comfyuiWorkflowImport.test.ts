@@ -4,6 +4,7 @@ import {
   analyzeComfyWorkflow,
   buildImportedWorkflow,
   buildComfyImportModelMapping,
+  collectGraphEnumOptions,
   importComfyWorkflow,
   reconcileComfyWorkflow,
   slugifyModelKey,
@@ -373,5 +374,64 @@ describe("reconcileComfyWorkflow（导入时缺件对账：图 vs 本机 /object
   it("类存在但该输入无枚举（自由文本/数值）→ 不核", () => {
     const graph: ComfyGraph = { "1": { class_type: "CLIPTextEncode", inputs: { text: "whatever" } } };
     expect(reconcileComfyWorkflow(graph, index).missingEnumValues).toEqual([]);
+  });
+});
+
+describe("combo 真实选项烤入（collectGraphEnumOptions + buildImportedWorkflow select 化）", () => {
+  const index = parseObjectInfoIndex({
+    CheckpointLoaderSimple: { input: { required: { ckpt_name: [["a.safetensors", "b.safetensors"]] } } },
+    LoraLoaderModelOnly: { input: { required: { lora_name: [["x.safetensors"]], strength_model: ["FLOAT", {}] } } },
+    KSampler: { input: { required: { sampler_name: [["euler", "ddim"]], seed: ["INT", {}] } } },
+    CLIPTextEncode: { input: { required: {} } },
+  });
+  const graph: ComfyGraph = {
+    "1": { class_type: "CheckpointLoaderSimple", inputs: { ckpt_name: "a.safetensors" } },
+    "2": { class_type: "LoraLoaderModelOnly", inputs: { model: ["1", 0], lora_name: "x.safetensors", strength_model: 1 } },
+    "3": { class_type: "KSampler", inputs: { sampler_name: "euler", seed: 5, model: ["2", 0] } },
+    "6": { class_type: "CLIPTextEncode", inputs: { text: "hi", clip: ["1", 1] } },
+    "9": { class_type: "SaveImage", inputs: { filename_prefix: "x", images: ["3", 0] } },
+  };
+
+  it("收集：只收图里出现的 (class,input) 且值为字符串的 combo；数值/无枚举/未知类不收", () => {
+    const options = collectGraphEnumOptions(graph, index);
+    const keys = options.map((o) => `${o.classType}.${o.inputKey}`).sort();
+    expect(keys).toEqual(["CheckpointLoaderSimple.ckpt_name", "KSampler.sampler_name", "LoraLoaderModelOnly.lora_name"]);
+    expect(options.find((o) => o.inputKey === "ckpt_name")?.options).toEqual(["a.safetensors", "b.safetensors"]);
+  });
+
+  it("烤入：文本型参数命中 combo → select + 真实选项；default 在选项里不重复前置", () => {
+    const binding = {
+      outputNodeId: "9", outputKind: "image" as const,
+      params: [{ nodeId: "1", inputKey: "ckpt_name", paramKey: "comfy_ckpt", label: "模型", type: "text" as const, default: "a.safetensors" }],
+    };
+    const built = buildImportedWorkflow(graph, binding, collectGraphEnumOptions(graph, index));
+    const control = built.parameters.find((p) => p.key === "comfy_ckpt");
+    expect(control?.type).toBe("select");
+    expect(control?.options).toEqual(["a.safetensors", "b.safetensors"]);
+    expect(control?.default).toBe("a.safetensors");
+    expect(built.templatedGraph["1"].inputs?.ckpt_name).toBe("{{request.params.comfy_ckpt}}");
+  });
+
+  it("烤入：default 不在本机选项里（离线导入的作者值）→ 前置保留，绝不静默丢", () => {
+    const binding = {
+      outputNodeId: "9", outputKind: "image" as const,
+      params: [{ nodeId: "1", inputKey: "ckpt_name", paramKey: "comfy_ckpt", label: "模型", type: "text" as const, default: "author-only.safetensors" }],
+    };
+    const built = buildImportedWorkflow(graph, binding, collectGraphEnumOptions(graph, index));
+    expect(built.parameters[0].options).toEqual(["author-only.safetensors", "a.safetensors", "b.safetensors"]);
+  });
+
+  it("回归：不传 enumOptions（离线）→ 维持 text；数值参数即使类有枚举也不动", () => {
+    const binding = {
+      outputNodeId: "9", outputKind: "image" as const,
+      params: [
+        { nodeId: "1", inputKey: "ckpt_name", paramKey: "comfy_ckpt", label: "模型", type: "text" as const, default: "a.safetensors" },
+        { nodeId: "3", inputKey: "seed", paramKey: "comfy_seed", label: "种子", type: "number" as const, default: 5 },
+      ],
+    };
+    const offline = buildImportedWorkflow(graph, binding);
+    expect(offline.parameters[0].type).toBe("text");
+    const online = buildImportedWorkflow(graph, binding, collectGraphEnumOptions(graph, index));
+    expect(online.parameters.find((p) => p.key === "comfy_seed")?.type).toBe("number");
   });
 });
