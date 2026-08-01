@@ -16,7 +16,11 @@ export type ComfyNode = { class_type?: string; inputs?: Record<string, unknown>;
 export type ComfyGraph = Record<string, ComfyNode>;
 
 /** 一个可绑定的节点输入（widget 值，非连线）。 */
-export type NodeInputCandidate = { nodeId: string; inputKey: string; classType: string; title?: string; value: string | number | boolean };
+export type NodeInputCandidate = {
+  nodeId: string; inputKey: string; classType: string; title?: string; value: string | number | boolean;
+  /** 媒体输入才有：这个槽收图还是收视频（LoadVideo.file 收视频，绝不能当首帧图发）。 */
+  mediaKind?: "image" | "video";
+};
 /** kind="unsupported"：识别得出是输出节点，但产物类型（3D/音频/矢量）Nomi 存不下 → 明着标缺口（D4），不硬塞成图。 */
 export type OutputNodeCandidate = { nodeId: string; classType: string; kind: "image" | "video" | "model3d" | "unsupported" };
 export type WorkflowNumericParam = { nodeId: string; inputKey: string; paramKey: string; label: string; default: number };
@@ -35,6 +39,9 @@ export type WorkflowBinding = {
   promptNodeId?: string; promptInputKey?: string;         // → {{request.prompt}}
   firstFrameNodeId?: string; firstFrameInputKey?: string; // → {{request.params.first_frame_url}}（S2 上传后是 ComfyUI 文件名）
   lastFrameNodeId?: string; lastFrameInputKey?: string;   // → {{request.params.last_frame_url}}
+  /** 源视频输入（补帧/视频超分/视频去背景这类「视频进视频出」的工作流入口）。
+   *  → {{request.params.source_video_url}}（comfyui-upload 传进 ComfyUI 后是它自己的文件名）。 */
+  sourceVideoNodeId?: string; sourceVideoInputKey?: string;
   outputNodeId?: string; outputKind?: "image" | "video" | "model3d";
   numeric?: WorkflowNumericParam[];                       // 旧字段：兼容已保存 workflow
   params?: WorkflowParamBinding[];                        // → {{request.params.comfy_X}}
@@ -61,6 +68,15 @@ const TEXT_ENCODE_RE = /textencode|encode.*text|cliptext/i;
 const LOAD_IMAGE_RE = /loadimage/i;
 /** 视频输入节点（视频编辑/视频转视频工作流的入口）。语料实测 52 处，此前完全绑不上。 */
 const LOAD_VIDEO_RE = /loadvideo|vhs_loadvideo/i;
+/**
+ * 载入节点「装文件名的那个输入键」。
+ *
+ * ⚠️ **别写死 `image`**：真机 /object_info 实测 `LoadVideo` 的键叫 **`file`**（不是 image），
+ * 259 张忠实语料里 29 个 LoadVideo **全部**用 file、零个用 image。早先只认 `image`，
+ * 等于加了 LOAD_VIDEO_RE 也白加——视频输入一个都绑不上（首帧识别率一直卡在 59% 的原因之一）。
+ * 教训：节点输入键必须拿真服务器的 object_info 对，不能照着自己编的 fixture 写。
+ */
+const MEDIA_INPUT_KEYS = new Set(["image", "file", "video", "audio"]);
 const VIDEO_OUT_RE = /videocombine|savevideo|saveanimated|savewebp|savewebm|createvideo/i;
 /** 预览类也是输出（纯图工作流常只有 PreviewImage/MaskPreview，此前被判「无输出」整张图不可导入）。 */
 const IMAGE_OUT_RE = /saveimage|previewimage|maskpreview/i;
@@ -321,7 +337,10 @@ export function analyzeComfyWorkflow(graph: ComfyGraph): WorkflowAnalysis {
         continue;
       }
       if (isLink(value)) continue; // 连线不可参数化；提示词连线已在上方追溯到可注入源
-      const isMediaInput = typeof value === "string" && inputKey === "image" && (LOAD_IMAGE_RE.test(classType) || LOAD_VIDEO_RE.test(classType));
+      const isMediaInput =
+        typeof value === "string" &&
+        MEDIA_INPUT_KEYS.has(inputKey) &&
+        (LOAD_IMAGE_RE.test(classType) || LOAD_VIDEO_RE.test(classType));
       if (!isMediaInput) {
         pushScalarWidgetCandidate(widgetInputs, nodeId, node, inputKey, value);
       }
@@ -335,7 +354,8 @@ export function analyzeComfyWorkflow(graph: ComfyGraph): WorkflowAnalysis {
         // 云端 API 节点形态：prompt 直接是节点自己的 widget（没有独立 CLIPTextEncode 可追）。
         textInputs.push({ nodeId, inputKey, classType, title: node._meta?.title, value });
       } else if (isMediaInput) {
-        imageInputs.push({ nodeId, inputKey, classType, title: node._meta?.title, value: value as string });
+        const mediaKind = LOAD_VIDEO_RE.test(classType) ? ("video" as const) : ("image" as const);
+        imageInputs.push({ nodeId, inputKey, classType, title: node._meta?.title, value: value as string, mediaKind });
       } else if (typeof value === "number" && NUMERIC_PRIORITY.includes(inputKey)) {
         numericInputs.push({ nodeId, inputKey, classType, title: node._meta?.title, value });
       }
@@ -350,8 +370,13 @@ export function analyzeComfyWorkflow(graph: ComfyGraph): WorkflowAnalysis {
   const suggestedPrompt = pickSuggestedPrompt(textInputs, positiveId);
   const startImageId = findLinkedInputTargetId(graph, ["start_image", "first_image", "first_frame", "image", "video"]);
   const endImageId = findLinkedInputTargetId(graph, ["end_image", "last_image", "last_frame"]);
-  const suggestedFirstFrame = candidateForNodeInput(imageInputs, startImageId, "image") ?? imageInputs[0];
-  const suggestedLastFrame = candidateForNodeInput(imageInputs, endImageId, "image");
+  // 视频输入（LoadVideo.file）另立一槽 —— 它收的是**视频**，绝不能当首帧图发出去
+  //（补帧/视频超分/视频去背景这类「视频进视频出」的工作流入口，语料 29 张）。
+  const videoInputs = imageInputs.filter((i) => i.mediaKind === "video");
+  const stillInputs = imageInputs.filter((i) => i.mediaKind !== "video");
+  const suggestedSourceVideo = videoInputs[0];
+  const suggestedFirstFrame = candidateForNodeInput(stillInputs, startImageId, "image") ?? stillInputs[0];
+  const suggestedLastFrame = candidateForNodeInput(stillInputs, endImageId, "image");
   // 视频输出优先（有视频节点就当视频工作流）；否则图片。unsupported（3D/音频/矢量）不进建议——
   // 它只留在 outputNodes 里供 UI 诚实说明「这条工作流产出 Nomi 存不下的类型」（D4 明着标缺口）。
   // 类型上就把 unsupported 挡在建议之外（binding.outputKind 只有 image|video——typecheck 会拦住
@@ -384,6 +409,7 @@ export function analyzeComfyWorkflow(graph: ComfyGraph): WorkflowAnalysis {
       promptNodeId: suggestedPrompt?.nodeId, promptInputKey: suggestedPrompt?.inputKey,
       firstFrameNodeId: suggestedFirstFrame?.nodeId, firstFrameInputKey: suggestedFirstFrame?.inputKey,
       lastFrameNodeId: suggestedLastFrame?.nodeId, lastFrameInputKey: suggestedLastFrame?.inputKey,
+      sourceVideoNodeId: suggestedSourceVideo?.nodeId, sourceVideoInputKey: suggestedSourceVideo?.inputKey,
       outputNodeId: suggestedOutput?.nodeId, outputKind: suggestedOutput?.kind,
       numeric: suggestedNumeric,
       params: suggestedParams,
@@ -474,6 +500,11 @@ export function buildImportedWorkflow(graph: ComfyGraph, binding: WorkflowBindin
   if (binding.lastFrameNodeId && binding.lastFrameInputKey) {
     setInput(templated, binding.lastFrameNodeId, binding.lastFrameInputKey, "{{request.params.last_frame_url}}");
   }
+  if (binding.sourceVideoNodeId && binding.sourceVideoInputKey) {
+    // 源视频：comfyui-upload 把本地视频 POST 进 ComfyUI 的 input 目录（实测 /upload/image 收视频，
+    // 返回的文件名当场就出现在 LoadVideo.file 的 combo 里）→ 这个 param 里是 ComfyUI 的文件名。
+    setInput(templated, binding.sourceVideoNodeId, binding.sourceVideoInputKey, "{{request.params.source_video_url}}");
+  }
   const enumFor = new Map((enumOptions ?? []).map((e) => [`${e.classType} ${e.inputKey}`, e.options]));
   const parameters: ParamControl[] = [];
   const seen = new Set<string>();
@@ -501,6 +532,10 @@ export function buildImportedWorkflow(graph: ComfyGraph, binding: WorkflowBindin
     (binding.firstFrameNodeId && binding.firstFrameInputKey) ||
     (binding.lastFrameNodeId && binding.lastFrameInputKey),
   );
+  // 视频输入**不进** taskKind 的判据：ProfileKind 没有 video_to_video，而画布侧 resolveTaskKind
+  // 只按「有没有图输入」分 image_to_video/text_to_video。这里硬造一个新枚举，会让画布算出的 kind
+  // 与 mapping 登记的对不上 → 选不到 mapping → 直接报「没有可用模型」。所以视频走「参考视频」通道
+  // （连一条视频边 → extras.referenceVideoUrls → electron 派生 source_video_url），kind 仍按图输入分桶。
   const taskKind =
     outputKind === "model3d"
       ? hasFrameInput ? "image_to_3d" : "text_to_3d"   // 混元3D/Tripo/Rodin 多是「传一张图出模型」

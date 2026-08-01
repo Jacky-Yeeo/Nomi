@@ -488,14 +488,16 @@ describe("识别缺口三根因（259 张真实官方模板语料实测逼出来
     expect(a.suggested.outputKind).toBeUndefined();
   });
 
-  it("根因C：LoadVideo 也是媒体输入（视频编辑工作流的入口，语料 52 处）", () => {
+  it("根因C：LoadVideo 也是媒体输入 —— 但键是 file 不是 image（旧 fixture 是我编的，真机 object_info 才是准的）", () => {
     const graph: ComfyGraph = {
-      "1": { class_type: "LoadVideo", inputs: { image: "input.mp4" } },
+      "1": { class_type: "LoadVideo", inputs: { file: "input.mp4" } },
       "2": { class_type: "SaveVideo", inputs: { video: ["1", 0] } },
     };
     const a = analyzeComfyWorkflow(graph);
     expect(a.imageInputs.map((i) => i.nodeId)).toContain("1");
-    expect(a.suggested.firstFrameNodeId).toBe("1");
+    // 收视频 → 进源视频槽，不是首帧图槽
+    expect(a.suggested.sourceVideoNodeId).toBe("1");
+    expect(a.suggested.firstFrameNodeId).toBeUndefined();
   });
 
   it("根因D：text-encode 变体多文本键（Flux clip_l/t5xxl、音频 tags/lyrics）", () => {
@@ -647,5 +649,58 @@ describe("正向/负向不能搞反（搞反 = 用户打的字全进反向槽，
       "2": { class_type: "SaveVideo", inputs: { video: ["1", 0] } },
     };
     expect(analyzeComfyWorkflow(graph).suggested.promptInputKey).toBe("prompt");
+  });
+});
+
+describe("视频输入通道（补帧/视频超分/视频去背景 —— 语料 29 张，此前一张都绑不上）", () => {
+  // 真机 /object_info 实测：核心 LoadVideo 的输入键叫 file（不是 image）。
+  const FRAME_INTERP: ComfyGraph = {
+    "1": { class_type: "LoadVideo", inputs: { file: "clip.mp4" } },
+    "2": { class_type: "FrameInterpolationModelLoader", inputs: { ckpt_name: "rife47.pth" } },
+    "3": { class_type: "FrameInterpolate", inputs: { video: ["1", 0], model: ["2", 0], multiplier: 2 } },
+    "4": { class_type: "SaveVideo", inputs: { video: ["3", 0], filename_prefix: "interp" } },
+  };
+
+  it("LoadVideo.file 认得出来（写死 inputKey==='image' 时它整个隐形）", () => {
+    const a = analyzeComfyWorkflow(FRAME_INTERP);
+    expect(a.imageInputs.map((i) => `${i.nodeId}.${i.inputKey}`)).toContain("1.file");
+    expect(a.imageInputs.find((i) => i.nodeId === "1")?.mediaKind).toBe("video");
+  });
+
+  it("视频输入进**源视频**槽，不冒充首帧图（当首帧发 = 把 mp4 当图片上传，必失败）", () => {
+    const a = analyzeComfyWorkflow(FRAME_INTERP);
+    expect(a.suggested.sourceVideoNodeId).toBe("1");
+    expect(a.suggested.sourceVideoInputKey).toBe("file");
+    expect(a.suggested.firstFrameNodeId).toBeUndefined();
+  });
+
+  it("建图时注入 source_video_url 占位（上传后是 ComfyUI 自己的文件名）", () => {
+    const built = buildImportedWorkflow(FRAME_INTERP, analyzeComfyWorkflow(FRAME_INTERP).suggested);
+    expect(built.templatedGraph["1"]?.inputs?.file).toBe("{{request.params.source_video_url}}");
+    expect(built.kind).toBe("video");
+    // 无图输入 → text_to_video，与画布 resolveTaskKind 算出来的一致（对不上就选不到 mapping）
+    expect(built.taskKind).toBe("text_to_video");
+  });
+
+  it("不回归：LoadImage.image 仍走首帧槽、不被误判成视频", () => {
+    const graph: ComfyGraph = {
+      "1": { class_type: "LoadImage", inputs: { image: "start.png" } },
+      "9": { class_type: "SaveImage", inputs: { images: ["1", 0], filename_prefix: "x" } },
+    };
+    const a = analyzeComfyWorkflow(graph);
+    expect(a.suggested.firstFrameNodeId).toBe("1");
+    expect(a.suggested.sourceVideoNodeId).toBeUndefined();
+    expect(a.imageInputs[0]?.mediaKind).toBe("image");
+  });
+
+  it("图和视频都有（视频超分带参考图那种）→ 各进各的槽", () => {
+    const graph: ComfyGraph = {
+      "1": { class_type: "LoadVideo", inputs: { file: "in.mp4" } },
+      "2": { class_type: "LoadImage", inputs: { image: "ref.png" } },
+      "9": { class_type: "SaveVideo", inputs: { video: ["1", 0] } },
+    };
+    const a = analyzeComfyWorkflow(graph);
+    expect(a.suggested.sourceVideoNodeId).toBe("1");
+    expect(a.suggested.firstFrameNodeId).toBe("2");
   });
 });

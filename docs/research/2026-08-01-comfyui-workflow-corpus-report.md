@@ -1,6 +1,6 @@
 # ComfyUI 工作流语料 · Nomi 导入分析器兼容性报告
 
-> 生成时间：2026-08-01T17:06:09.188Z · ComfyUI @ http://127.0.0.1:8188 · 本机 /object_info 节点类 823 个
+> 生成时间：2026-08-01T17:41:15.278Z · ComfyUI @ http://127.0.0.1:8188 · 本机 /object_info 节点类 823 个
 
 ## 0. 语料规模（ComfyUI 0.29 官方模板包全量）
 
@@ -152,6 +152,7 @@
 
 
 <!-- ===== AUTO-GENERATED DATA ABOVE · MANUAL ANALYSIS BELOW (preserved across re-runs) ===== -->
+
 
 
 

@@ -420,12 +420,14 @@ export function resolveAssetIngestionWithFallback(
   getApiKey: (vendorKey: string) => string | null,
   mediaKind: AssetMediaKind = "image",
 ): { ingestion: AssetIngestion; uploadApiKey: string } | null {
-  // 本地 ComfyUI：first-frame 必须传到它自己的 /upload/image 换本地文件名（LoadImage 不认公网 URL），
-  // 不走 KIE/apimart 中转（那给公网 URL）。端点从 vendor baseUrl 动态派生（用户可改地址）。仅图片
-  //（视频输入是另一套 VHS load-video 机制，非本端点）。
-  if (isComfyuiVendor(targetVendor) && mediaKind === "image") {
+  // 本地 ComfyUI：素材必须传到它自己的 /upload/image 换本地文件名（LoadImage/LoadVideo 都不认公网 URL），
+  // 不走 KIE/apimart 中转（那给公网 URL）。端点从 vendor baseUrl 动态派生（用户可改地址）。
+  // **视频同走这个端点**——真机 ComfyUI 0.29 实测：POST mp4 进 /upload/image 返回
+  // {name,subfolder,type}，返回的文件名当场就出现在 LoadVideo.file 的 combo 选项里。
+  // （此处原注释断言「视频是另一套 VHS 机制、非本端点」，是**没验过的假设**，实测证伪。）
+  if (isComfyuiVendor(targetVendor) && (mediaKind === "image" || mediaKind === "video")) {
     const base = String(targetVendor?.baseUrlHint || "http://127.0.0.1:8188").replace(/\/+$/, "");
-    return { ingestion: { strategy: "comfyui-upload", endpoint: `${base}/upload/image`, accepts: ["image"] }, uploadApiKey: "" };
+    return { ingestion: { strategy: "comfyui-upload", endpoint: `${base}/upload/image`, accepts: ["image", "video"] }, uploadApiKey: "" };
   }
   // 1. 目标供应商自己接受该类型 → 直接用（apiKey 也是目标供应商的）
   const targetIngestion = resolveAssetIngestionForKind(targetVendor, mediaKind);
