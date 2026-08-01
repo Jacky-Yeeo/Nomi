@@ -191,16 +191,38 @@ export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel, vend
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalog, initialModelKey])
 
+  /**
+   * 分析：贴什么格式都吃（T1）。先走 smart（界面格式会借 ComfyUI 自己的前端自动转成 API），
+   * 转成功就把编辑框里的原文换成 API 文本——后续导入/编辑链只面对一种形态（不留两套并行）。
+   * 老 preload（没有 smart 口）回落到原来的同步分析，行为与今天一致。
+   */
   const analyze = React.useCallback(() => {
     setError('')
-    const r = catalog?.analyzeComfyWorkflow?.(text)
-    if (!r) { setError(t('onboardingProviders.comfyWorkflow.unsupported')); return }
-    if (!r.ok) { setError(r.error); setAnalysis(null); setBinding(null); setReconcile(null); return }
-    const a = r.analysis as Analysis
-    setAnalysis(a)
-    setBinding(normalizeBinding(a.suggested))
-    runReconcile(text)
-  }, [catalog, text, t, runReconcile])
+    const smart = catalog?.analyzeComfyWorkflowSmart
+    if (!smart) {
+      const r = catalog?.analyzeComfyWorkflow?.(text)
+      if (!r) { setError(t('onboardingProviders.comfyWorkflow.unsupported')); return }
+      if (!r.ok) { setError(r.error); setAnalysis(null); setBinding(null); setReconcile(null); return }
+      const a = r.analysis as Analysis
+      setAnalysis(a)
+      setBinding(normalizeBinding(a.suggested))
+      runReconcile(text)
+      return
+    }
+    setBusy(true)
+    void smart(text, vendorKey)
+      .then((r) => {
+        if (!r.ok) { setError(r.error); setAnalysis(null); setBinding(null); setReconcile(null); return }
+        const effectiveText = r.convertedText ?? text
+        if (r.convertedText) setText(r.convertedText)
+        const a = r.analysis as Analysis
+        setAnalysis(a)
+        setBinding(normalizeBinding(a.suggested))
+        runReconcile(effectiveText)
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+      .finally(() => setBusy(false))
+  }, [catalog, text, t, runReconcile, vendorKey])
 
   const paramKeyError = React.useMemo(() => {
     const params = binding?.params ?? []
@@ -389,11 +411,12 @@ export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel, vend
 
       {!analysis ? (
         <button
-          type="button" onClick={analyze} disabled={!text.trim()}
+          type="button" onClick={analyze} disabled={!text.trim() || busy}
           className={cn('self-start inline-flex items-center gap-1.5 h-8 px-3 rounded-nomi-sm bg-nomi-ink text-nomi-paper',
             'text-caption font-medium hover:bg-nomi-accent disabled:opacity-45')}
         >
-          <IconWand size={14} stroke={1.8} />{t('onboardingProviders.comfyWorkflow.analyze')}
+          <IconWand size={14} stroke={1.8} />
+          {busy ? t('onboardingProviders.comfyWorkflow.analyzing') : t('onboardingProviders.comfyWorkflow.analyze')}
         </button>
       ) : binding ? (
         <div className="flex flex-col gap-2.5">

@@ -12,10 +12,27 @@ Nomi is an open-source, local-first AI video workbench that keeps your story, st
 
 ## WeChat / 微信联系
 
-| Join the Nomi user group / 加入用户群 | Maintainer & business / 添加作者与商务合作 |
-|:---:|:---:|
-| <a href="docs/media/nomi-canvas-group-wechat.png"><img src="docs/media/nomi-canvas-group-wechat.png" alt="Nomi 用户群微信二维码" width="160" /></a> | <a href="docs/media/qingyang-wechat.jpg"><img src="docs/media/qingyang-wechat.jpg" alt="Nomi 作者青阳的微信二维码" width="160" /></a> |
-| Scan to join the user group.<br />扫码加入 Nomi 用户群 | If the group QR expires, or for custom builds, integrations, white-label delivery, and ongoing iteration, add **TZ857886159**.<br />群码失效或沟通项目，请添加作者微信 **TZ857886159**。 |
+### Join the Nomi user group / 加入 Nomi 用户群
+
+<p align="center">
+  <a href="docs/media/nomi-canvas-group-wechat.png"><img src="docs/media/nomi-canvas-group-wechat.png" alt="Nomi 用户群微信二维码" width="220" /></a>
+</p>
+
+<p align="center">
+  <strong>Scan to join the user group. / 扫码加入 Nomi 用户群</strong><br />
+  Product feedback from the group goes directly into ongoing iteration. / 群内反馈会直接进入产品迭代。
+</p>
+
+### Maintainer & project collaboration / 添加作者与项目合作
+
+<p align="center">
+  <a href="docs/media/qingyang-wechat.jpg"><img src="docs/media/qingyang-wechat.jpg" alt="Nomi 作者青阳的微信二维码" width="180" /></a>
+</p>
+
+<p align="center">
+  If the group QR expires, or for custom builds, integrations, white-label delivery, and ongoing iteration, add <strong>TZ857886159</strong>.<br />
+  群码失效，或沟通定制开发、系统集成、贴牌交付与持续迭代，请添加作者微信 <strong>TZ857886159</strong>。
+</p>
 
 International community: [GitHub Discussions](https://github.com/aqm857886159/Nomi/discussions) · Project inquiry: [Business Inquiry](https://github.com/aqm857886159/Nomi/issues/new?template=business_inquiry.yml)
 

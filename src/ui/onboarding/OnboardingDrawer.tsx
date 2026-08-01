@@ -27,6 +27,8 @@ import { confirmAndDeleteVendor } from './vendorDeleteAction'
 import { ConnectAssistantCard, type McpInfo } from './ConnectAssistantCard'
 import { DreaminaMemberCard, type DreaminaStatus } from './DreaminaMemberCard'
 import { ComfyuiLocalCard, COMFYUI_VENDOR_KEY } from './ComfyuiLocalCard'
+import { AddComfyuiInstanceButton } from './AddComfyuiInstanceButton'
+import { isComfyuiVendorKey } from '../../workbench/generationCanvas/runner/comfyuiTaskControl'
 import { NetworkSection } from './NetworkSection'
 import { CODEX_LOCAL_VENDOR_KEY } from './codexLocalProvider'
 import { KNOWN_VENDORS, isKnownVendor } from '../../config/knownVendors'
@@ -240,11 +242,20 @@ export function OnboardingDrawer(): JSX.Element {
     m.vendorKey !== CODEX_LOCAL_VENDOR_KEY,
   )
 
-  // 本地 ComfyUI（无 key 本地后端，专属卡）：种子存在才显；enabled 决定归「已接入 / 可接入」。
-  const comfyuiMeta = vendorMeta.get(COMFYUI_VENDOR_KEY)
-  const comfyuiAvailable = comfyuiMeta !== undefined
-  const comfyuiEnabled = !!comfyuiMeta?.enabled
-  const comfyuiModels = models.filter((m) => m.vendorKey === COMFYUI_VENDOR_KEY)
+  // 本地 ComfyUI（无 key 本地后端，专属卡）：**多实例**——第一台是 comfyui-local，第 2+ 台是
+  // comfyui-local-*（isComfyuiVendorKey 与主进程 isComfyuiVendor 同口径）。每台一张卡，各自的
+  // enabled 决定归「已接入 / 可接入」，各自的工作流按 vendorKey 归属、互不串台。
+  const comfyuiInstances = React.useMemo(
+    () =>
+      [...vendorMeta.entries()]
+        .filter(([key]) => isComfyuiVendorKey(key))
+        // 第一台恒排最前，其余按 key 稳定排序（避免 Map 顺序抖动导致卡片跳位）。
+        .sort(([a], [b]) => (a === COMFYUI_VENDOR_KEY ? -1 : b === COMFYUI_VENDOR_KEY ? 1 : a.localeCompare(b)))
+        .map(([key, meta]) => ({ key, meta, models: models.filter((m) => m.vendorKey === key) })),
+    [vendorMeta, models],
+  )
+  const comfyuiConnected = comfyuiInstances.filter((i) => i.meta.enabled)
+  const comfyuiAvailableList = comfyuiInstances.filter((i) => !i.meta.enabled)
 
   // 即梦 / 编程助手连接判定 + 可用性（卡是否该出现）。
   const dreaminaAvailable = dreaminaStatus !== null
@@ -256,7 +267,7 @@ export function OnboardingDrawer(): JSX.Element {
   const hasConnected =
     connectedKnown.length > 0 ||
     otherModels.length > 0 ||
-    comfyuiEnabled ||
+    comfyuiConnected.length > 0 ||
     dreaminaConnected ||
     assistantConnected
 
@@ -405,9 +416,19 @@ export function OnboardingDrawer(): JSX.Element {
                 </FoldableModelCard>
               )
             })}
-            {comfyuiAvailable && comfyuiEnabled ? (
-              <ComfyuiLocalCard enabled={comfyuiEnabled} baseUrl={comfyuiMeta?.baseUrl ?? ''} models={comfyuiModels} mappings={mappings} onChanged={refresh} />
-            ) : null}
+            {comfyuiConnected.map((inst) => (
+              <ComfyuiLocalCard
+                key={inst.key}
+                vendorKey={inst.key}
+                instanceName={inst.meta.name}
+                enabled
+                baseUrl={inst.meta.baseUrl}
+                models={inst.models}
+                mappings={mappings}
+                onChanged={refresh}
+              />
+            ))}
+            {comfyuiConnected.length > 0 ? <AddComfyuiInstanceButton onAdded={refresh} /> : null}
             {dreaminaAvailable && dreaminaConnected ? (
               <DreaminaMemberCard status={dreaminaStatus} onChanged={refresh} />
             ) : null}
@@ -438,9 +459,20 @@ export function OnboardingDrawer(): JSX.Element {
           <div className="text-micro text-nomi-ink-40 px-1 -mt-0.5">{t('onboardingProviders.drawer.addModelHint')}</div>
         </AvailableGroup>
 
-        {comfyuiAvailable && !comfyuiEnabled ? (
-          <AvailableGroup title={t('onboardingProviders.drawer.localComfyui')} count={1} defaultExpanded={false}>
-            <ComfyuiLocalCard enabled={comfyuiEnabled} baseUrl={comfyuiMeta?.baseUrl ?? ''} models={comfyuiModels} mappings={mappings} onChanged={refresh} />
+        {comfyuiAvailableList.length > 0 ? (
+          <AvailableGroup title={t('onboardingProviders.drawer.localComfyui')} count={comfyuiAvailableList.length} defaultExpanded={false}>
+            {comfyuiAvailableList.map((inst) => (
+              <ComfyuiLocalCard
+                key={inst.key}
+                vendorKey={inst.key}
+                instanceName={inst.meta.name}
+                enabled={false}
+                baseUrl={inst.meta.baseUrl}
+                models={inst.models}
+                mappings={mappings}
+                onChanged={refresh}
+              />
+            ))}
           </AvailableGroup>
         ) : null}
 
