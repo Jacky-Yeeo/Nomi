@@ -205,6 +205,8 @@ contextBridge.exposeInMainWorld("nomiDesktop", {
   video: {
     extractFrame: (payload: unknown) =>
       ipcRenderer.invoke("nomi:video:extract-frame", payload) as Promise<{ url: string }>,
+    extractFilmstrip: (payload: unknown) =>
+      ipcRenderer.invoke("nomi:video:extract-filmstrip", payload) as Promise<{ url: string; tiles: number; tileHeight: number }>,
   },
   image: {
     decomposeLayers: (payload: unknown) =>

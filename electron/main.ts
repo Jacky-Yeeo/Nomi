@@ -575,6 +575,10 @@ function registerIpc(): void {
     const { extractVideoFrameToAsset } = await import("./video/extractVideoFrame");
     return extractVideoFrameToAsset(payload);
   });
+  ipcMain.handle("nomi:video:extract-filmstrip", async (_event, payload) => {
+    const { extractVideoFilmstripToAsset } = await import("./video/extractVideoFrame");
+    return extractVideoFilmstripToAsset(payload);
+  });
   ipcMain.handle("nomi:image:decompose-layers", async (_event, payload) => {
     const { decomposeLayers } = await import("./image/decomposeLayers");
     return decomposeLayers(payload);

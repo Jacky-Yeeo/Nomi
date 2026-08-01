@@ -95,7 +95,7 @@ describe('timeline 文字 clip 编辑', () => {
   })
 
   it('resolveTextBox 默认用 style 预设中心，position 覆盖，scale 放大字号', () => {
-    const { timeline, id } = addTextClip(createDefaultTimeline(), 'caption', 0)
+    const { timeline } = addTextClip(createDefaultTimeline(), 'caption', 0)
     const clip = timeline.textClips[0]
     const base = resolveTextBox(clip, 1000, 1000)
     expect(base.centerX).toBe(500)        // 预设 x=0.5

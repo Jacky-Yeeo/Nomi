@@ -209,6 +209,8 @@ export default function TimelinePanel({ density = 'compact', regionLabel, action
   ])
 
   const rulerContentRef = React.useRef<HTMLDivElement | null>(null)
+  // hover 幽灵播放头：预告点击落点的半透明竖线。拖动中（buttons>0）与剪刀模式下隐藏（后者有 clip 级切点线）。
+  const [hoverFrame, setHoverFrame] = React.useState<number | null>(null)
 
   const frameFromClientX = React.useCallback((clientX: number): number => {
     const rect = rulerContentRef.current?.getBoundingClientRect()
@@ -355,6 +357,14 @@ export default function TimelinePanel({ density = 'compact', regionLabel, action
           const factor = e.deltaY < 0 ? WHEEL_ZOOM_FACTOR : 1 / WHEEL_ZOOM_FACTOR
           setTimelineZoom(Math.min(TIMELINE_MAX_SCALE, Math.max(TIMELINE_MIN_SCALE, timeline.scale * factor)))
         }}
+        onPointerMove={(e) => {
+          if (e.buttons !== 0 || splitMode) {
+            setHoverFrame(null)
+            return
+          }
+          setHoverFrame(frameFromClientX(e.clientX))
+        }}
+        onPointerLeave={() => setHoverFrame(null)}
       >
         <div className={cn(
           'workbench-timeline__ruler',
@@ -414,6 +424,18 @@ export default function TimelinePanel({ density = 'compact', regionLabel, action
               'font-mono text-micro leading-[14px] text-[var(--nomi-paper)] bg-[var(--nomi-snap-tag)]',
             )}>{snapGuide.label}</span>
           </div>
+        ) : null}
+        {/* hover 幽灵播放头：半透明预告线，点击即落此处（真播放头由下方实线表达） */}
+        {hoverFrame != null && Math.abs(hoverFrame - timeline.playheadFrame) > 0 ? (
+          <div
+            className={cn(
+              'workbench-timeline__ghost-playhead',
+              'absolute top-0 bottom-0 left-[var(--workbench-timeline-label-width)] z-[5]',
+              'w-px bg-[var(--workbench-accent)] opacity-35 pointer-events-none',
+            )}
+            style={{ transform: `translateX(${frameToPixel(hoverFrame, timeline.scale)}px)` }}
+            aria-hidden="true"
+          />
         ) : null}
         {/* 播放头：竖线不拦事件；顶部把手可拖 scrub */}
         <div

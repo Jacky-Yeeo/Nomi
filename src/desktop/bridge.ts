@@ -460,6 +460,12 @@ export type DesktopBridge = {
       projectId: string
       forceRerun?: boolean
     }) => Promise<{ url: string }>
+    /** 胶片缩略图条：16 帧横向拼条 jpg → 项目素材 URL（时间轴 clip 全员真帧渲染用）。 */
+    extractFilmstrip: (payload: {
+      videoUrl: string
+      projectId: string
+      forceRerun?: boolean
+    }) => Promise<{ url: string; tiles: number; tileHeight: number }>
   }
   image: {
     /** 元素拆解：一张图 → Replicate qwen-image-layered → N 张落地 RGBA 图层 URL（对标 Lovart Edit Elements）。

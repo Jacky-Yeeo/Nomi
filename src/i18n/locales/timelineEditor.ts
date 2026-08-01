@@ -25,7 +25,13 @@ export const zhTimelineEditor = {
   collapse: '{{prefix}}收起时间轴',
   ruler: '时间刻度',
   dragPlayhead: '拖动播放头',
-  dragToTimeline: '拖拽到时间轴',
+  dragToTimeline: '加入时间轴（点击贴尾 · 拖拽自选位置）',
+  addedToEnd: '已加入时间轴末尾',
+  miniPreview: {
+    title: '画面小窗',
+    collapse: '收起画面小窗',
+    expand: '展开画面小窗',
+  },
   dragToTimelineHold: '{{label}}（长按拖拽）',
   clip: {
     resizeStart: '调整片段起点',
@@ -41,7 +47,6 @@ export const zhTimelineEditor = {
     videoLabel: '视频轨',
     audioLabel: '音频轨',
     genericLabel: '对应轨道',
-    occupied: '这里已有片段，试试拖到空白位置',
     wrongType: '这个素材需要放到{{track}}',
   },
   snap: {
@@ -100,7 +105,13 @@ export const enTimelineEditor = {
   collapse: '{{prefix}}collapse timeline',
   ruler: 'Time ruler',
   dragPlayhead: 'Drag playhead',
-  dragToTimeline: 'Drag to timeline',
+  dragToTimeline: 'Add to timeline (click appends · drag to place)',
+  addedToEnd: 'Added to the end of the timeline',
+  miniPreview: {
+    title: 'Mini preview',
+    collapse: 'Collapse mini preview',
+    expand: 'Expand mini preview',
+  },
   dragToTimelineHold: '{{label}} (press and hold to drag)',
   clip: {
     resizeStart: 'Adjust clip start',
@@ -116,7 +127,6 @@ export const enTimelineEditor = {
     videoLabel: 'Video track',
     audioLabel: 'Audio track',
     genericLabel: 'matching track',
-    occupied: 'A clip already occupies this position. Try an empty area.',
     wrongType: 'This asset belongs on the {{track}}',
   },
   snap: {

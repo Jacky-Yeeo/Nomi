@@ -35,9 +35,7 @@ import { useWorkbenchStore } from '../../workbenchStore'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import { NodeGeneratingOverlay } from './NodeGeneratingOverlay'
 import { encodeTimelineGenerationNodeDragPayload, TIMELINE_GENERATION_NODE_DRAG_MIME } from '../../timeline/timelineDragPayload'
-import { getTrackTypeForClipType } from '../../timeline/timelineTypes'
-import { buildGenerationNodeTimelineClip } from '../../timeline/buildGenerationNodeTimelineClip'
-import { toast } from '../../../ui/toast'
+import { addGenerationNodeToTimelineEnd } from '../../timeline/addNodeToTimelineEnd'
 import { canRunGenerationNode, confirmAndRunNode } from '../runner/generationRunController'
 import { retryLocalAssetImport } from '../adapters/assetImportAdapter'
 import { NodeErrorReport } from './NodeErrorReport'
@@ -147,16 +145,8 @@ function BaseGenerationNodeImpl({
   const handleAddToTimelineAtPlayhead = (event: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>) => {
     event.preventDefault()
     event.stopPropagation()
-    const timeline = useWorkbenchStore.getState().timeline
     const liveNode = useGenerationCanvasStore.getState().nodes.find((candidate) => candidate.id === node.id) || node
-    const startFrame = timeline.playheadFrame
-    void buildGenerationNodeTimelineClip(liveNode, { fps: timeline.fps, startFrame }).then((clip) => {
-      if (!clip) {
-        toast(t('generationCommon.node.generateFirst'), 'info')
-        return
-      }
-      useWorkbenchStore.getState().addTimelineClipAtFrame(clip, getTrackTypeForClipType(clip.type), startFrame)
-    })
+    void addGenerationNodeToTimelineEnd(liveNode)
   }
 
   const updateMediaDimensions = (width: number, height: number, durationSeconds?: number) => {

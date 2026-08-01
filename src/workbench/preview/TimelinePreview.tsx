@@ -420,7 +420,7 @@ export default function TimelinePreview({ activeClips, aspectRatio, fps, playhea
               <span className={cn(
                 'workbench-preview-player__placeholder-sub',
                 'text-caption text-[var(--workbench-muted-soft)]',
-              )}>{t('timelinePreview.emptyHint')}</span>
+              )}>{isEmpty ? t('timelinePreview.emptyHint') : t('timelinePreview.gapHint')}</span>
             </div>
           ) : null}
         </div>

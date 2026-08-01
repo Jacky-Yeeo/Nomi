@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { cn } from '../../utils/cn'
 import { lazyWithChunkBoundary } from '../../ui/chunkBoundary'
 import { useWorkbenchStore } from '../workbenchStore'
+import TimelineMiniPreview from '../timeline/TimelineMiniPreview'
 
 const TimelinePanel = lazyWithChunkBoundary(
   'i18n:generationCommon.workspace.timelineChunk',
@@ -35,7 +36,8 @@ export default function GenerationWorkspace({
   const setWidth = useWorkbenchStore((s) => s.setAssistantWidth)
   const timeline = useWorkbenchStore((s) => s.timeline)
   const reduceMotion = useReducedMotion()
-  const [timelineCollapsed, setTimelineCollapsed] = React.useState(true)
+  const timelineCollapsed = useWorkbenchStore((state) => state.timelinePanelCollapsed)
+  const setTimelineCollapsed = useWorkbenchStore((state) => state.setTimelinePanelCollapsed)
   // 折叠态悬浮把手的真实摘要：段数（含字幕/标题卡）+ 总时长，绝不编造。
   const timelineSummary = React.useMemo(() => {
     const clipCount =
@@ -134,6 +136,8 @@ export default function GenerationWorkspace({
             <IconChevronUp size={15} stroke={1.8} className="text-nomi-ink-60" />
           </button>
         ) : null}
+        {/* 时间轴展开时的迷你画面窗：跟播放头，治画布上盲剪（收起态自持久化）。 */}
+        {timelineCollapsed ? null : <TimelineMiniPreview />}
       </div>
       {aiSidebar ? (
         <aside
