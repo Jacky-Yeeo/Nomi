@@ -206,6 +206,9 @@ expect(/<html lang="en">/.test(en), 'English lang is static')
 expect(zh.includes('把镜头讲清楚'), 'Chinese Hero claim exists')
 expect(en.includes('Direct the shot. Not just the prompt.'), 'English Hero claim exists')
 expect(zh.includes('定制开发') && en.includes('Custom builds'), 'paid services are localized')
+expect(zh.includes('Nomi MCP') && zh.includes('可编辑初稿'), 'Chinese agentic workflow is explicit')
+expect(en.includes('One sentence to an editable first cut') && en.includes('Nomi over MCP'), 'English agentic workflow is explicit')
+expect(zh.includes('/assets/nomi-logo.svg') && en.includes('/assets/nomi-logo.svg'), 'official Nomi mark is used')
 expect(zh.includes('/en/') && en.includes('href="/"'), 'locale switch is a real link')
 expect(zh.includes('rel="canonical" href="https://nomiaqm.com/"'), 'Chinese canonical')
 expect(en.includes('rel="canonical" href="https://nomiaqm.com/en/"'), 'English canonical')
@@ -286,9 +289,9 @@ export const shared = Object.freeze({
 export const contentByLocale = Object.freeze({ 'zh-CN': zhCN, en: english })
 ```
 
-Define `zhCN` and `english` immediately above the export as literal objects. Both must contain exactly these top-level keys: `path`, `htmlLang`, `ogLocale`, `meta`, `nav`, `hero`, `proofs`, `paths`, `closing`, `footer`, `a11y`. Copy all visible text verbatim from design-spec Sections 3 and 7; `proofs` has IDs `context`, `world`, `canvas`, `stack`, and `paths.teams.services` has IDs `custom`, `integration`, `whiteLabel`, `iteration`.
+Define `zhCN` and `english` immediately above the export as literal objects. Both must contain exactly these top-level keys: `path`, `htmlLang`, `ogLocale`, `meta`, `nav`, `hero`, `proofs`, `paths`, `closing`, `footer`, `a11y`. Copy all visible text verbatim from design-spec Sections 3 and 7; `proofs` has IDs `context`, `world`, `canvas`, `agentic`, and `paths.teams.services` has IDs `custom`, `integration`, `whiteLabel`, `iteration`. The `agentic` proof must say that Claude Code or another AI assistant uses Nomi MCP plus Skills to advance an editable first cut; it must also state that the creator keeps final control.
 
-Export an `assertLocaleParity()` function that recursively compares object keys and array lengths between `zh-CN` and `en`, rejects empty strings, requires the four proof IDs `context`, `world`, `canvas`, `stack`, and throws a path-specific error such as `Locale parity error at paths.teams.services[3].title`.
+Export an `assertLocaleParity()` function that recursively compares object keys and array lengths between `zh-CN` and `en`, rejects empty strings, requires the four proof IDs `context`, `world`, `canvas`, `agentic`, and throws a path-specific error such as `Locale parity error at paths.teams.services[3].title`.
 
 - [ ] **Step 2: Generate locale-specific metadata from shared facts**
 
@@ -427,7 +430,7 @@ If this FFprobe build accepts one input at a time, run the same command separate
 
 - [ ] **Step 4: Generate deterministic bilingual social cards**
 
-`social-card.mjs` exports `renderSocialCard(locale)` and returns a 1200×630 self-contained HTML document with the real Nomi mark, warm-paper/dark-monitor split, coral director frame, locale claim, and `LOCAL-FIRST · OPEN SOURCE · AI VIDEO WORKBENCH`. `render-marketing-social-previews.mjs` opens each returned document in Playwright at 1200×630 and saves JPEG quality 92 to the two target paths.
+`social-card.mjs` exports `renderSocialCard(locale)` and returns a 1200×630 self-contained HTML document using the official `marketing/assets/nomi-logo.svg`, warm-paper/dark-monitor split, coral director frame, locale claim, and `LOCAL-FIRST · OPEN SOURCE · AI VIDEO WORKBENCH`. `render-marketing-social-previews.mjs` opens each returned document in Playwright at 1200×630 and saves JPEG quality 92 to the two target paths.
 
 Run:
 
@@ -488,7 +491,7 @@ Nomi is an open-source, local-first AI video workbench that keeps your story, st
 [简体中文](README.zh-CN.md) · [Website](https://nomiaqm.com/en/) · [Download](https://github.com/aqm857886159/Nomi/releases/latest) · [Watch the 60s film](https://nomiaqm.com/assets/video/launch-film-en.mp4) · [For Teams](https://nomiaqm.com/en/#teams)
 ```
 
-Then include: badges; the inspected poster linked to the film; `Why Nomi` with Connected context / Visual anchors / Directable workflow; the three-platform download table; `Quick start`; `For Teams`; `Developers`; `Contributing`; `License`. The For Teams paragraph must name Custom builds, Integrations, White-label/commercial license, and Ongoing iteration, then link to the Business Issue Form.
+Then include: badges; the inspected poster linked to the film; `Why Nomi` with Connected context / Visual anchors / Directable workflow / Agentic creation over MCP; the three-platform download table; `Quick start`; `For Teams`; `Developers`; `Contributing`; `License`. The agentic entry must explain that Claude Code, Codex, or Cursor can invoke Nomi through MCP and use Skills to advance an editable first cut while the creator retains final control. The For Teams paragraph must name Custom builds, Integrations, White-label/commercial license, and Ongoing iteration, then link to the Business Issue Form.
 
 The English License section must say: `Current releases are licensed under AGPL-3.0-only. Historical releases published under Apache-2.0 keep their original license.`
 

@@ -1,7 +1,7 @@
 # Nomi 双语增长入口设计规格
 
 日期：2026-08-01
-状态：架构方案 B 与书面规格均已由用户确认，等待实施
+状态：架构方案 B、视觉样张与新增品牌/MCP 表达均已由用户确认，实施中
 范围：官网首页、仓库 README、商务咨询入口与发布资产映射
 
 ## 1. 目标与底层逻辑
@@ -66,7 +66,9 @@ Hero 的主要视觉不是吉祥物大图，而是 15 秒静音循环产品影�
 1. Connected context / 上下文持续连接：故事、分镜和生成不再在不同工具间断裂。
 2. Lock the world first / 先锁定世界：人物、场景、道具与风格先成为可复用视觉锚点，减少跨镜漂移。
 3. Direct on canvas / 在画布上导演：在全局序列中摆素材、写提示词、调用生成，而不是反复重开提示词窗口。
-4. Bring your own stack / 接入自己的工作流：支持自有模型、ComfyUI 与 AI 编程助手，产品能力不绑定单一供应商。
+4. One sentence to an editable first cut / 一句话推进到可编辑初稿：Claude Code、Codex、Cursor 等 AI 助手可通过 Nomi MCP 调用 Skills，建立项目、生成分镜、连接参考并触发已配置模型，把一句镜头意图推进成 Nomi 中可继续导演和编辑的初稿。
+
+第四段不是承诺“输入一句话就自动得到无需修改的商业成片”。Nomi 的真实机制是 AI 助手通过能力核执行受权限约束的画布与生成操作，创作者仍然检查参考、选择结果、调整镜头并决定最终导出。传播语可以使用“从一句话开始”，结果必须落在“可编辑初稿 / editable first cut”，不能写成全自动、零确认或必然达到大片质量。
 
 画面必须来自当前 Nomi 实际界面或宣传片中的真实录屏，不使用生成式伪 UI。桌面端交替错位排版，移动端统一为标题在上、16:9 画面在中、说明在下；任何裁切都不能隐藏实际产品任务。
 
@@ -99,6 +101,7 @@ For Teams / 团队服务：
 保留现有官网最有辨识度的暖纸、墨黑与珊瑚色体系，方向为“导演工作台的编辑样张”，不是通用 SaaS 落地页。
 
 - 暖纸色为主场，深色 Hero 像片场监看器，珊瑚色只用于导演框、进度线和主要动作。
+- 顶栏、分享图与需要品牌识别的区域直接复用 `marketing/assets/nomi-logo.svg`；该 SVG 与 `src/design/identity.tsx` 的 `NomiLogoMark` 使用同一 28×28 几何。禁止继续使用样张早期的珊瑚菱形占位标或任何生成式假 Logo。
 - 标题使用有编辑感的衬线字体，正文使用高可读无衬线，时间码和章节编号使用等宽字体。
 - 产品画面以接触表、章节编号、时间码和细规则线组织，不使用紫色渐变、玻璃拟态、发光按钮或均匀卡片墙。
 - 页面只有一套有叙事作用的入场节奏；滚动后以轻微位移和显露为主。减少动态效果时所有内容直接稳定显示。
@@ -148,7 +151,7 @@ For Teams / 团队服务：
 2. Download、Website、60s Film、Documentation、For Teams。
 3. 平台、版本与 AGPL-3.0 徽章。
 4. 影片 poster，点击进入英文宣传片。
-5. Why Nomi：Connected context、Visual anchors、Directable workflow 三个证据支柱。
+5. Why Nomi：Connected context、Visual anchors、Directable workflow 与 Agentic creation over MCP 四个证据支柱；最后一项明确结果是 editable first cut，最终决定权仍在创作者。
 6. Quick start：下载安装、接模型、从故事到时间线。
 7. For Teams 与商业授权。
 8. Contributing、CLA、License。
