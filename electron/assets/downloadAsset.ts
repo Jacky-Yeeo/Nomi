@@ -15,9 +15,24 @@ function isDirectory(dir: string): boolean {
   }
 }
 
-function sanitizeDownloadName(name: string): string {
+export function sanitizeDownloadName(name: string): string {
   // 仅去掉路径分隔与文件系统非法字符（保留中英文/数字/空格/连字符等可读字符），留下安全的单段文件名。
   return name.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, " ").trim().slice(0, 120);
+}
+
+/** 取资产字节（本地 nomi-local 读盘 / 远端 http(s) 下载）。下载与自动另存共用单一真相，不各抄一份。 */
+export async function fetchAssetBytes(rawUrl: string): Promise<Buffer> {
+  if (rawUrl.startsWith("nomi-local://")) {
+    const url = new URL(rawUrl);
+    const [projectId, ...relativeParts] = decodeURIComponent(url.pathname.replace(/^\/+/, "")).split("/");
+    return readFile(resolveProjectRelativePath(projectId, relativeParts.join("/")));
+  }
+  if (/^https?:/i.test(rawUrl)) {
+    const response = await net.fetch(rawUrl);
+    if (!response.ok) throw new Error(`下载失败（${response.status}）`);
+    return Buffer.from(await response.arrayBuffer());
+  }
+  throw new Error("不支持的资源地址");
 }
 
 export async function downloadAssetToDisk(
@@ -25,19 +40,7 @@ export async function downloadAssetToDisk(
 ): Promise<{ ok: boolean; canceled?: boolean; path?: string }> {
   const rawUrl = String(payload?.url || "").trim();
   if (!rawUrl) throw new Error("url is required");
-  let bytes: Buffer;
-  if (rawUrl.startsWith("nomi-local://")) {
-    const url = new URL(rawUrl);
-    const [projectId, ...relativeParts] = decodeURIComponent(url.pathname.replace(/^\/+/, "")).split("/");
-    const filePath = resolveProjectRelativePath(projectId, relativeParts.join("/"));
-    bytes = await readFile(filePath);
-  } else if (/^https?:/i.test(rawUrl)) {
-    const response = await net.fetch(rawUrl);
-    if (!response.ok) throw new Error(`下载失败（${response.status}）`);
-    bytes = Buffer.from(await response.arrayBuffer());
-  } else {
-    throw new Error("不支持的资源地址");
-  }
+  const bytes = await fetchAssetBytes(rawUrl);
   const fallbackExt = (() => {
     try {
       const ext = path.extname(new URL(rawUrl).pathname);
