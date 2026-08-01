@@ -86,6 +86,14 @@ async function auditStandardCase(browser, testCase) {
     h1Count: document.querySelectorAll('h1').length,
     product: Boolean(document.querySelector('#product')),
     teams: Boolean(document.querySelector('#teams')),
+    community: Boolean(document.querySelector('#community')),
+    communityNav: Boolean(document.querySelector('a.nav-link[href="#community"]')),
+    communityCards: document.querySelectorAll('[data-community-card]').length,
+    groupQrLink: Boolean(document.querySelector('a[href="/assets/group-wechat.png"]')),
+    authorQrLink: Boolean(document.querySelector('a[href="/assets/qingyang-wechat.jpg"]')),
+    businessLink: Boolean(document.querySelector('a[href*="business_inquiry.yml"]')),
+    discussionsLink: Boolean(document.querySelector('a[href*="/discussions"]')),
+    wechatText: (document.body.textContent || '').includes('TZ857886159'),
     proofs: document.querySelectorAll('[data-proof]').length,
     services: document.querySelectorAll('[data-service]').length,
     download: Array.from(document.querySelectorAll('a')).some((link) => /Download|下载/.test(link.textContent || '') && /releases\/latest/.test(link.href)),
@@ -102,6 +110,10 @@ async function auditStandardCase(browser, testCase) {
   assert(facts.overflow <= 1, `${testCase.name}: no horizontal overflow`)
   assert(facts.h1Count === 1, `${testCase.name}: exactly one H1`)
   assert(facts.product && facts.teams, `${testCase.name}: product and teams sections`)
+  assert(facts.community && facts.communityNav && facts.communityCards === 2, `${testCase.name}: existing-design community section`)
+  assert(facts.groupQrLink && facts.authorQrLink && facts.businessLink, `${testCase.name}: durable conversion destinations`)
+  if (testCase.path === '/en/') assert(facts.discussionsLink, `${testCase.name}: international community destination`)
+  if (testCase.path === '/') assert(facts.wechatText, `${testCase.name}: direct Chinese contact remains textual`)
   assert(facts.proofs === 4 && facts.services === 4, `${testCase.name}: four proofs and four services`)
   assert(facts.download && facts.github && facts.localeLink, `${testCase.name}: primary destinations exist`)
   assert(facts.heroMedia && facts.logoLoaded, `${testCase.name}: hero media and official logo render`)
@@ -126,8 +138,11 @@ async function auditNoJavaScript(browser, pathName, locale, claim) {
   const h1 = (await page.locator('h1').textContent()) || ''
   const download = await page.locator('a[href*="releases/latest"]').count()
   const watchHref = await page.locator('[data-open-film]').getAttribute('href')
+  const community = await page.locator('#community').count()
+  const business = await page.locator('a[href*="business_inquiry.yml"]').count()
   assert(h1.includes(claim), `${locale}: no-JS H1 remains`)
   assert(download > 0 && Boolean(watchHref?.endsWith('.mp4')), `${locale}: no-JS download and direct film link remain`)
+  assert(community === 1 && business > 0, `${locale}: no-JS conversion paths remain`)
   await context.close()
 }
 
@@ -153,10 +168,15 @@ async function auditBlockedMedia(browser) {
     heroLabel: document.querySelector('[data-hero-video]')?.getAttribute('aria-label') || '',
     download: Boolean(document.querySelector('a[href*="releases/latest"]')),
     teams: Boolean(document.querySelector('#teams')),
+    community: Boolean(document.querySelector('#community')),
+    business: Boolean(document.querySelector('a[href*="business_inquiry.yml"]')),
+    discussions: Boolean(document.querySelector('a[href*="/discussions"]')),
+    wechatText: (document.body.textContent || '').includes('TZ857886159'),
     overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
   }))
   assert(facts.h1.includes('Direct the shot') && facts.heroLabel.length > 0, 'blocked media: claim and media alternative remain')
   assert(facts.download && facts.teams && facts.overflow <= 1, 'blocked media: core journey remains usable')
+  assert(facts.community && facts.business && facts.discussions, 'blocked media: community and business paths remain usable')
   await page.screenshot({ path: path.join(shotsDir, 'home-blocked-media.png'), fullPage: true })
   await context.close()
 }
