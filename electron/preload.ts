@@ -423,6 +423,14 @@ contextBridge.exposeInMainWorld("nomiDesktop", {
     analyzeComfyWorkflow: (text: string) => invokeSync("nomi:model-catalog:comfyui:analyze-workflow", text),
     reconcileComfyWorkflow: (text: string, vendorKey?: string) =>
       ipcRenderer.invoke("nomi:model-catalog:comfyui:reconcile-workflow", text, vendorKey),
+    // T1：贴什么格式都吃（界面格式借 ComfyUI 前端自动转 API）。
+    analyzeComfyWorkflowSmart: (text: string, vendorKey?: string) =>
+      ipcRenderer.invoke("nomi:model-catalog:comfyui:analyze-workflow-smart", text, vendorKey),
+    // T2：读用户自己 ComfyUI 里的官方模板库。
+    listComfyuiTemplates: (vendorKey?: string) =>
+      ipcRenderer.invoke("nomi:model-catalog:comfyui:templates", vendorKey),
+    getComfyuiTemplateDetail: (name: string, vendorKey?: string) =>
+      ipcRenderer.invoke("nomi:model-catalog:comfyui:template-detail", name, vendorKey),
     listComfyuiPresets: () => invokeSync("nomi:model-catalog:comfyui:presets"),
     importComfyWorkflow: (payload: { text: string; binding: unknown; labelZh: string; enumOptions?: unknown }) =>
       invokeSync("nomi:model-catalog:comfyui:import-workflow", payload),

@@ -21,6 +21,7 @@ import { alertDialog, confirmDialog } from '../../design'
 import { FoldableModelCard } from './FoldableModelCard'
 import { ComfyuiWorkflowImportPanel } from './ComfyuiWorkflowImportPanel'
 import { ComfyuiPresetSection } from './ComfyuiPresetSection'
+import { ComfyuiTemplateLibrary } from './ComfyuiTemplateLibrary'
 
 /** 与后端 comfyuiLocal.ts 的 vendor key 对齐（稳定契约）。 */
 export const COMFYUI_VENDOR_KEY = 'comfyui-local'
@@ -304,7 +305,10 @@ export function ComfyuiLocalCard({ enabled, baseUrl, models, mappings, onChanged
             )
           })}
 
-          {/* 预置模板（S5）：官方 WAN2.2 等即用模板，缺件闸验齐才放行启用 */}
+          {/* 模板库（T2）：读用户自己 ComfyUI 里的几百个官方模板——「我这台能用什么」的主入口 */}
+          <ComfyuiTemplateLibrary vendorKey={COMFYUI_VENDOR_KEY} modelLabels={models.map((m) => m.labelZh)} onImported={onChanged} />
+
+          {/* 预置模板（S5）：内置 WAN2.2，离线也有一条能用的路（ComfyUI 没模板包时的兜底） */}
           <ComfyuiPresetSection modelLabels={models.map((m) => m.labelZh)} onImported={onChanged} />
 
           {/* 自定义工作流导入（S4）：内置文生图之外，用户可导入自己的 WAN 文生/图生视频等工作流 */}

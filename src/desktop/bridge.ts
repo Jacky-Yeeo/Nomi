@@ -688,6 +688,27 @@ export type DesktopBridge = {
         }
       | { ok: false; error: string }
     >
+    /** T1：贴什么格式都吃——界面格式借 ComfyUI 自己的前端转成 API 再分析。旧 preload 可能没有 → 可选。 */
+    analyzeComfyWorkflowSmart?: (text: string, vendorKey?: string) => Promise<
+      | { ok: true; analysis: unknown; convertedText?: string }
+      | { ok: false; error: string }
+    >
+    /** T2：读用户自己 ComfyUI 里的官方模板库（几百个）。null = 没连上/这台没有模板包。 */
+    listComfyuiTemplates?: (vendorKey?: string) => Promise<Array<{
+      name: string; title: string; description: string; group: string; groupType: string
+      tags: string[]; tutorialUrl: string; thumbnailUrl: string
+    }> | null>
+    /** T2：取一个模板并备好导入所需（已转 API 格式 + 缺件对账 + combo 选项）。 */
+    getComfyuiTemplateDetail?: (name: string, vendorKey?: string) => Promise<
+      | {
+          apiText: string
+          unknownNodeTypes: string[]
+          missingEnumValues: Array<{ nodeId: string; classType: string; title?: string; inputKey: string; value: string }>
+          enumOptions: Array<{ classType: string; inputKey: string; options: string[] }>
+          serverReachable: boolean
+        }
+      | { error: string }
+    >
     /** ComfyUI 预置模板清单（S5）：静态数据，启用前走 reconcile 缺件闸。旧 preload 可能没有 → 可选。 */
     listComfyuiPresets?: () => Array<{
       key: string; labelZh: string; descZh: string; workflowText: string; binding: unknown
