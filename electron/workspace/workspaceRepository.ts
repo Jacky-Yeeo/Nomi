@@ -18,10 +18,13 @@ export type WorkspaceProjectSummary = Omit<WorkspaceProjectRecordV2, "payload"> 
   rootPath: string;
   missing: boolean;
   source: WorkspaceProjectSource;
-  // 列表用的封面缩略图：从 manifest 的 generationCanvas 节点结果派生（不持久化进 manifest）。
+  // 列表用的封面：从 manifest 的 generationCanvas 节点结果派生（不持久化进 manifest）。
   // 修「最近项目白屏」根因——桌面 list 旧逻辑只读 manifest 现有字段、不从画布节点派生。
+  // thumbnail/thumbnailUrls 只装可 <img> 渲染的 URL；coverVideoUrl 是无图封面时的视频兜底
+  //（卡片用 <video> 首帧当封面），同样 transient、每次 list 现场派生。
   thumbnail?: string;
   thumbnailUrls?: string[];
+  coverVideoUrl?: string;
 };
 
 // rootPath 在默认根内 → native；否则 → folder（外部目录）。比较前 resolve + 规范化分隔符。
@@ -32,30 +35,58 @@ function deriveProjectSource(rootPath: string, defaultProjectsRoot: string): Wor
   return resolvedPath.startsWith(`${resolvedRoot}${path.sep}`) ? "native" : "folder";
 }
 
+export type ProjectCover = {
+  /** 可直接 <img> 渲染的封面 URL（图片结果 / 视频 poster / 3D 快照，最多 max 个）。 */
+  imageUrls: string[];
+  /** imageUrls 为空时的兜底：首个视频结果的 url（卡片用 <video> 首帧渲染）。 */
+  videoUrl?: string;
+};
+
 /**
- * 从 manifest（payload.generationCanvas / 顶层 generationCanvas）的前若干个"有生成结果"的节点取封面 url。
+ * 从 manifest（payload.generationCanvas / 顶层 generationCanvas）的节点结果派生项目封面
+ * ——按 `result.type` 分媒体类型：视频/音频的 url 塞进 <img> 必然「加载失败」，所以
+ * imageUrls 只收可 <img> 渲染的 URL（image 的 url/thumbnailUrl、video/model3d 的 poster），
+ * 无图封面时以首个视频 url 作 videoUrl 兜底；text/audio 跳过；type 缺失按旧行为当图取（脏数据降级）。
  *
- * 单一来源关系（P4 / 缩略图唯一真相源）：本函数是主进程侧（桌面 list 不经渲染层、直接读
- * manifest 派生封面）的封面派生。**算法真相源在渲染侧** `src/workbench/project/projectNormalize.ts`
- * 的 `extractThumbnailUrlsFromRaw` / `extractCanvasThumbnailUrls`——两份分属 electron(CJS,
+ * 单一来源关系（P4 / 封面派生唯一真相源）：本函数是主进程侧（桌面 list 不经渲染层、直接读
+ * manifest 派生封面）的副本。**算法真相源在渲染侧** `src/workbench/project/projectCoverDerive.ts`
+ * 的 `deriveProjectCoverFromRaw` / `deriveProjectCoverFromNodes`——两份分属 electron(CJS,
  * rootDir=electron/) 与 renderer(ESM, src/)，跨 tsconfig 无法直接 import 共享，故以
  * 「逻辑等价 + 注释锚定 + 等价回归测试」收口：`electron/workspace/thumbnailDerive.equivalence.test.ts`
  * 用同一组 fixture 跑两份并断言输出逐字相等，任一侧改动漂移即红。改本函数务必同步那侧 + 跑等价测试。
  */
-export function deriveThumbnailUrls(record: unknown, max = 4): string[] {
+export function deriveProjectCover(record: unknown, max = 4): ProjectCover {
   const r = record as { payload?: unknown; generationCanvas?: unknown } | null;
-  const payload = r?.payload as { generationCanvas?: unknown } | undefined;
-  const gc = (payload && typeof payload === "object" ? payload.generationCanvas : undefined) ?? r?.generationCanvas;
+  const payload = r?.payload;
+  const gc = (payload && typeof payload === "object" ? (payload as { generationCanvas?: unknown }).generationCanvas : undefined) ?? r?.generationCanvas;
   const nodes = (gc as { nodes?: unknown } | undefined)?.nodes;
-  if (!Array.isArray(nodes)) return [];
-  const urls: string[] = [];
+  if (!Array.isArray(nodes)) return { imageUrls: [] };
+  const imageUrls: string[] = [];
+  let videoUrl: string | undefined;
   for (const n of nodes) {
-    if (urls.length >= max) break;
-    const result = (n as { result?: { url?: unknown; thumbnailUrl?: unknown } } | null)?.result;
-    const url = (typeof result?.url === "string" && result.url) || (typeof result?.thumbnailUrl === "string" && result.thumbnailUrl) || "";
-    if (typeof url === "string" && url.length > 4) urls.push(url);
+    if (imageUrls.length >= max) break;
+    if (!n || typeof n !== "object") continue;
+    const result = (n as { result?: { type?: unknown; url?: unknown; thumbnailUrl?: unknown } }).result;
+    if (!result || typeof result !== "object") continue;
+    const type = typeof result.type === "string" ? result.type : "";
+    const url = typeof result.url === "string" ? result.url : "";
+    const thumbnailUrl = typeof result.thumbnailUrl === "string" ? result.thumbnailUrl : "";
+    const imageCandidate =
+      type === "image"
+        ? url || thumbnailUrl
+        : type === "video" || type === "model3d"
+          ? thumbnailUrl
+          : type === "text" || type === "audio"
+            ? ""
+            : url || thumbnailUrl;
+    // 过短 url（length <= 4）视为脏值过滤——与旧派生语义一致。
+    if (imageCandidate.length > 4) {
+      imageUrls.push(imageCandidate);
+      continue;
+    }
+    if (!videoUrl && type === "video" && url.length > 4) videoUrl = url;
   }
-  return urls;
+  return videoUrl ? { imageUrls, videoUrl } : { imageUrls };
 }
 
 type RecordInput = {
@@ -194,8 +225,12 @@ export function listWorkspaceProjects(deps: WorkspaceRepositoryDeps): WorkspaceP
       );
     }
     const summary = withoutPayload({ ...manifest, lastKnownRootPath: entry.rootPath }, entry.rootPath, false, source);
-    const thumbnailUrls = deriveThumbnailUrls(manifest);
-    return thumbnailUrls.length ? { ...summary, thumbnailUrls, thumbnail: thumbnailUrls[0] } : summary;
+    const cover = deriveProjectCover(manifest);
+    return {
+      ...summary,
+      ...(cover.imageUrls.length ? { thumbnailUrls: cover.imageUrls, thumbnail: cover.imageUrls[0] } : {}),
+      ...(cover.videoUrl ? { coverVideoUrl: cover.videoUrl } : {}),
+    };
   });
 }
 

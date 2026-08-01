@@ -346,7 +346,7 @@ async function warmCriticalRendererResources(vite, baseUrl) {
     "/src/workbench/library/ProjectLibraryRoute.tsx",
     "/src/workbench/library/ProjectLibraryPage.tsx",
     "/src/workbench/library/localProjectStore.ts",
-    "/src/workbench/project/projectSummaryRepository.ts",
+    "/src/workbench/project/projectCoverDerive.ts",
   ];
 
   if (vite && typeof vite.warmupRequest === "function") {

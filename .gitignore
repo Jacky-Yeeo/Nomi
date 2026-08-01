@@ -60,6 +60,7 @@ tests/system/runs/
 .scene3d-panorama-lab/
 .onboarding-demo-lab/
 .video-playback-heal-lab/
+.library-cover-walk-lab/
 .project-asset-healthcheck-lab/
 .toolbar-order-lab/
 
