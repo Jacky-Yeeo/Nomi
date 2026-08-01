@@ -15,19 +15,34 @@ export function tryAddAudioAssetFromDragData(
   const assetDrag = parseAssetLibraryDrag(raw)
   if (!assetDrag) return null
   if (assetDrag.kind !== 'audio') return 'reject'
-  void readAudioDurationSeconds(assetDrag.renderUrl).then((durationSeconds) => {
-    const clip = buildAudioClipFromAssetRef(
-      {
-        id: assetDrag.origin.source === 'project' ? assetDrag.origin.relativePath : assetDrag.origin.nodeId,
-        kind: 'audio',
-        name: assetDrag.name,
-        renderUrl: assetDrag.renderUrl,
-        source: assetDrag.origin.source === 'project' ? 'project' : 'canvas',
-        origin: assetDrag.origin,
-      },
-      { fps: opts.fps, startFrame: opts.startFrame, durationSeconds },
-    )
+  addAudioAssetToTimeline(
+    {
+      id: assetDrag.origin.source === 'project' ? assetDrag.origin.relativePath : assetDrag.origin.nodeId,
+      kind: 'audio',
+      name: assetDrag.name,
+      renderUrl: assetDrag.renderUrl,
+      source: assetDrag.origin.source === 'project' ? 'project' : 'canvas',
+      origin: assetDrag.origin,
+    },
+    opts,
+  )
+  return 'audio'
+}
+
+/**
+ * 落一条音频 clip 的**唯一实现**：拖拽路径与「＋配乐」点击路径共用（P1，别写第二遍）。
+ * 时长离屏探测(异步)后才落 clip。
+ */
+export function addAudioAssetToTimeline(
+  asset: Parameters<typeof buildAudioClipFromAssetRef>[0],
+  opts: { fps: number; startFrame: number },
+): void {
+  void readAudioDurationSeconds(asset.renderUrl).then((durationSeconds) => {
+    const clip = buildAudioClipFromAssetRef(asset, {
+      fps: opts.fps,
+      startFrame: opts.startFrame,
+      durationSeconds,
+    })
     if (clip) useWorkbenchStore.getState().addTimelineClipAtFrame(clip, 'audio', opts.startFrame)
   })
-  return 'audio'
 }

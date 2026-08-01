@@ -61,6 +61,8 @@ export const zhTimelineEditor = {
     caption: '字幕',
     overlay: '叠加层',
     dropAudio: '拖音频到此当配乐',
+    addMusic: '添加配乐',
+    music: '配乐',
   },
   textTrack: {
     title: '文字轨',
@@ -141,6 +143,8 @@ export const enTimelineEditor = {
     caption: 'Caption',
     overlay: 'Overlay',
     dropAudio: 'Drag audio here to use as music',
+    addMusic: 'Add music',
+    music: 'Music',
   },
   textTrack: {
     title: 'Text track',

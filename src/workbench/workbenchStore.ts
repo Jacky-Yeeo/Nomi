@@ -30,6 +30,7 @@ import {
 } from './timeline/timelineTextEdit'
 import type { Vec2 } from './timeline/overlayTransform'
 import { createDefaultTimeline, normalizeTimeline } from './timeline/timelineMath'
+import { readPreviewSourceCollapsed, writePreviewSourceCollapsed } from './preview/previewSourcePanelPreference'
 import type { TimelineClip, TimelineState, TimelineTextStyle, TimelineTrackType } from './timeline/timelineTypes'
 import { createDefaultWorkbenchDocument, normalizeWorkbenchDocument, type CreationDocumentTools, type PreviewAspectRatio, type WorkbenchDocument } from './workbenchTypes'
 import type { WorkbenchAiMessage } from './ai/workbenchAiTypes'
@@ -137,6 +138,9 @@ type WorkbenchState = {
   /** 生成页底部时间轴收起/展开（会话级 UI 态；节点「加入时间轴」成功后会展开它）。 */
   timelinePanelCollapsed: boolean
   setTimelinePanelCollapsed: (collapsed: boolean) => void
+  /** 剪辑页左侧素材来源栏收起/展开（跨会话记住：剪片习惯因人而异）。 */
+  previewSourcePanelCollapsed: boolean
+  setPreviewSourcePanelCollapsed: (collapsed: boolean) => void
   /** 时间轴撤销栈（仅时间轴编辑，非持久化）。封顶后丢最旧。 */
   timelineUndoStack: TimelineState[]
   /** 时间轴重做栈。撤销时压入；任一新编辑清空（新编辑使 redo 失效，标准语义）。 */
@@ -329,6 +333,11 @@ export const useWorkbenchStore = create<WorkbenchState>()(subscribeWithSelector(
   timelineSplitMode: false,
   timelinePanelCollapsed: true,
   setTimelinePanelCollapsed: (collapsed) => set({ timelinePanelCollapsed: Boolean(collapsed) }),
+  previewSourcePanelCollapsed: readPreviewSourceCollapsed(),
+  setPreviewSourcePanelCollapsed: (collapsed) => {
+    writePreviewSourceCollapsed(Boolean(collapsed))
+    set({ previewSourcePanelCollapsed: Boolean(collapsed) })
+  },
   timelineUndoStack: [],
   timelineRedoStack: [],
   setWorkspaceMode: (mode) => {

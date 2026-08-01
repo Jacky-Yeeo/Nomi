@@ -5,6 +5,7 @@ import { cn } from '../../utils/cn'
 import TimelinePanel from '../timeline/TimelinePanel'
 import { computeTimelineDuration, resolveActiveClipsAtFrame } from '../timeline/timelineMath'
 import TimelinePreview from './TimelinePreview'
+import PreviewSourcePanel from './PreviewSourcePanel'
 
 function formatTimecode(frame: number, fps: number): string {
   const totalSeconds = Math.floor(frame / fps)
@@ -69,24 +70,32 @@ export default function PreviewWorkspace(): JSX.Element {
     <section
       className={cn(
         'workbench-preview',
-        'w-full h-full min-w-0 min-h-0 grid grid-rows-[minmax(0,1fr)_var(--workbench-preview-timeline-height)]',
-        'overflow-hidden bg-[var(--workbench-bg)]',
+        'w-full h-full min-w-0 min-h-0 flex overflow-hidden bg-[var(--workbench-bg)]',
       )}
       aria-label={t('workspace.preview')}
     >
-      <TimelinePreview
-        activeClips={activeClips}
-        aspectRatio={previewAspectRatio}
-        fps={timeline.fps}
-        playheadFrame={timeline.playheadFrame}
-        timeline={timeline}
-      />
-      <TimelinePanel
-        density="full"
-        regionLabel={t('timelinePreview.timelineRegion')}
-        actionLabelPrefix={t('timelinePreview.timelineActionPrefix')}
-        showTextTrack
-      />
+      {/* 左栏=素材来源（画布镜头 / 项目素材）。剪辑软件通行布局，可折叠让播放器回全宽。 */}
+      <PreviewSourcePanel />
+      <div
+        className={cn(
+          'workbench-preview__main',
+          'min-w-0 min-h-0 flex-1 grid grid-rows-[minmax(0,1fr)_var(--workbench-preview-timeline-height)]',
+        )}
+      >
+        <TimelinePreview
+          activeClips={activeClips}
+          aspectRatio={previewAspectRatio}
+          fps={timeline.fps}
+          playheadFrame={timeline.playheadFrame}
+          timeline={timeline}
+        />
+        <TimelinePanel
+          density="full"
+          regionLabel={t('timelinePreview.timelineRegion')}
+          actionLabelPrefix={t('timelinePreview.timelineActionPrefix')}
+          showTextTrack
+        />
+      </div>
     </section>
   )
 }
