@@ -1,12 +1,13 @@
 import React from 'react'
-import type { TimelineClip } from './timelineTypes'
-import { getDesktopBridge } from '../../desktop/bridge'
-import { getActiveWorkbenchProjectId } from '../project/workbenchProjectSession'
+import { getDesktopBridge } from '../desktop/bridge'
+import { getActiveWorkbenchProjectId } from '../workbench/project/workbenchProjectSession'
 
 /**
- * 时间轴视频 clip 的胶片条（16 帧横向拼图）懒加载。
- * 同源共享一份（key=projectId::url），失败落 failed 由 clip 回退占位——绝不冒充。
- * 并发闸 2：几十个 clip 首开时不并发拉起几十个 ffmpeg。
+ * 视频胶片条（16 帧横向拼图）懒加载，跨面共享的媒体基建。
+ * 用处：时间轴 clip 全条真帧；素材库视频卡取第一格当封面（同一份缓存，不重复抽）。
+ * 同源共享一份（key=projectId::url），失败落 failed 由调用方回退占位——绝不冒充。
+ * 并发闸 2：几十个视频同屏时不并发拉起几十个 ffmpeg。
+ * 产物落项目缓存区（.nomi/cache/），不进素材库（见 electron/assets/projectCacheFile.ts）。
  */
 export type FilmstripEntry =
   | { status: 'ready'; url: string; tiles: number }
@@ -57,8 +58,8 @@ function request(key: string, videoUrl: string, projectId: string): void {
   pump()
 }
 
-export function useTimelineFilmstrip(clip: TimelineClip): FilmstripEntry | null {
-  const url = clip.type === 'video' && typeof clip.url === 'string' ? clip.url.trim() : ''
+export function useFilmstrip(videoUrl: string | null | undefined): FilmstripEntry | null {
+  const url = typeof videoUrl === 'string' ? videoUrl.trim() : ''
   const projectId = getActiveWorkbenchProjectId() || ''
   const key = url && projectId ? `${projectId}::${url}` : ''
 
@@ -80,7 +81,7 @@ export function useTimelineFilmstrip(clip: TimelineClip): FilmstripEntry | null 
 }
 
 /** 测试用：清缓存与队列。 */
-export function resetTimelineFilmstripForTests(): void {
+export function resetFilmstripForTests(): void {
   cache.clear()
   queue.length = 0
   running = 0

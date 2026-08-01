@@ -7,7 +7,7 @@ import { frameToPixel, pixelToFrame, clampGroupDelta, clipVisibleFrames, type Cl
 import { buildSnapPoints, resolveSnap, pixelThresholdToFrames, type SnapResult } from './snapping'
 import type { TimelineClip as TimelineClipData } from './timelineTypes'
 import { resolveTimelineClipPreviewMedia } from './timelineClipPreview'
-import { useTimelineFilmstrip } from './useTimelineFilmstrip'
+import { useFilmstrip } from '../../media/useFilmstrip'
 
 type TimelineClipProps = {
   clip: TimelineClipData
@@ -32,7 +32,7 @@ function TimelineClip({ clip }: TimelineClipProps): JSX.Element {
   const title = clip.label || clip.text || clip.sourceNodeId
   const previewMedia = resolveTimelineClipPreviewMedia(clip)
   // 视频 clip 全员真帧：后台抽 16 帧胶片条（同源共享缓存），未就绪/失败回退静态图或占位色块
-  const filmstrip = useTimelineFilmstrip(clip)
+  const filmstrip = useFilmstrip(clip.type === 'video' ? clip.url : '')
 
   // 吸附"咔哒"微反馈：WAAPI 实现，免改全局 CSS（规则 10）；不与 React 的 style.left 冲突。
   const pulseSnap = React.useCallback(() => {

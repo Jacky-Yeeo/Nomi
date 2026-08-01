@@ -15,6 +15,7 @@ import { probeMediaMetadata } from "../export/mediaProbe";
 import { absolutePathFromLocalAssetUrl } from "../assets/localAssetFile";
 import { hardenedFetch } from "../hardenedFetch";
 import { writeAsset } from "../runtime";
+import { writeProjectCacheFile } from "../assets/projectCacheFile";
 
 export type VideoFrameWhich = "first" | "last" | number;
 
@@ -232,11 +233,9 @@ export async function extractVideoFilmstripToAsset(payload: ExtractFilmstripPayl
       await runFfmpeg(ffmpegPath, buildFilmstripArgs({ inputPath: filePath, outPath, durationSeconds: duration }));
       if (!fs.existsSync(outPath) || fs.statSync(outPath).size === 0) throw new VideoFrameError("ffmpeg 未产出胶片条");
       const bytes = fs.readFileSync(outPath);
-      const record = writeAsset(projectId, bytes, `filmstrip-${crypto.randomUUID().slice(0, 8)}.jpg`, "image/jpeg", {
-        kind: "generated",
-        source: "filmstrip",
-      }) as { data?: { url?: string } };
-      const url = record?.data?.url;
+      // 胶片条是**缓存**不是用户素材：写 .nomi/cache/ 而非 assets/。
+      // （曾写成素材 → 26:1 长条涌进素材库把真素材挤成细线，素材库看着像空的。）
+      const { url } = writeProjectCacheFile(projectId, bytes, "filmstrip", ".jpg");
       if (!url) throw new VideoFrameError("胶片条写盘失败");
       const result: ExtractFilmstripResult = { url, tiles: FILMSTRIP_TILES, tileHeight: FILMSTRIP_TILE_HEIGHT };
       filmstripCache.set(key, result);
