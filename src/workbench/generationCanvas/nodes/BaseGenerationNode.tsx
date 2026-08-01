@@ -34,6 +34,8 @@ import type { ConnectionAnchorSide } from '../store/canvasStoreTypes'
 import { useWorkbenchStore } from '../../workbenchStore'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import { NodeGeneratingOverlay } from './NodeGeneratingOverlay'
+import { NodeQueuedBadge } from './NodeQueuedBadge'
+import { selectIsNodeQueued, useGenerationQueueStore } from '../runner/generationQueueStore'
 import { encodeTimelineGenerationNodeDragPayload, TIMELINE_GENERATION_NODE_DRAG_MIME } from '../../timeline/timelineDragPayload'
 import { addGenerationNodeToTimelineEnd } from '../../timeline/addNodeToTimelineEnd'
 import { canRunGenerationNode, confirmAndRunNode } from '../runner/generationRunController'
@@ -213,6 +215,9 @@ function BaseGenerationNodeImpl({
     commitPersistedChange,
   })
   const isGenerating = status === 'queued' || status === 'running'
+  // 「已排队但还没轮到」的真相在队列 store（与 node.status 零重叠，见 generationQueueStore 头注释）。
+  // 在此之前后续波次的节点 status 还是 idle，画布上看着像压根没被选中——用户以为漏点了。
+  const isQueued = useGenerationQueueStore((state) => selectIsNodeQueued(state, node.id))
   const canGenerate =
     useGenerationCanvasStore((state) =>
       canRunGenerationNode(node, {
@@ -663,6 +668,7 @@ function BaseGenerationNodeImpl({
       ) : null}
 
       {isGenerating && !isRemoveBackgroundPending ? <NodeGeneratingOverlay node={node} /> : null}
+      {isQueued && !isGenerating ? <NodeQueuedBadge /> : null}
       {showSideTimelineDrag ? (
         <SideTimelineDragHandle onAddAtPlayhead={handleAddToTimelineAtPlayhead} onDragStart={handleTimelineDragStart} />
       ) : null}

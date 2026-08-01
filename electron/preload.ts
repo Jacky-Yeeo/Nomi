@@ -73,6 +73,10 @@ contextBridge.exposeInMainWorld("nomiDesktop", {
     deleteFiles: (payload: unknown) => ipcRenderer.invoke("nomi:workspace:delete-files", payload),
     revealProjectFolder: (payload: unknown) => ipcRenderer.invoke("nomi:workspace:reveal-project-folder", payload),
   },
+  // 系统通知：任务跑完且窗口失焦时才发（判失焦在渲染层，主进程只负责发+点击拉回窗口）。
+  notifications: {
+    show: (payload: unknown) => ipcRenderer.invoke("nomi:notifications:show", payload),
+  },
   projects: {
     list: () => invokeSync("nomi:projects:list"),
     listAsync: () => ipcRenderer.invoke("nomi:projects:list-async"),
