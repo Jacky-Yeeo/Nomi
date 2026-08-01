@@ -15,6 +15,7 @@ import { probeMediaMetadata } from "../export/mediaProbe";
 import { absolutePathFromLocalAssetUrl } from "../assets/localAssetFile";
 import { hardenedFetch } from "../hardenedFetch";
 import { writeAsset } from "../runtime";
+import { writeProjectCacheFile } from "../assets/projectCacheFile";
 
 export type VideoFrameWhich = "first" | "last" | number;
 
@@ -156,4 +157,104 @@ export async function extractVideoFrameToAsset(payload: ExtractVideoFramePayload
 /** 测试用：清缓存。 */
 export function resetVideoFrameCacheForTests(): void {
   frameCache.clear();
+}
+
+// ---------- 胶片缩略图条（时间轴 clip 全员真帧的基建） ----------
+
+export type ExtractFilmstripPayload = {
+  videoUrl: string;
+  projectId: string;
+  forceRerun?: boolean;
+};
+
+export type ExtractFilmstripResult = {
+  url: string;
+  /** 横向平铺帧数（固定 16）。渲染层据此把条图映射回源时长。 */
+  tiles: number;
+  tileHeight: number;
+};
+
+export const FILMSTRIP_TILES = 16;
+export const FILMSTRIP_TILE_HEIGHT = 54;
+
+/** 纯函数：拼 ffmpeg 参数（fps 轻微过采样保证凑满 tiles 帧，tile 只吃前 tiles 帧）。 */
+export function buildFilmstripArgs(params: {
+  inputPath: string;
+  outPath: string;
+  durationSeconds: number;
+  tiles?: number;
+  tileHeight?: number;
+}): string[] {
+  const tiles = Math.max(2, Math.floor(params.tiles ?? FILMSTRIP_TILES));
+  const tileHeight = Math.max(16, Math.floor(params.tileHeight ?? FILMSTRIP_TILE_HEIGHT));
+  const duration = Math.max(0.2, params.durationSeconds);
+  const fps = (tiles / duration) * 1.02;
+  return [
+    "-y",
+    "-i", params.inputPath,
+    "-an", "-sn",
+    "-vf", `fps=${fps.toFixed(6)},scale=-2:${tileHeight},tile=${tiles}x1`,
+    "-frames:v", "1",
+    "-q:v", "5",
+    params.outPath,
+  ];
+}
+
+const filmstripCache = new Map<string, ExtractFilmstripResult>();
+const filmstripInflight = new Map<string, Promise<ExtractFilmstripResult>>();
+const filmstripKey = (p: ExtractFilmstripPayload) => `${p.projectId}::${p.videoUrl}`;
+
+/**
+ * 抽 16 帧横向拼条落项目素材（jpg）。会话内缓存 + inflight 去重（时间轴多 clip 同源只抽一次）。
+ * 失败抛 VideoFrameError，渲染层回退占位色块——绝不拿别的图冒充。
+ */
+export async function extractVideoFilmstripToAsset(payload: ExtractFilmstripPayload): Promise<ExtractFilmstripResult> {
+  const { videoUrl, projectId } = payload;
+  if (!videoUrl || typeof videoUrl !== "string") throw new VideoFrameError("缺少源视频地址");
+  if (!projectId || typeof projectId !== "string") throw new VideoFrameError("缺少 projectId");
+
+  const key = filmstripKey(payload);
+  if (!payload.forceRerun) {
+    const cached = filmstripCache.get(key);
+    if (cached) return cached;
+    const inflight = filmstripInflight.get(key);
+    if (inflight) return inflight;
+  }
+
+  const job = (async (): Promise<ExtractFilmstripResult> => {
+    const ffmpegPath = resolveFfmpegPath();
+    if (!ffmpegPath) throw new VideoFrameError("找不到 ffmpeg 可执行文件");
+    const { filePath, cleanup } = await resolveVideoLocalPath(videoUrl, projectId);
+    const outPath = path.join(os.tmpdir(), `nomi-filmstrip-${crypto.randomUUID()}.jpg`);
+    try {
+      const meta = await probeMediaMetadata(filePath);
+      const duration = typeof meta.durationSeconds === "number" ? meta.durationSeconds : 0;
+      if (!Number.isFinite(duration) || duration <= 0) throw new VideoFrameError("无法读取源视频时长，抽不了胶片条");
+      await runFfmpeg(ffmpegPath, buildFilmstripArgs({ inputPath: filePath, outPath, durationSeconds: duration }));
+      if (!fs.existsSync(outPath) || fs.statSync(outPath).size === 0) throw new VideoFrameError("ffmpeg 未产出胶片条");
+      const bytes = fs.readFileSync(outPath);
+      // 胶片条是**缓存**不是用户素材：写 .nomi/cache/ 而非 assets/。
+      // （曾写成素材 → 26:1 长条涌进素材库把真素材挤成细线，素材库看着像空的。）
+      const { url } = writeProjectCacheFile(projectId, bytes, "filmstrip", ".jpg");
+      if (!url) throw new VideoFrameError("胶片条写盘失败");
+      const result: ExtractFilmstripResult = { url, tiles: FILMSTRIP_TILES, tileHeight: FILMSTRIP_TILE_HEIGHT };
+      filmstripCache.set(key, result);
+      return result;
+    } finally {
+      cleanup();
+      try { if (fs.existsSync(outPath)) fs.unlinkSync(outPath); } catch { /* non-fatal */ }
+    }
+  })();
+  filmstripInflight.set(key, job);
+  try {
+    return await job;
+  } finally {
+    filmstripInflight.delete(key);
+  }
+}
+
+/** 测试用：清胶片缓存。 */
+export function resetFilmstripCacheForTests(): void {
+  filmstripCache.clear();
+  filmstripInflight.clear();
 }

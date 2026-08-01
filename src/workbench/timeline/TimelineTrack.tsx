@@ -7,7 +7,8 @@ import { buildClipFromGenerationNode } from '../generationCanvas/model/buildClip
 import { buildGenerationNodeTimelineClip } from './buildGenerationNodeTimelineClip'
 import { tryAddAudioAssetFromDragData } from './dropAudioAssetToTimeline'
 import { ASSET_LIBRARY_DRAG_MIME } from '../assets/assetLibraryDrag'
-import { clientXToFrame } from './timelineEdit'
+import { clientXToFrame, frameToPixel } from './timelineEdit'
+import { findAppendFrame } from './timelineMath'
 import { buildTimelineDropPreview, type TimelineDropPreview } from './timelineDropFeedback'
 import { decodeTimelineGenerationNodeDragPayload, TIMELINE_GENERATION_NODE_DRAG_MIME } from './timelineDragPayload'
 import TimelineClip from './TimelineClip'
@@ -41,6 +42,8 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
   const [dragPreview, setDragPreview] = React.useState<TimelineDropPreview | null>(null)
   // v0.7.4: dragenter/over 期间无法 getData → 用单独的 hover state 提供视觉反馈
   const [isDragHovering, setIsDragHovering] = React.useState(false)
+  // 拖入将落位光标线：默认贴尾追加（不需要 payload 即可算），按 ⌥ 才用光标处自由落点
+  const [dropCaretFrame, setDropCaretFrame] = React.useState<number | null>(null)
 
   const resolveFrame = React.useCallback(
     (clientX: number) => {
@@ -61,6 +64,13 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
     [track.type],
   )
 
+  // L3 落点语义：默认贴尾追加（免思考串片）；按住 ⌥ 用光标处自由落点（精排）
+  const resolveDesiredStart = React.useCallback(
+    (event: { altKey: boolean; clientX: number }): number =>
+      event.altKey ? resolveFrame(event.clientX) : findAppendFrame(track),
+    [resolveFrame, track],
+  )
+
   const resolveDropPreview = React.useCallback(
     (event: React.DragEvent<HTMLDivElement>): TimelineDropPreview | null => {
       const generationNodePayload = decodeTimelineGenerationNodeDragPayload(
@@ -71,7 +81,7 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
         .getState()
         .nodes.find((node) => node.id === generationNodePayload.nodeId)
       const generationNode = liveNode || generationNodePayload.node
-      const startFrame = resolveFrame(event.clientX)
+      const startFrame = resolveDesiredStart(event)
       const clip = buildClipFromGenerationNode(generationNode, {
         fps,
         startFrame,
@@ -86,7 +96,7 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
         fps,
       })
     },
-    [resolveFrame, fps, scale, track],
+    [resolveDesiredStart, fps, scale, track],
   )
 
   // 素材库音频拖到音频轨：payload 同步可读，时长离屏探测后落 clip（核心逻辑共用 dropAudioAssetToTimeline）。
@@ -95,16 +105,17 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
       if (track.type !== 'audio') return false
       const result = tryAddAudioAssetFromDragData(event.dataTransfer.getData(ASSET_LIBRARY_DRAG_MIME), {
         fps,
-        startFrame: resolveFrame(event.clientX),
+        startFrame: resolveDesiredStart(event),
       })
       if (!result) return false
       event.preventDefault()
       setDragPreview(null)
       setIsDragHovering(false)
+      setDropCaretFrame(null)
       if (result === 'reject') toast(t('timelineEditor.track.audioOnly'), 'warning')
       return true
     },
-    [track.type, resolveFrame, fps, t],
+    [track.type, resolveDesiredStart, fps, t],
   )
 
   const handleDrop = React.useCallback(
@@ -114,6 +125,7 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
       if (!preview) return
       event.preventDefault()
       setDragPreview(null)
+      setDropCaretFrame(null)
       if (!preview.canPlace) {
         toast(preview.reason || t('timelineEditor.track.unavailable'), 'warning')
         return
@@ -234,11 +246,13 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
           if (event.currentTarget.contains(event.relatedTarget as globalThis.Node | null)) return
           setDragPreview(null)
           setIsDragHovering(false)
+          setDropCaretFrame(null)
         }}
         onDragOver={(event) => {
           if (!acceptsDragTypes(event.dataTransfer.types)) return
           event.preventDefault()
           event.dataTransfer.dropEffect = 'copy'
+          setDropCaretFrame(resolveDesiredStart(event))
         }}
         onDrop={(event) => {
           setIsDragHovering(false)
@@ -256,6 +270,17 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
           >
             {track.type === 'audio' ? t('timelineEditor.track.emptyAudio') : t('timelineEditor.track.emptyVisual')}
           </div>
+        ) : null}
+        {dropCaretFrame != null ? (
+          <div
+            className={cn(
+              'workbench-timeline-track__drop-caret',
+              'absolute top-0 bottom-0 z-[2] w-0.5 -translate-x-1/2 rounded-full',
+              'bg-[var(--workbench-accent)] opacity-80 pointer-events-none',
+            )}
+            style={{ left: frameToPixel(dropCaretFrame, scale) }}
+            aria-hidden="true"
+          />
         ) : null}
         {dragPreview ? (
           <div

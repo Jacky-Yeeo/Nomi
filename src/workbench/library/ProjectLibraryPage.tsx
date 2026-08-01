@@ -58,23 +58,49 @@ function formatUpdatedAt(value: number): string {
   return new Date(value).toLocaleDateString(getAppLocale())
 }
 
-// memo 化：搜索/筛选触发父组件重渲时，urls 未变的封面不重渲（图多时省下整片缩略图重建）。
+function CoverPlaceholder(): JSX.Element {
+  // 无封面的中性占位；名称由卡片下方统一显示，缩略图里不再重复（去重）。
+  return (
+    <div className="absolute inset-0 grid place-items-center bg-nomi-ink-05">
+      <IconMovie size={26} stroke={1.5} className="text-nomi-ink-30" aria-hidden />
+    </div>
+  )
+}
+
+// 视频封面：无任何可 <img> 渲染封面时（纯导入视频素材项目）用 <video> 首帧当封面。
+// #t=0.1 媒体片段强制解出首帧（preload="metadata" 单独不保证 paint）；失败降级为中性占位
+//（不是「加载失败」文案——那是图片语境的 NomiImage 兜底）。调用方用 key={url} 换源清失败态。
+function CoverVideo({ url }: { url: string }): JSX.Element {
+  const [failed, setFailed] = React.useState(false)
+  if (failed) return <CoverPlaceholder />
+  return (
+    <video
+      src={`${url}#t=0.1`}
+      muted
+      playsInline
+      preload="metadata"
+      disablePictureInPicture
+      tabIndex={-1}
+      aria-hidden
+      className="absolute inset-0 w-full h-full object-cover block pointer-events-none"
+      onError={() => setFailed(true)}
+    />
+  )
+}
+
+// memo 化：搜索/筛选触发父组件重渲时，封面源未变的卡不重渲（图多时省下整片缩略图重建）。
 // urls 每次是新数组引用，故用按值比较的 comparator。
 const ThumbnailMosaic = React.memo(
-  function ThumbnailMosaic({ urls }: { urls: string[] }): JSX.Element {
+  function ThumbnailMosaic({ urls, videoUrl }: { urls: string[]; videoUrl?: string }): JSX.Element {
     if (urls.length === 0) {
-      // 未生成的项目无封面 → 只放中性占位图标；名称由卡片下方统一显示，缩略图里不再重复（去重）。
-      return (
-        <div className="absolute inset-0 grid place-items-center bg-nomi-ink-05">
-          <IconMovie size={26} stroke={1.5} className="text-nomi-ink-30" aria-hidden />
-        </div>
-      )
+      if (videoUrl) return <CoverVideo key={videoUrl} url={videoUrl} />
+      return <CoverPlaceholder />
     }
     // 单封面：一个项目用一张代表图（首个产物）。早先 2–4 宫格把不同镜头并排塞进 200px 小卡，
     // 读起来像一张糊在一起的图、看不出是什么项目（用户报「糊在一起」）。改单封面更干净、可识别。
     return <NomiImage className="absolute inset-0 w-full h-full object-cover block" src={urls[0]} alt="" />
   },
-  (prev, next) => (prev.urls[0] || '') === (next.urls[0] || ''),
+  (prev, next) => (prev.urls[0] || '') === (next.urls[0] || '') && (prev.videoUrl || '') === (next.videoUrl || ''),
 )
 
 export default function ProjectLibraryPage({
@@ -369,7 +395,7 @@ export default function ProjectLibraryPage({
                     className="aspect-video relative overflow-hidden bg-nomi-ink-05"
                     style={urls.length === 0 && project.thumbStyle ? { background: project.thumbStyle } : undefined}
                   >
-                    <ThumbnailMosaic urls={urls} />
+                    <ThumbnailMosaic urls={urls} videoUrl={project.coverVideoUrl} />
                     <div
                       className={cn(
                         'absolute inset-0 bg-nomi-scrim opacity-0 transition-opacity duration-150',

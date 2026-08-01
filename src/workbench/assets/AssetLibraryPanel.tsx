@@ -34,7 +34,7 @@ import {
 } from './AssetLibraryPanelParts'
 import { AssetPreviewDialog } from './AssetPreviewDialog'
 import { ASSET_KIND_FILTER_VALUES, FILTER_OPTIONS, type FilterValue } from './assetLibraryPanelFilters'
-import { buildAssetLibraryDeletePlan, filterImageVideoAssets } from './assetLibrarySources'
+import { buildAssetLibraryDeletePlan, filterImageVideoAssets, filterPlayableAssets } from './assetLibrarySources'
 
 const DEFAULT_GRID_COLS = 3
 const ESTIMATED_ROW_HEIGHT = 121
@@ -124,6 +124,12 @@ type AssetLibraryContentProps = {
   projectId: string | null
   compact?: boolean
   showHeader?: boolean
+  /**
+   * 放行音频素材（默认 false = 只列图/视频，生成页侧栏的既有行为）。
+   * 剪辑页左栏传 true：音频是配乐来源——此前全 App 没有任何地方拖得出音频素材，
+   * 时间轴那句「拖音频到此当配乐」等于无源（唯一现实路径是画布音频节点走节点把手）。
+   */
+  includeAudio?: boolean
   onClose?: () => void
   className?: string
 }
@@ -132,6 +138,7 @@ export function AssetLibraryContent({
   projectId,
   compact = false,
   showHeader = true,
+  includeAudio = false,
   onClose,
   className,
 }: AssetLibraryContentProps): JSX.Element {
@@ -159,12 +166,12 @@ export function AssetLibraryContent({
   const { assets: allProjectAssets, refresh: refreshAllProjectAssets } = useAllProjectAssets()
   const folderApi = useAssetFolders(projectId)
   const allSourceAssets = React.useMemo(
-    () => filterImageVideoAssets(allProjectAssets),
-    [allProjectAssets],
+    () => (includeAudio ? filterPlayableAssets(allProjectAssets) : filterImageVideoAssets(allProjectAssets)),
+    [allProjectAssets, includeAudio],
   )
   const projectSourceAssets = React.useMemo(
-    () => filterImageVideoAssets(canvasAssets),
-    [canvasAssets],
+    () => (includeAudio ? filterPlayableAssets(canvasAssets) : filterImageVideoAssets(canvasAssets)),
+    [canvasAssets, includeAudio],
   )
 
   const sourceFilteredAssets = React.useMemo(

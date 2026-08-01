@@ -33,11 +33,20 @@ type Analysis = {
   textInputs: Candidate[]; imageInputs: Candidate[]; outputNodes: OutputCand[]; numericInputs: Candidate[]; widgetInputs?: Candidate[]
   suggested: Binding
 }
+type Reconcile = {
+  serverReachable: boolean
+  unknownNodeTypes: string[]
+  missingEnumValues: Array<{ nodeId: string; classType: string; title?: string; inputKey: string; value: string }>
+  /** (classType, inputKey) → 本机 combo 可选值；导入/保存时烤进参数控件（画布真实文件下拉）。 */
+  enumOptions?: Array<{ classType: string; inputKey: string; options: string[] }>
+}
 type WorkflowEditInitial = { modelKey: string; labelZh: string; text: string; binding?: Binding }
 type ComfyuiWorkflowImportPanelProps = {
   onImported: () => void
   initial?: WorkflowEditInitial
   onCancel?: () => void
+  /** 多实例：这张面板属于**哪一台** ComfyUI（对账打它的 /object_info、工作流落它名下）。缺省=第一台。 */
+  vendorKey?: string
 }
 
 const NONE = '__none__'
@@ -102,6 +111,10 @@ const normalizeBinding = (binding: Binding): Binding => ({
 const candidateSearchText = (candidate: Candidate): string =>
   `${candidate.nodeId} ${candidate.inputKey} ${candidate.classType} ${candidate.title ?? ''}`.toLowerCase()
 
+/** 缺件清单收短：最多列 4 项，其余归成 (+N)——防一张缺一堆 LoRA 的图把面板撑爆。 */
+const shortList = (items: string[], cap = 4): string =>
+  items.slice(0, cap).join(' · ') + (items.length > cap ? ` (+${items.length - cap})` : '')
+
 const PARAM_PRESETS: ParamPreset[] = [
   {
     key: 'width',
@@ -129,7 +142,7 @@ const PARAM_PRESETS: ParamPreset[] = [
   },
 ]
 
-export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel }: ComfyuiWorkflowImportPanelProps): JSX.Element {
+export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel, vendorKey }: ComfyuiWorkflowImportPanelProps): JSX.Element {
   const { t } = useTranslation()
   const catalog = getDesktopBridge()?.modelCatalog
   const editMode = Boolean(initial)
@@ -140,9 +153,23 @@ export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel }: Co
   const [labelZh, setLabelZh] = React.useState(initial?.labelZh ?? '')
   const [error, setError] = React.useState('')
   const [busy, setBusy] = React.useState(false)
+  const [reconcile, setReconcile] = React.useState<Reconcile | null>(null)
+  const reconcileSeq = React.useRef(0)
+
+  // 缺件对账（异步，不阻塞绑定 UI）：分析成功后问本机 /object_info，缺节点/缺模型在导入前就说清。
+  // seq 防串台：快速换文本重新分析时，旧请求晚到不覆盖新结果。
+  const runReconcile = React.useCallback((value: string) => {
+    const seq = ++reconcileSeq.current
+    setReconcile(null)
+    const call = getDesktopBridge()?.modelCatalog?.reconcileComfyWorkflow
+    if (!call) return
+    void call(value, vendorKey)
+      .then((r) => { if (reconcileSeq.current === seq && r && r.ok) setReconcile(r) })
+      .catch(() => {})
+  }, [vendorKey])
 
   const reset = React.useCallback(() => {
-    setText(''); setAnalysis(null); setBinding(null); setLabelZh(''); setError('')
+    setText(''); setAnalysis(null); setBinding(null); setLabelZh(''); setError(''); setReconcile(null)
   }, [])
 
   const initialModelKey = initial?.modelKey
@@ -159,6 +186,7 @@ export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel }: Co
     const a = r.analysis as Analysis
     setAnalysis(a)
     setBinding(normalizeBinding(initial.binding ?? a.suggested))
+    runReconcile(initial.text)
   // 只在切换编辑对象时重置表单；父级 hover/focus 状态重渲染不能覆盖用户正在编辑的内容。
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalog, initialModelKey])
@@ -167,11 +195,12 @@ export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel }: Co
     setError('')
     const r = catalog?.analyzeComfyWorkflow?.(text)
     if (!r) { setError(t('onboardingProviders.comfyWorkflow.unsupported')); return }
-    if (!r.ok) { setError(r.error); setAnalysis(null); setBinding(null); return }
+    if (!r.ok) { setError(r.error); setAnalysis(null); setBinding(null); setReconcile(null); return }
     const a = r.analysis as Analysis
     setAnalysis(a)
     setBinding(normalizeBinding(a.suggested))
-  }, [catalog, text, t])
+    runReconcile(text)
+  }, [catalog, text, t, runReconcile])
 
   const paramKeyError = React.useMemo(() => {
     const params = binding?.params ?? []
@@ -190,9 +219,11 @@ export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel }: Co
     setBusy(true)
     try {
       const name = labelZh.trim() || t('onboardingProviders.comfyWorkflow.defaultName')
+      // enumOptions（reconcile 带出）随导入/保存烤进参数控件——combo 参数在画布变成真实文件下拉。
+      const enumOptions = reconcile && reconcile.enumOptions?.length ? reconcile.enumOptions : undefined
       const r = editMode && initial
-        ? catalog.updateComfyWorkflow?.({ modelKey: initial.modelKey, text, binding, labelZh: name }) ?? { ok: false as const, error: t('onboardingProviders.comfyWorkflow.unsupportedEdit') }
-        : catalog.importComfyWorkflow({ text, binding, labelZh: name })
+        ? catalog.updateComfyWorkflow?.({ modelKey: initial.modelKey, text, binding, labelZh: name, enumOptions, vendorKey }) ?? { ok: false as const, error: t('onboardingProviders.comfyWorkflow.unsupportedEdit') }
+        : catalog.importComfyWorkflow({ text, binding, labelZh: name, enumOptions, vendorKey })
       if (!r.ok) { setError(r.error); return }
       const kindLabel = r.kind === 'video' ? t('onboardingProviders.comfyWorkflow.video') : t('onboardingProviders.comfyWorkflow.image')
       toast(t(editMode ? 'onboardingProviders.comfyWorkflow.saved' : 'onboardingProviders.comfyWorkflow.imported', { name, kind: kindLabel }), 'success')
@@ -200,7 +231,7 @@ export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel }: Co
       else { reset(); setOpen(false) }
       onImported()
     } finally { setBusy(false) }
-  }, [binding, catalog, editMode, initial, text, labelZh, onCancel, reset, onImported, paramKeyError, t])
+  }, [binding, catalog, editMode, initial, text, labelZh, onCancel, reset, onImported, paramKeyError, reconcile, vendorKey, t])
 
   if (!open && !editMode) {
     return (
@@ -341,7 +372,7 @@ export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel }: Co
       </div>
       <textarea
         value={text}
-        onChange={(e) => { setText(e.target.value); setAnalysis(null); setBinding(null); setError('') }}
+        onChange={(e) => { setText(e.target.value); setAnalysis(null); setBinding(null); setError(''); setReconcile(null) }}
         spellCheck={false}
         aria-label={t('onboardingProviders.comfyWorkflow.pasteArea')}
         placeholder={t('onboardingProviders.comfyWorkflow.jsonPlaceholder')}
@@ -371,6 +402,33 @@ export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel }: Co
             {binding.outputKind === 'video' ? <IconMovie size={14} className="text-nomi-accent" /> : <IconPhoto size={14} className="text-nomi-accent" />}
             {t('onboardingProviders.comfyWorkflow.detectedBefore')}<b className="text-nomi-ink font-semibold">{binding.outputKind === 'video' ? t('onboardingProviders.comfyWorkflow.video') : t('onboardingProviders.comfyWorkflow.image')}</b>{t('onboardingProviders.comfyWorkflow.detectedAfter')}{frameKindLabel}{t('onboardingProviders.comfyWorkflow.confirmBindings')}
           </div>
+
+          {/* 缺件对账（异步）：缺节点/缺模型在导入前说清，不等运行 400。ComfyUI 没开 → 一行说明不阻断。 */}
+          {reconcile && !reconcile.serverReachable ? (
+            <div className="text-caption text-nomi-ink-40 leading-relaxed">{t('onboardingProviders.comfyWorkflow.reconcileOffline')}</div>
+          ) : null}
+          {reconcile && reconcile.unknownNodeTypes.length > 0 ? (
+            <div className="flex items-start gap-2 rounded-nomi-sm bg-[var(--workbench-danger-soft)] px-2.5 py-2">
+              <IconAlertTriangle size={15} className="shrink-0 mt-0.5 text-workbench-danger" />
+              <span className="text-caption text-nomi-ink leading-relaxed">
+                {t('onboardingProviders.comfyWorkflow.missingNodes', {
+                  count: reconcile.unknownNodeTypes.length,
+                  list: shortList(reconcile.unknownNodeTypes),
+                })}
+              </span>
+            </div>
+          ) : null}
+          {reconcile && reconcile.missingEnumValues.length > 0 ? (
+            <div className="flex items-start gap-2 rounded-nomi-sm bg-[var(--workbench-danger-soft)] px-2.5 py-2">
+              <IconAlertTriangle size={15} className="shrink-0 mt-0.5 text-workbench-danger" />
+              <span className="text-caption text-nomi-ink leading-relaxed">
+                {t('onboardingProviders.comfyWorkflow.missingFiles', {
+                  count: reconcile.missingEnumValues.length,
+                  list: shortList(reconcile.missingEnumValues.map((m) => `${m.classType}.${m.inputKey}="${m.value.slice(0, 40)}"`)),
+                })}
+              </span>
+            </div>
+          ) : null}
 
           <BindRow label={t('onboardingProviders.comfyWorkflow.promptNode')}>
             <NomiSelect

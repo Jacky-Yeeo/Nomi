@@ -14,11 +14,19 @@ export type GenerationProgressPhase =
   | 'still-generating' // 超过常规时长仍在生成(软超时后,后台继续等结果)
   | 'retrying' //    网络波动重试中
   | 'finalizing' //  正在保存结果(本地化/归一)
+  | 'comfyui-node' // ComfyUI ws 逐节点进度(P 轨:真实百分比,不违背 No fake progress)
+  | 'comfyui-queued' // ComfyUI 服务器队列排队中(ws status + /queue 位次)
 
 export type ProgressNarrationContext = {
   elapsedMs?: number
   attempt?: number
   maxAttempts?: number
+  /** comfyui-node：当前执行的节点 class + 第几/共几个。 */
+  currentClass?: string
+  startedNodes?: number
+  totalNodes?: number
+  /** comfyui-queued：前面还有几个任务。 */
+  queueAhead?: number
 }
 
 const NARRATE_PROGRESS: Record<GenerationProgressPhase, (ctx: ProgressNarrationContext) => string> = {
@@ -47,6 +55,18 @@ const NARRATE_PROGRESS: Record<GenerationProgressPhase, (ctx: ProgressNarrationC
         })
       : i18n.t('generationCommon.observability.progress.retrying'),
   finalizing: () => i18n.t('generationCommon.observability.progress.finalizing'),
+  'comfyui-node': (ctx) =>
+    ctx.currentClass && ctx.startedNodes && ctx.totalNodes
+      ? i18n.t('generationCommon.observability.progress.comfyNodeAt', {
+          cls: ctx.currentClass,
+          current: ctx.startedNodes,
+          total: ctx.totalNodes,
+        })
+      : i18n.t('generationCommon.observability.progress.comfyNode'),
+  'comfyui-queued': (ctx) =>
+    typeof ctx.queueAhead === 'number'
+      ? i18n.t('generationCommon.observability.progress.comfyQueuedAhead', { count: ctx.queueAhead })
+      : i18n.t('generationCommon.observability.progress.comfyQueued'),
 }
 
 export function narrateProgress(phase: GenerationProgressPhase, ctx: ProgressNarrationContext = {}): string {

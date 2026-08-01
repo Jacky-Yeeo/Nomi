@@ -133,8 +133,20 @@ export type AssetIngestion =
       accepts?: ReadonlyArray<AssetMediaKind>;
     };
 
-/** 本地 ComfyUI 供应商固定 key（种子 + assetLocalization 识别它走自己的 /upload/image，单源防漂移）。 */
+/** 本地 ComfyUI **第一台**的固定 key（种子 + assetLocalization 识别它走自己的 /upload/image，单源防漂移）。 */
 export const COMFYUI_VENDOR_KEY = "comfyui-local";
+/** 第 2+ 台 ComfyUI 的 key 前缀（`comfyui-local-工作站` 等）。见 docs/plan/2026-08-01-comfyui-multi-instance.md。 */
+export const COMFYUI_VENDOR_KEY_PREFIX = `${COMFYUI_VENDOR_KEY}-`;
+
+/**
+ * 「这个 vendor 是不是一台 ComfyUI」——多实例的**唯一判据**（P4 通用：判类不判具体哪台）。
+ * 用 key 前缀而非 meta 标记：key 是稳定身份、不会被 upsert 覆盖，且存量单实例天然是第一台（零迁移）。
+ * 注意各处仍必须用 vendor **自己的** baseUrlHint（信任/连接/对账都按实例走），本判据只回答"是不是"。
+ */
+export function isComfyuiVendor(vendor: { key?: string } | null | undefined): boolean {
+  const key = vendor?.key;
+  return typeof key === "string" && (key === COMFYUI_VENDOR_KEY || key.startsWith(COMFYUI_VENDOR_KEY_PREFIX));
+}
 
 export type Vendor = {
   key: string;
@@ -232,6 +244,13 @@ export type HttpOperation = {
    * electron/tasks/responseTransforms.ts，runtime 只按名查表、不含 vendor 逻辑。
    */
   response_transform?: string;
+  /**
+   * **命名请求变换**（与 response_transform 对称）。模板渲染完、发 HTTP 前对 body 应用一次，
+   * 用于「按目标后端实况补全请求」（如 ComfyUI 内置文生图 ckpt_name 留空 → 从本机 /object_info
+   * derive 第一个 checkpoint）。变换住各自 vendor 模块、注册进 electron/tasks/requestTransforms.ts；
+   * 与响应变换的刻意差异：变换抛错会冒泡（fail fast 拦下必失败的提交并给人话），见该文件头。
+   */
+  request_transform?: string;
   /**
    * **wire 必填参数的兜底默认值**（headless/MCP 路专用）。UI 路由 NodeGenerationComposer 会按档案
    * (src/config/modelArchetypes) 把用户选的 size/voice/model 等填进 request.params；但 MCP/CLI 的
