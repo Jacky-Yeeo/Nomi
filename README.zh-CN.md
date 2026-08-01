@@ -8,7 +8,7 @@
 
 Nomi 是本地优先、开源的 AI 视频导演工作台：把故事、分镜、视觉锚点、生成画布和时间线保持在同一个上下文里。
 
-[English](README.md) · [官网](https://nomiaqm.com/) · [下载](https://github.com/aqm857886159/Nomi/releases/latest) · [看 60 秒宣传片](https://nomiaqm.com/assets/demo.mp4) · [团队服务](https://nomiaqm.com/#teams)
+[English](README.md) · [官网](https://nomiaqm.com/) · [下载](https://github.com/aqm857886159/Nomi/releases/latest) · [夸克网盘镜像](https://pan.quark.cn/s/d3322c17e7b6) · [加入用户群](#用户群) · [团队合作](#团队服务) · [看 60 秒宣传片](https://nomiaqm.com/assets/demo.mp4)
 
 [![最新版本](https://img.shields.io/github/v/release/aqm857886159/Nomi?label=release)](https://github.com/aqm857886159/Nomi/releases/latest)
 ![平台](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-1a1816)
@@ -51,14 +51,14 @@ Nomi 是本地优先、开源的 AI 视频导演工作台：把故事、分镜�
 
 ## 团队服务
 
-面向需要真实项目交付的团队，我们提供：
+如果你想把 Nomi 变成内部 AI 视频工作台、客户项目、垂直行业流程或贴牌产品，我们可以从首次验证一直做到上线后的持续迭代：
 
 - 定制开发
 - 系统与模型集成
 - 贴牌交付与商业授权
 - 持续优化、维护与迭代
 
-[提交商务咨询](https://github.com/aqm857886159/Nomi/issues/new?template=business_inquiry.yml)，或添加作者微信 **TZ857886159**。GitHub Issue 是公开页面，请勿填写密钥、私人联系方式、预算明细或受 NDA 保护的材料。
+[提交商务咨询](https://github.com/aqm857886159/Nomi/issues/new?template=business_inquiry.yml)，或添加作者微信 **TZ857886159**（[查看个人微信二维码](docs/media/qingyang-wechat.jpg)）。GitHub Issue 是公开页面，请勿填写密钥、私人联系方式、预算明细或受 NDA 保护的材料。
 
 ## 用户群
 

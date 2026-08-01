@@ -8,7 +8,7 @@
 
 Nomi is an open-source, local-first AI video workbench that keeps your story, storyboard, visual anchors, generation canvas, and timeline connected.
 
-[简体中文](README.zh-CN.md) · [Website](https://nomiaqm.com/en/) · [Download](https://github.com/aqm857886159/Nomi/releases/latest) · [Watch the 60s film](https://nomiaqm.com/assets/video/launch-film-en.mp4) · [For Teams](https://nomiaqm.com/en/#teams)
+[简体中文](README.zh-CN.md) · [Website](https://nomiaqm.com/en/) · [Download](https://github.com/aqm857886159/Nomi/releases/latest) · [Community](https://github.com/aqm857886159/Nomi/discussions) · [For Teams](https://nomiaqm.com/en/#teams) · [Watch the 60s film](https://nomiaqm.com/assets/video/launch-film-en.mp4) · [Documentation](docs/user-guide.md)
 
 [![Latest release](https://img.shields.io/github/v/release/aqm857886159/Nomi?label=release)](https://github.com/aqm857886159/Nomi/releases/latest)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-1a1816)
@@ -46,6 +46,10 @@ Nomi is an open-source, local-first AI video workbench that keeps your story, st
 3. **Direct and export.** Review visual anchors, generate images or video with your configured models, choose the results, arrange the timeline, and export MP4.
 
 Read the [user guide](docs/user-guide.md), [provider guide](docs/provider-integration.md), or [CLI + MCP guide](docs/guide/capability-core-cli-mcp.md).
+
+## Community
+
+Join [GitHub Discussions](https://github.com/aqm857886159/Nomi/discussions) to share workflows, report friction, and follow what is being built next. WeChat users can also find the Nomi group and maintainer QR codes in the [Chinese README](README.zh-CN.md#用户群).
 
 ## For Teams
 
