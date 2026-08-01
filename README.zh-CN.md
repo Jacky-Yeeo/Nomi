@@ -10,6 +10,15 @@ Nomi 是本地优先、开源的 AI 视频导演工作台：把故事、分镜�
 
 [English](README.md) · [官网](https://nomiaqm.com/) · [下载](https://github.com/aqm857886159/Nomi/releases/latest) · [夸克网盘镜像](https://pan.quark.cn/s/d3322c17e7b6) · [加入用户群](#用户群) · [团队合作](#团队服务) · [看 60 秒宣传片](https://nomiaqm.com/assets/demo.mp4)
 
+## 微信联系
+
+| 加入 Nomi 用户群 | 群码失效 / 商务合作 |
+|:---:|:---:|
+| <a href="docs/media/nomi-canvas-group-wechat.png"><img src="docs/media/nomi-canvas-group-wechat.png" alt="Nomi 用户群微信二维码" width="160" /></a> | <a href="docs/media/qingyang-wechat.jpg"><img src="docs/media/qingyang-wechat.jpg" alt="Nomi 作者青阳的微信二维码" width="160" /></a> |
+| 扫码加入“nomi 画布群”，反馈会直接进入产品迭代。 | 群码失效，或沟通定制开发、系统集成、贴牌交付与持续迭代，请添加作者微信 **TZ857886159**。 |
+
+[参与 GitHub 讨论](https://github.com/aqm857886159/Nomi/discussions) · [提交商务咨询](https://github.com/aqm857886159/Nomi/issues/new?template=business_inquiry.yml)
+
 [![最新版本](https://img.shields.io/github/v/release/aqm857886159/Nomi?label=release)](https://github.com/aqm857886159/Nomi/releases/latest)
 ![平台](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-1a1816)
 [![许可证](https://img.shields.io/badge/license-AGPL--3.0--only-1a1816)](LICENSE)
@@ -64,9 +73,7 @@ Nomi 是本地优先、开源的 AI 视频导演工作台：把故事、分镜�
 
 欢迎加入“nomi 画布群”，反馈会直接进入产品迭代。
 
-<img src="docs/media/nomi-canvas-group-wechat.png" alt="nomi 画布群二维码" width="200" />
-
-二维码不可用时，添加作者微信 **TZ857886159** 拉你进群。
+群二维码已放在 README 首屏；也可以[打开群二维码原图](docs/media/nomi-canvas-group-wechat.png)。二维码不可用时，添加作者微信 **TZ857886159** 拉你进群。
 
 ## 开发者
 
@@ -104,4 +111,4 @@ pnpm run gates
 
 **青阳** — AI 产品经理 / 创作者
 
-<img src="docs/media/qingyang-wechat.jpg" alt="青阳的个人微信二维码" width="140" />
+[打开作者微信二维码原图](docs/media/qingyang-wechat.jpg)，或直接添加微信 **TZ857886159**。

@@ -10,6 +10,15 @@ Nomi is an open-source, local-first AI video workbench that keeps your story, st
 
 [简体中文](README.zh-CN.md) · [Website](https://nomiaqm.com/en/) · [Download](https://github.com/aqm857886159/Nomi/releases/latest) · [Community](https://github.com/aqm857886159/Nomi/discussions) · [For Teams](https://nomiaqm.com/en/#teams) · [Watch the 60s film](https://nomiaqm.com/assets/video/launch-film-en.mp4) · [Documentation](docs/user-guide.md)
 
+## WeChat / 微信联系
+
+| Join the Nomi user group / 加入用户群 | Maintainer & business / 添加作者与商务合作 |
+|:---:|:---:|
+| <a href="docs/media/nomi-canvas-group-wechat.png"><img src="docs/media/nomi-canvas-group-wechat.png" alt="Nomi 用户群微信二维码" width="160" /></a> | <a href="docs/media/qingyang-wechat.jpg"><img src="docs/media/qingyang-wechat.jpg" alt="Nomi 作者青阳的微信二维码" width="160" /></a> |
+| Scan to join the user group.<br />扫码加入 Nomi 用户群 | If the group QR expires, or for custom builds, integrations, white-label delivery, and ongoing iteration, add **TZ857886159**.<br />群码失效或沟通项目，请添加作者微信 **TZ857886159**。 |
+
+International community: [GitHub Discussions](https://github.com/aqm857886159/Nomi/discussions) · Project inquiry: [Business Inquiry](https://github.com/aqm857886159/Nomi/issues/new?template=business_inquiry.yml)
+
 [![Latest release](https://img.shields.io/github/v/release/aqm857886159/Nomi?label=release)](https://github.com/aqm857886159/Nomi/releases/latest)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-1a1816)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--only-1a1816)](LICENSE)
@@ -49,7 +58,7 @@ Read the [user guide](docs/user-guide.md), [provider guide](docs/provider-integr
 
 ## Community
 
-Join [GitHub Discussions](https://github.com/aqm857886159/Nomi/discussions) to share workflows, report friction, and follow what is being built next. WeChat users can also find the Nomi group and maintainer QR codes in the [Chinese README](README.zh-CN.md#用户群).
+Join [GitHub Discussions](https://github.com/aqm857886159/Nomi/discussions) to share workflows, report friction, and follow what is being built next. WeChat users can use the group and maintainer QR codes at the top of this README; the [Chinese README](README.zh-CN.md#用户群) contains the full Chinese guide.
 
 ## For Teams
 
