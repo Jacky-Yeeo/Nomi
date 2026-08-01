@@ -185,6 +185,11 @@ describe('classifyGenerationError — 已知分类', () => {
     expect(r.kind).toBe('asset-upload-failed')
     expect(r.reason).toBe('参考图没能送到服务商')
     expect(r.hint).not.toMatch(/额度问题/)
+    // 2026-08-01 实测：tmpfiles.org 在国内直连是 000（连不上），走代理才 405。所以
+    // 「fetch failed」压倒性地是网络/代理没覆盖到这两个境外 host，而不是它们真挂了。
+    // 文案必须先指向代理，否则用户对着一个网络问题去「稍后重试」，永远重试不好。
+    expect(r.hint).toMatch(/代理/)
+    expect(r.hint).toMatch(/境外/)
     // 哪个图床怎么挂的仍要看得见（排查线索不能丢）。
     expect(r.providerMessage).toMatch(/litterbox/)
   })

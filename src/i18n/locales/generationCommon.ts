@@ -188,7 +188,7 @@ export const zhGenerationCommon = {
       },
       assetUploadFailed: {
         reason: '参考图没能送到服务商',
-        hint: '这张图只存在你本机，而服务商要的是一个公网能取到的地址，Nomi 只好走免费匿名图床——这次图床挂了（服务商还没被请求到，不是它的问题，也不扣额度）。稍后重试通常就好；想彻底跳过这一步，接一个自带上传通道的服务商（KIE / apimart / 本地 ComfyUI），Nomi 会优先走它。',
+        hint: '服务商要的是一个公网能取到的图片地址，而这张图只在你本机，Nomi 只好走免费图床中转（服务商还没被请求到，不扣额度）。这两个图床都在境外，网络或代理没覆盖到它们时就会连不上——最常见的原因是这个，其次才是图床本身临时故障。请先确认代理正常；想彻底跳过这一跳，接一个自带上传通道的服务商（KIE / apimart / 本地 ComfyUI），Nomi 会优先走它。',
       },
       server: { reason: '服务商故障', hint: '服务商服务异常，请稍后重试，或换一个模型。' },
       input: {
@@ -1066,7 +1066,7 @@ export const enGenerationCommon = {
       },
       assetUploadFailed: {
         reason: 'Reference image never reached the provider',
-        hint: 'This image only exists on your machine, but the provider needs a publicly reachable URL, so Nomi fell back to free anonymous image hosts — and they were down. The provider was never called, so nothing was charged. Retrying later usually works; to skip this step for good, connect a provider with its own upload channel (KIE, apimart, or local ComfyUI) and Nomi will prefer it.',
+        hint: 'The provider needs a publicly reachable image URL, but this image only exists on your machine, so Nomi relayed it through a free image host (the provider was never called, so nothing was charged). Both hosts are overseas and unreachable when your network or proxy does not cover them — that is the most common cause here, ahead of the hosts actually being down. Check your proxy first; to skip this hop for good, connect a provider with its own upload channel (KIE, apimart, or local ComfyUI) and Nomi will prefer it.',
       },
       server: {
         reason: 'Provider error',
