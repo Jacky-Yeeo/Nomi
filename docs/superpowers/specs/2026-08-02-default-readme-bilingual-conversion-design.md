@@ -1,7 +1,7 @@
 # Nomi 默认 README 双语转化首屏设计
 
 日期：2026-08-02
-状态：用户已明确确认“不能自动切换就中英文夹杂，并把微信二维码放在第一个位置”
+状态：已实施并通过真实 GitHub 桌面端与 390 px 窄屏验收
 范围：`README.md`、`README.zh-CN.md`、README 转化静态契约
 
 ## 1. 问题与事实
@@ -53,3 +53,13 @@ GitHub 仓库首页自动展示根目录 README；官方文档只定义 `.github
 3. 英文用户仍能直接进入 Website、Download、GitHub Discussions、For Teams 和英文文档。
 4. `TZ857886159` 以文字存在，即使图片无法加载也能联系。
 5. 删除任一默认首屏二维码、把二维码下移到宣传片海报之后，静态契约都会失败。
+
+## 7. 实施与验收证据
+
+- TDD 红灯：新增移动端契约后，旧双列表格明确失败于 `English default README group QR remains prominent on mobile`。
+- TDD 绿灯：两份 README 改为纵向结构后，`pnpm run check:site` 同时通过 `MARKETING SITE CHECK PASS` 与 `MARKETING HOME STATIC PASS`。
+- 完整门禁：368 个测试文件通过、1 个跳过；3404 个测试通过、1 个跳过；lint 为既有棘轮 98 warnings / 0 errors；typecheck 与 renderer / Electron build 全部通过。
+- 默认 README 线上窄屏：GitHub 仓库页在 390 × 844 viewport 下，群二维码实际渲染 220 px、作者二维码 180 px，两图均加载成功，无页面横向溢出。
+- 默认 README 线上桌面端：两张二维码保持 220 / 180 px，用户群在作者微信之前，宣传片海报在两张二维码之后。
+- 中文 README 线上桌面端：两张二维码均加载成功并保持 220 / 180 px；夸克网盘、加入用户群、团队合作和 `TZ857886159` 转化入口全部存在。
+- 发布内容提交：`56dfaa32a39de1675bf7173ed17b2f9f08559dba`；对应 `Quality Gate`、`Mac Package` 与 `Workers Builds: nomi` 均为 `success`。

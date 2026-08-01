@@ -17,7 +17,7 @@
 - Modify: `tests/ux/marketing-home.static.mjs`
 - Test: `tests/ux/marketing-home.static.mjs`
 
-- [ ] **Step 1: Add a helper that requires a token before the hero poster**
+- [x] **Step 1: Add a helper that requires a token before the hero poster**
 
 ```js
 const expectBefore = (document, token, boundary, message) => {
@@ -27,7 +27,7 @@ const expectBefore = (document, token, boundary, message) => {
 }
 ```
 
-- [ ] **Step 2: Add exact default and Chinese README first-screen assertions**
+- [x] **Step 2: Add exact default and Chinese README first-screen assertions**
 
 ```js
 const readmeHero = '[![Nomi director workflow]'
@@ -42,13 +42,13 @@ for (const [token, label] of [
 }
 ```
 
-- [ ] **Step 3: Run the contract and verify RED**
+- [x] **Step 3: Run the contract and verify RED**
 
 Run: `node tests/ux/marketing-home.static.mjs`
 
 Expected: FAIL at `English default README keeps group QR before hero` because `README.md` has no direct QR image.
 
-- [ ] **Step 4: Commit the red contract**
+- [x] **Step 4: Commit the red contract**
 
 ```bash
 git add tests/ux/marketing-home.static.mjs
@@ -63,25 +63,25 @@ git commit -m "test(readme): lock WeChat conversion above the fold"
 - Modify: `README.zh-CN.md`
 - Test: `tests/ux/marketing-home.static.mjs`
 
-- [ ] **Step 1: Insert the bilingual conversion table into the default README**
+- [x] **Step 1: Insert the bilingual conversion block into the default README**
 
-Place the table directly after the first link row and before release badges. Use the existing group and maintainer image paths, 160 px width, direct-image links, bilingual labels, textual `TZ857886159`, GitHub Discussions, and Business Inquiry.
+Place the conversion block directly after the first link row and before release badges. Use the existing group and maintainer image paths, direct-image links, bilingual labels, textual `TZ857886159`, GitHub Discussions, and Business Inquiry. After narrow-screen inspection exposed table shrinkage, use a vertical 220 px group QR followed by a 180 px maintainer QR.
 
-- [ ] **Step 2: Insert the Chinese conversion table in the same position**
+- [x] **Step 2: Insert the Chinese conversion block in the same position**
 
 Use the same two image paths and ordering. Keep the current download, Quark mirror, group, team, film, and English links unchanged.
 
-- [ ] **Step 3: Remove only the now-duplicated lower image tags**
+- [x] **Step 3: Remove only the now-duplicated lower image tags**
 
 Keep `## 用户群` and `## 关于作者`, but replace their lower QR images with links back to the first-screen images and the textual WeChat fallback. Do not remove conversion sections or destinations.
 
-- [ ] **Step 4: Run the static contract GREEN**
+- [x] **Step 4: Run the static contract GREEN**
 
 Run: `pnpm run check:site`
 
 Expected: `MARKETING SITE CHECK PASS` and `MARKETING HOME STATIC PASS`.
 
-- [ ] **Step 5: Commit the README change**
+- [x] **Step 5: Commit the README change**
 
 ```bash
 git add README.md README.zh-CN.md
@@ -95,11 +95,11 @@ git commit -m "docs(readme): put WeChat conversion on the first screen"
 - Modify: `docs/superpowers/specs/2026-08-02-default-readme-bilingual-conversion-design.md`
 - Modify: `docs/superpowers/plans/2026-08-02-default-readme-bilingual-conversion.md`
 
-- [ ] **Step 1: Render both Markdown files and inspect the top section**
+- [x] **Step 1: Render both Markdown files and inspect the top section**
 
 Use a GitHub-compatible Markdown renderer or the GitHub repository page after pushing. Verify both QR images load, remain scannable, and occur before the hero poster on desktop and narrow viewport.
 
-- [ ] **Step 2: Run focused and full verification**
+- [x] **Step 2: Run focused and full verification**
 
 ```bash
 pnpm run check:site
@@ -109,15 +109,22 @@ pnpm run gates
 
 Expected: site contract and complete repository gate pass with no new lint warnings.
 
-- [ ] **Step 3: Record evidence and commit**
+- [x] **Step 3: Record evidence and commit**
 
 Update the spec state to `已实施并验证`, check completed plan boxes, and record test counts, rendered screenshots, final commit and live GitHub rendering evidence.
 
-- [ ] **Step 4: Integrate on latest remote main and push**
+- [x] **Step 4: Integrate on latest remote main and push**
 
 Fetch `origin/main`, rebase or cherry-pick onto the newest commit, run `pnpm run gates`, require `origin/main` to be an ancestor, then push `HEAD:main` without force.
 
-- [ ] **Step 5: Verify the final default GitHub README**
+- [x] **Step 5: Verify the final default GitHub README**
 
 Require the final commit's Quality Gate and Mac Package to pass. Open the repository front page and Chinese README from GitHub, verify both real QR images render before the hero, and confirm the raw README contract still passes.
 
+### Recorded result
+
+- Red contract: the original table failed the mobile-prominence assertion; real GitHub inspection measured the group QR at only 69 px on a 390 px viewport.
+- Green contract: the published vertical layout renders the group QR at 220 px and maintainer QR at 180 px on both narrow and desktop views, with no horizontal overflow.
+- Local gates: 368 test files passed / 1 skipped; 3404 tests passed / 1 skipped; 98 lint warnings / 0 errors; typecheck and both builds passed.
+- Published content commit: `56dfaa32a39de1675bf7173ed17b2f9f08559dba`.
+- Remote checks: Quality Gate, Mac Package, and Workers Builds all completed successfully.
