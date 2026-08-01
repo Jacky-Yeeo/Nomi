@@ -1,26 +1,26 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Nomi — 把镜头讲清楚，不让模型猜</title>
-<meta name="description" content="本地优先、开源的 AI 视频导演工作台。连接故事、分镜、视觉锚点、生成画布和时间线，也可通过 MCP 与 Skills 从一句话推进到可编辑初稿。" />
-<link rel="canonical" href="https://nomiaqm.com/" />
+<title>Nomi — Direct the shot. Not just the prompt.</title>
+<meta name="description" content="An open-source, local-first AI video workbench that connects story, visual anchors, generation, and timeline—and lets AI assistants advance an editable first cut over MCP." />
+<link rel="canonical" href="https://nomiaqm.com/en/" />
 <link rel="alternate" hreflang="zh-CN" href="https://nomiaqm.com/" />
 <link rel="alternate" hreflang="en" href="https://nomiaqm.com/en/" />
 <link rel="alternate" hreflang="x-default" href="https://nomiaqm.com/" />
 <meta property="og:type" content="website" />
-<meta property="og:locale" content="zh_CN" />
-<meta property="og:title" content="Nomi — 把镜头讲清楚，不让模型猜" />
-<meta property="og:description" content="本地优先、开源的 AI 视频导演工作台。连接故事、分镜、视觉锚点、生成画布和时间线，也可通过 MCP 与 Skills 从一句话推进到可编辑初稿。" />
-<meta property="og:url" content="https://nomiaqm.com/" />
-<meta property="og:image" content="https://nomiaqm.com/assets/social-preview-zh.jpg" />
-<meta property="og:image:alt" content="Nomi 本地优先 AI 视频导演工作台" />
+<meta property="og:locale" content="en_US" />
+<meta property="og:title" content="Nomi — Direct the shot. Not just the prompt." />
+<meta property="og:description" content="An open-source, local-first AI video workbench that connects story, visual anchors, generation, and timeline—and lets AI assistants advance an editable first cut over MCP." />
+<meta property="og:url" content="https://nomiaqm.com/en/" />
+<meta property="og:image" content="https://nomiaqm.com/assets/social-preview-en.jpg" />
+<meta property="og:image:alt" content="Nomi local-first AI video workbench" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Nomi — 把镜头讲清楚，不让模型猜" />
-<meta name="twitter:description" content="本地优先、开源的 AI 视频导演工作台。连接故事、分镜、视觉锚点、生成画布和时间线，也可通过 MCP 与 Skills 从一句话推进到可编辑初稿。" />
-<meta name="twitter:image" content="https://nomiaqm.com/assets/social-preview-zh.jpg" />
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Nomi","applicationCategory":"MultimediaApplication","operatingSystem":"macOS, Windows","codeRepository":"https://github.com/aqm857886159/Nomi","license":"https://www.gnu.org/licenses/agpl-3.0.html","url":"https://nomiaqm.com/","softwareVersion":"0.18.1","downloadUrl":"https://github.com/aqm857886159/Nomi/releases/latest","inLanguage":"zh-CN"}</script>
+<meta name="twitter:title" content="Nomi — Direct the shot. Not just the prompt." />
+<meta name="twitter:description" content="An open-source, local-first AI video workbench that connects story, visual anchors, generation, and timeline—and lets AI assistants advance an editable first cut over MCP." />
+<meta name="twitter:image" content="https://nomiaqm.com/assets/social-preview-en.jpg" />
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Nomi","applicationCategory":"MultimediaApplication","operatingSystem":"macOS, Windows","codeRepository":"https://github.com/aqm857886159/Nomi","license":"https://www.gnu.org/licenses/agpl-3.0.html","url":"https://nomiaqm.com/en/","softwareVersion":"0.18.1","downloadUrl":"https://github.com/aqm857886159/Nomi/releases/latest","inLanguage":"en"}</script>
 <link rel="icon" type="image/svg+xml" href="/assets/nomi-logo.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -176,46 +176,46 @@ html[data-enhanced="true"] .no-js-fallback { display: none; }
 </head>
 <body>
 <header class="site-head">
-<nav class="nav shell" aria-label="主导航">
-  <a class="brand" href="/" aria-label="Nomi">
+<nav class="nav shell" aria-label="Primary navigation">
+  <a class="brand" href="/en/" aria-label="Nomi">
     <img class="brand-logo" src="/assets/nomi-logo.svg" width="28" height="28" alt="" />
     <span>Nomi</span>
   </a>
-  <a class="nav-link" href="#product">产品</a>
-  <a class="nav-link" href="#teams">团队服务</a>
-  <a class="nav-link" href="/quickstart.html">文档</a>
+  <a class="nav-link" href="#product">Product</a>
+  <a class="nav-link" href="#teams">For Teams</a>
+  <a class="nav-link" href="https://github.com/aqm857886159/Nomi#quick-start">Docs</a>
   <a class="nav-link" href="https://github.com/aqm857886159/Nomi" target="_blank" rel="noreferrer">GitHub</a>
-  <span class="locale" aria-label="当前语言：简体中文">
-    <a href="/" data-locale-choice="zh-CN" aria-current="page">中文</a>
+  <span class="locale" aria-label="Current language: English">
+    <a href="/" data-locale-choice="zh-CN">中文</a>
     <span aria-hidden="true">/</span>
-    <a href="/en/" data-locale-choice="en">EN</a>
+    <a href="/en/" data-locale-choice="en" aria-current="page">EN</a>
   </span>
   <a class="button button--coral" href="https://github.com/aqm857886159/Nomi/releases/latest" target="_blank" rel="noreferrer">
-    <span>下载</span><span aria-hidden="true">↘</span>
+    <span>Download</span><span aria-hidden="true">↘</span>
   </a>
 </nav>
 <section id="top" class="hero shell">
   <div class="hero-copy" data-reveal>
     <div>
       <p class="eyebrow">LOCAL-FIRST · OPEN SOURCE · AI VIDEO WORKBENCH</p>
-      <h1>把镜头讲清楚，<em>不让模型猜。</em></h1>
-      <p class="lede">故事、分镜、视觉锚点、生成画布与时间线，保持在同一个上下文里。</p>
+      <h1>Direct the shot.<em>Not just the prompt.</em></h1>
+      <p class="lede">Keep the story, storyboard, visual anchors, generation canvas, and timeline in one connected context.</p>
       <div class="actions">
-        <a class="button button--coral" href="https://github.com/aqm857886159/Nomi/releases/latest" target="_blank" rel="noreferrer"><span>下载 Nomi</span><span aria-hidden="true">↘</span></a>
-        <a class="button button--ghost" href="/assets/demo.mp4" data-open-film><span>看 60 秒宣传片</span><span aria-hidden="true">▶</span></a>
+        <a class="button button--coral" href="https://github.com/aqm857886159/Nomi/releases/latest" target="_blank" rel="noreferrer"><span>Download Nomi</span><span aria-hidden="true">↘</span></a>
+        <a class="button button--ghost" href="/assets/video/launch-film-en.mp4" data-open-film><span>Watch the 60s film</span><span aria-hidden="true">▶</span></a>
       </div>
-      <p class="no-js-fallback">看 60 秒宣传片 · MP4</p>
+      <p class="no-js-fallback">Watch the 60s film · MP4</p>
     </div>
     <div class="hero-note"><span>LOCAL-FIRST AI VIDEO WORKBENCH</span><span>01 / 06</span></div>
   </div>
   <figure class="monitor" style="--delay:.12s" data-reveal>
     <div class="monitor-top"><span>NOMI / DIRECTOR MONITOR</span><span>REC · 00:00:14:22</span></div>
     <div class="monitor-frame">
-      <video data-hero-video autoplay muted loop playsinline preload="metadata" poster="/assets/video/hero-poster.jpg" aria-label="Nomi 生成画布工作流静音预览">
+      <video data-hero-video autoplay muted loop playsinline preload="metadata" poster="/assets/video/hero-poster.jpg" aria-label="Silent preview of the Nomi generation canvas workflow">
         <source src="/assets/video/hero-loop.mp4" type="video/mp4" />
       </video>
     </div>
-    <figcaption class="monitor-caption"><span>同一个画布里看见整条序列，而不是重开另一个提示词。</span><span>16:09 · LIVE</span></figcaption>
+    <figcaption class="monitor-caption"><span>See the whole sequence on one canvas instead of restarting from another prompt.</span><span>16:09 · LIVE</span></figcaption>
   </figure>
 </section>
 </header>
@@ -223,45 +223,45 @@ html[data-enhanced="true"] .no-js-fallback { display: none; }
 <main>
 <section id="product" class="intro shell">
   <p class="section-kicker">02 / PRODUCT PROOF</p>
-  <h2>不是更多按钮。<br />是让每个镜头<em>继承同一个世界。</em></h2>
+  <h2>Not more buttons.<br />A way for every shot to <em>inherit the same world.</em></h2>
 </section>
 <div class="shell"><article class="proof" id="proof-context" data-proof="context">
   <div class="chapter"><strong>01</strong><span>CONTEXT<br />CONNECTED</span></div>
-  <figure class="proof-media"><img src="/assets/screen-script.png" alt="Nomi 故事和分镜工作区" width="1600" height="900" loading="lazy" /></figure>
-  <div class="proof-copy"><h3>上下文持续连接</h3><p>故事、角色、分镜和生成证据不再散落在不同工具里；每一步都知道前面发生过什么。</p><div class="proof-tags"><span class="tag">STORY</span><span class="tag">STORYBOARD</span><span class="tag">MEMORY</span></div></div>
+  <figure class="proof-media"><img src="/assets/screen-script.png" alt="Nomi story and storyboard workspace" width="1600" height="900" loading="lazy" /></figure>
+  <div class="proof-copy"><h3>Connected context</h3><p>Story, characters, storyboard, and generation evidence stay together. Every step knows what came before.</p><div class="proof-tags"><span class="tag">STORY</span><span class="tag">STORYBOARD</span><span class="tag">MEMORY</span></div></div>
 </article>
 <article class="proof" id="proof-world" data-proof="world">
   <div class="chapter"><strong>02</strong><span>LOCK<br />THE<br />WORLD<br />FIRST</span></div>
-  <figure class="proof-media"><img src="/assets/screen-3d.png" alt="Nomi 3D 导演台中的人物与镜头调度" width="1600" height="900" loading="lazy" /></figure>
-  <div class="proof-copy"><h3>先锁定世界</h3><p>先固定人物、场景、道具、构图和风格，让后续镜头继承同一组视觉锚点，减少身份与空间漂移。</p><div class="proof-tags"><span class="tag">CHARACTER</span><span class="tag">LOCATION</span><span class="tag">CAMERA</span></div></div>
+  <figure class="proof-media"><img src="/assets/screen-3d.png" alt="Character and camera staging in the Nomi 3D director stage" width="1600" height="900" loading="lazy" /></figure>
+  <div class="proof-copy"><h3>Lock the world first</h3><p>Fix characters, locations, props, composition, and style first, so later shots inherit the same visual anchors.</p><div class="proof-tags"><span class="tag">CHARACTER</span><span class="tag">LOCATION</span><span class="tag">CAMERA</span></div></div>
 </article>
 <article class="proof" id="proof-canvas" data-proof="canvas">
   <div class="chapter"><strong>03</strong><span>DIRECT<br />ON<br />CANVAS</span></div>
-  <figure class="proof-media"><img src="/assets/screen-canvas.png" alt="Nomi 生成画布中的连续镜头和视觉参考" width="1600" height="900" loading="lazy" /></figure>
-  <div class="proof-copy"><h3>在画布上导演</h3><p>在全局序列中摆素材、写提示词、调用生成，把参考、结果和下一镜头放在同一张导演桌上。</p><div class="proof-tags"><span class="tag">PROMPTS</span><span class="tag">MEDIA</span><span class="tag">GENERATE</span></div></div>
+  <figure class="proof-media"><img src="/assets/screen-canvas.png" alt="Connected shots and visual references on the Nomi generation canvas" width="1600" height="900" loading="lazy" /></figure>
+  <div class="proof-copy"><h3>Direct on canvas</h3><p>Place media, draft prompts, and call generation tools while the full sequence remains in view.</p><div class="proof-tags"><span class="tag">PROMPTS</span><span class="tag">MEDIA</span><span class="tag">GENERATE</span></div></div>
 </article>
 <article class="proof" id="proof-agentic" data-proof="agentic">
   <div class="chapter"><strong>04</strong><span>ONE<br />SENTENCE<br />TO<br />A<br />FIRST<br />CUT</span></div>
-  <figure class="proof-media"><img src="/assets/screen-agentic.jpg" alt="Nomi 一键接入 Claude Code、Codex 和 Cursor 的真实界面" width="1600" height="900" loading="lazy" /></figure>
-  <div class="proof-copy"><h3>一句话，推进到可编辑初稿</h3><p>让 Claude Code 等 AI 助手通过 Nomi MCP 调用 Skills：建立项目、生成分镜、连接参考并推进初稿；最终画面和成片仍由你决定。</p><div class="proof-tags"><span class="tag">CLAUDE CODE</span><span class="tag">NOMI MCP</span><span class="tag">SKILLS</span></div></div>
+  <figure class="proof-media"><img src="/assets/screen-agentic.jpg" alt="Real Nomi interface for connecting Claude Code, Codex, and Cursor" width="1600" height="900" loading="lazy" /></figure>
+  <div class="proof-copy"><h3>One sentence to an editable first cut</h3><p>Let Claude Code or another AI assistant call Nomi over MCP and use Skills to build the project, storyboard the shot, connect references, and advance a first cut. You keep final control.</p><div class="proof-tags"><span class="tag">CLAUDE CODE</span><span class="tag">NOMI MCP</span><span class="tag">SKILLS</span></div></div>
 </article></div>
 <section id="teams" class="paths-section">
   <div class="shell">
-    <div class="paths-head"><h2>开放给创作者，<br /><em>也能为团队落地。</em></h2><p>同一个产品，两条诚实路径：直接下载开源版；或者让我们把它接进你的真实业务。</p></div>
+    <div class="paths-head"><h2>Open for creators.<br /><em>Ready to fit a team.</em></h2><p>One product, two honest paths: download the open-source workbench, or bring us into a real delivery.</p></div>
     <div class="paths">
       <article class="path">
         <span class="path-number">01 / OPEN SOURCE</span>
-        <h3>面向创作者</h3>
-        <p class="path-description">本地优先、AGPL-3.0 开源。项目与素材在你的电脑上，工作流由你掌控。</p>
-        <div class="service-list"><a class="service" href="https://github.com/aqm857886159/Nomi/releases/latest"><span>下载桌面版</span><span>RELEASES</span></a><a class="service" href="https://github.com/aqm857886159/Nomi"><span>查看源代码</span><span>GITHUB</span></a><a class="service" href="/quickstart.html"><span>阅读使用文档</span><span>DOCS</span></a></div>
-        <div class="path-actions"><a class="button button--coral" href="https://github.com/aqm857886159/Nomi/releases/latest" target="_blank" rel="noreferrer"><span>下载 Nomi</span><span aria-hidden="true">↘</span></a></div>
+        <h3>Open source for creators</h3>
+        <p class="path-description">Local-first and AGPL-3.0. Your projects and media stay on your computer; the workflow stays under your control.</p>
+        <div class="service-list"><a class="service" href="https://github.com/aqm857886159/Nomi/releases/latest"><span>Download the desktop app</span><span>RELEASES</span></a><a class="service" href="https://github.com/aqm857886159/Nomi"><span>View the source</span><span>GITHUB</span></a><a class="service" href="https://github.com/aqm857886159/Nomi#quick-start"><span>Read the docs</span><span>DOCS</span></a></div>
+        <div class="path-actions"><a class="button button--coral" href="https://github.com/aqm857886159/Nomi/releases/latest" target="_blank" rel="noreferrer"><span>Download Nomi</span><span aria-hidden="true">↘</span></a></div>
       </article>
       <article class="path">
         <span class="path-number">02 / FOR TEAMS</span>
-        <h3>让 Nomi 适配你的业务</h3>
-        <p class="path-description">从首次验证到长期迭代，围绕你真正需要交付的工作流来构建。</p>
-        <div class="service-list"><div class="service" data-service="custom"><span>定制开发</span><span>CUSTOM</span></div><div class="service" data-service="integration"><span>系统与模型集成</span><span>INTEGRATE</span></div><div class="service" data-service="whiteLabel"><span>贴牌交付与商业授权</span><span>WHITE-LABEL</span></div><div class="service" data-service="iteration"><span>持续优化、维护与迭代</span><span>ONGOING</span></div></div>
-        <div class="path-actions"><a class="button button--ink" href="https://github.com/aqm857886159/Nomi/issues/new?template=business_inquiry.yml" target="_blank" rel="noreferrer"><span>沟通项目</span><span aria-hidden="true">↗</span></a></div>
+        <h3>Make Nomi fit your business</h3>
+        <p class="path-description">From first validation to long-term iteration, built around the workflow you actually need to ship.</p>
+        <div class="service-list"><div class="service" data-service="custom"><span>Custom builds</span><span>CUSTOM</span></div><div class="service" data-service="integration"><span>System and model integrations</span><span>INTEGRATE</span></div><div class="service" data-service="whiteLabel"><span>White-label and commercial license</span><span>WHITE-LABEL</span></div><div class="service" data-service="iteration"><span>Ongoing optimization and iteration</span><span>ONGOING</span></div></div>
+        <div class="path-actions"><a class="button button--ink" href="https://github.com/aqm857886159/Nomi/issues/new?template=business_inquiry.yml" target="_blank" rel="noreferrer"><span>Discuss a project</span><span aria-hidden="true">↗</span></a></div>
       </article>
     </div>
   </div>
@@ -270,27 +270,27 @@ html[data-enhanced="true"] .no-js-fallback { display: none; }
   <div class="closing-grid">
     <div>
       <p class="section-kicker">06 / BRING YOUR SHOT INTO FOCUS</p>
-      <h2>你负责看见镜头。<br /><em>Nomi 负责让模型看懂。</em></h2>
+      <h2>You see the shot.<br /><em>Nomi helps the model see it.</em></h2>
       <div class="closing-actions">
-        <a class="button button--ink" href="https://github.com/aqm857886159/Nomi/releases/latest" target="_blank" rel="noreferrer"><span>下载</span><span aria-hidden="true">↘</span></a>
+        <a class="button button--ink" href="https://github.com/aqm857886159/Nomi/releases/latest" target="_blank" rel="noreferrer"><span>Download</span><span aria-hidden="true">↘</span></a>
         <a class="button" href="https://github.com/aqm857886159/Nomi" target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a>
       </div>
     </div>
-    <img class="mascot" src="/assets/mascot.png" alt="Nomi 折纸吉祥物" width="512" height="512" loading="lazy" />
+    <img class="mascot" src="/assets/mascot.png" alt="Nomi origami mascot" width="512" height="512" loading="lazy" />
   </div>
   <footer class="footer">
     <span>© 2026 NOMI · <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noreferrer">AGPL-3.0-only</a></span>
-    <span>历史版本保留发布时的原始许可证</span>
-    <span>无需网站账户 · Nomi 不把项目素材上传到自己的服务器</span>
-    <a href="/en/" data-locale-choice="en">English</a>
+    <span>Historical releases keep the license they were published under</span>
+    <span>No website account · Nomi does not upload project media to its own servers</span>
+    <a href="/" data-locale-choice="zh-CN">简体中文</a>
   </footer>
 </section>
 </main>
 <dialog id="launch-film" aria-labelledby="film-title">
-  <div class="dialog-head"><span id="film-title">Nomi 中文宣传片 · 60S</span><button type="button" data-close-film aria-label="关闭宣传片">ESC / CLOSE</button></div>
+  <div class="dialog-head"><span id="film-title">Nomi English launch film · 60S</span><button type="button" data-close-film aria-label="Close launch film">ESC / CLOSE</button></div>
   <video controls preload="metadata" poster="/assets/video/hero-poster.jpg">
-    <source src="/assets/demo.mp4" type="video/mp4" />
-    <track kind="captions" srclang="zh-CN" label="简体中文" src="/assets/video/launch-film-zh.vtt" default />
+    <source src="/assets/video/launch-film-en.mp4" type="video/mp4" />
+    <track kind="captions" srclang="en" label="English" src="/assets/video/launch-film-en.vtt" default />
   </video>
 </dialog>
 <script>(() => {
