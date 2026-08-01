@@ -62,6 +62,17 @@ function isRec(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+/**
+ * 任务终态事件名（导出供单测钉死）。口径**照抄 ComfyUI 官方**——它自己的 jobs 视图就是按这三件事
+ * 判 execution_end（comfy_execution/jobs.py:231，HEAD 2026-08-01）。别只认 executing(node=null)：
+ * 真服务器实测过「全缓存命中那一轮压根不发 executing」，只认它会让注册表/ws 一路泄漏到 TTL。
+ */
+export const COMFYUI_TERMINAL_EVENTS = ["execution_success", "execution_error", "execution_interrupted"] as const;
+
+export function isComfyuiTerminalEvent(type: unknown): boolean {
+  return typeof type === "string" && (COMFYUI_TERMINAL_EVENTS as readonly string[]).includes(type);
+}
+
 /** 纯函数（可单测）：ws 二进制帧 → 预览图。[>I event][>I format][bytes]，event 1=PREVIEW_IMAGE。 */
 export function parsePreviewFrame(buf: Buffer): { mime: string; bytes: Buffer } | null {
   if (buf.length < 8) return null;
@@ -122,6 +133,20 @@ function handleTextMessage(baseUrl: string, raw: string): void {
   const data = isRec(msg.data) ? msg.data : {};
   const promptId = typeof data.prompt_id === "string" ? data.prompt_id : "";
 
+  // 终态：按 ComfyUI **官方口径**（comfy_execution/jobs.py:231 把这三件事当 execution_end）收口，
+  // 外加老版本的 executing(node=null)。实测教训（真服务器 0.29.0）：同一张图再跑一次会**全缓存命中**，
+  // 此时根本不发 executing，只发 execution_success——只认 executing(null) 会让注册表与 ws 连接在
+  // 「全缓存 / 报错 / 被取消」三条路径上一路泄漏到 30min TTL。幂等：重复终态信号安全。
+  if (isComfyuiTerminalEvent(msg.type)) {
+    const entry = promptId ? registry.get(promptId) : undefined;
+    if (!entry) return;
+    send(entry, { kind: "done" });
+    registry.delete(promptId);
+    if (currentPromptByBase.get(baseUrl) === promptId) currentPromptByBase.delete(baseUrl);
+    closeSocketIfIdle(baseUrl);
+    return;
+  }
+
   if (msg.type === "executing") {
     if (promptId) currentPromptByBase.set(baseUrl, promptId);
     const entry = promptId ? registry.get(promptId) : undefined;
@@ -130,6 +155,7 @@ function handleTextMessage(baseUrl: string, raw: string): void {
     if (node === null) {
       send(entry, { kind: "done" });
       registry.delete(promptId);
+      currentPromptByBase.delete(baseUrl);
       closeSocketIfIdle(baseUrl);
       return;
     }

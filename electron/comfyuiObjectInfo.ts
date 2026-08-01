@@ -33,8 +33,13 @@ export function parseObjectInfoIndex(json: unknown): ComfyObjectInfoIndex {
       if (!isRec(group)) continue;
       for (const [inputKey, spec] of Object.entries(group)) {
         // combo spec = [options[], config?]；options 必须是纯字符串数组才算枚举。
+        // ⚠️ **空数组也是枚举**（= 这是个 combo，只是本机一个文件都没装）——真服务器实测：
+        // 空 models 目录下 CheckpointLoaderSimple.ckpt_name 就是 []。早先把它当「不是枚举」跳过，
+        // 导致「一个模型都没装」这个最常见首跑场景下缺件对账**整个沉默**，恰在最该报警时失灵。
+        // 下游各自把关：缺件对账要它（任何值都不在空列表里 → 如实全报缺）；combo 下拉烤入侧
+        // 已判 options.length > 0，不会烤出空下拉。
         const options = Array.isArray(spec) ? spec[0] : undefined;
-        if (!Array.isArray(options) || options.length === 0 || options.length > MAX_ENUM_OPTIONS) continue;
+        if (!Array.isArray(options) || options.length > MAX_ENUM_OPTIONS) continue;
         if (!options.every((o) => typeof o === "string")) continue;
         enums.set(inputKey, options as string[]);
       }

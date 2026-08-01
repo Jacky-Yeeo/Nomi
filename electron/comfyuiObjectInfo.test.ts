@@ -70,3 +70,35 @@ describe("fetch 层（stub 全局 fetch）", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("空 combo 列表 = 枚举（真服务器实测抓到的沉默失灵）", () => {
+  // 真 ComfyUI 0.29.0 实测：models/checkpoints 为空时 ckpt_name 的 spec 就是 [[]]。
+  // 早先把「空数组」当「不是枚举」跳过 → 一个模型都没装的用户，缺件对账整个沉默。
+  const emptyDir = parseObjectInfoIndex({
+    CheckpointLoaderSimple: { input: { required: { ckpt_name: [[]] } } },
+    KSampler: { input: { required: { sampler_name: [["euler", "ddim"]], seed: ["INT", {}] } } },
+  });
+
+  it("空 combo 仍进枚举表（不是「这输入不是枚举」）", () => {
+    expect(emptyDir.enumsByClass.get("CheckpointLoaderSimple")?.get("ckpt_name")).toEqual([]);
+  });
+
+  it("对账后果：本机没装任何模型 → 图里的 ckpt 如实报缺（而不是沉默）", async () => {
+    const { reconcileComfyWorkflow } = await import("./catalog/comfyuiWorkflowImport");
+    const graph = { "1": { class_type: "CheckpointLoaderSimple", inputs: { ckpt_name: "sd15.safetensors" } } };
+    const r = reconcileComfyWorkflow(graph, emptyDir);
+    expect(r.missingEnumValues).toEqual([
+      { nodeId: "1", classType: "CheckpointLoaderSimple", title: undefined, inputKey: "ckpt_name", value: "sd15.safetensors" },
+    ]);
+  });
+
+  it("烤入侧不受影响：空列表不烤成空下拉", async () => {
+    const { collectGraphEnumOptions } = await import("./catalog/comfyuiWorkflowImport");
+    const graph = { "1": { class_type: "CheckpointLoaderSimple", inputs: { ckpt_name: "sd15.safetensors" } } };
+    expect(collectGraphEnumOptions(graph, emptyDir)).toEqual([]);
+  });
+
+  it("非枚举 spec（类型名字符串）仍不收", () => {
+    expect(emptyDir.enumsByClass.get("KSampler")?.has("seed")).toBe(false);
+  });
+});
