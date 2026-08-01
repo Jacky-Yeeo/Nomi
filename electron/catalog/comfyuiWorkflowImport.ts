@@ -17,7 +17,8 @@ export type ComfyGraph = Record<string, ComfyNode>;
 
 /** 一个可绑定的节点输入（widget 值，非连线）。 */
 export type NodeInputCandidate = { nodeId: string; inputKey: string; classType: string; title?: string; value: string | number | boolean };
-export type OutputNodeCandidate = { nodeId: string; classType: string; kind: "image" | "video" };
+/** kind="unsupported"：识别得出是输出节点，但产物类型（3D/音频/矢量）Nomi 存不下 → 明着标缺口（D4），不硬塞成图。 */
+export type OutputNodeCandidate = { nodeId: string; classType: string; kind: "image" | "video" | "model3d" | "unsupported" };
 export type WorkflowNumericParam = { nodeId: string; inputKey: string; paramKey: string; label: string; default: number };
 export type WorkflowParamType = "number" | "text" | "boolean";
 export type WorkflowParamBinding = {
@@ -34,7 +35,7 @@ export type WorkflowBinding = {
   promptNodeId?: string; promptInputKey?: string;         // → {{request.prompt}}
   firstFrameNodeId?: string; firstFrameInputKey?: string; // → {{request.params.first_frame_url}}（S2 上传后是 ComfyUI 文件名）
   lastFrameNodeId?: string; lastFrameInputKey?: string;   // → {{request.params.last_frame_url}}
-  outputNodeId?: string; outputKind?: "image" | "video";
+  outputNodeId?: string; outputKind?: "image" | "video" | "model3d";
   numeric?: WorkflowNumericParam[];                       // 旧字段：兼容已保存 workflow
   params?: WorkflowParamBinding[];                        // → {{request.params.comfy_X}}
 };
@@ -49,7 +50,7 @@ export type WorkflowAnalysis = {
 };
 
 export type ParamControl = { key: string; label: string; type: WorkflowParamType | "select"; default: number | string | boolean; options?: string[] };
-export type ImportedWorkflow = { templatedGraph: ComfyGraph; parameters: ParamControl[]; kind: "image" | "video"; taskKind: "text_to_image" | "image_edit" | "text_to_video" | "image_to_video" };
+export type ImportedWorkflow = { templatedGraph: ComfyGraph; parameters: ParamControl[]; kind: "image" | "video" | "model3d"; taskKind: "text_to_image" | "image_edit" | "text_to_video" | "image_to_video" | "text_to_3d" | "image_to_3d" };
 export type ComfyWorkflowImportDraft = { text: string; binding: WorkflowBinding };
 /** (classType, inputKey) → 本机 combo 可选值（reconcile 顺手带出；导入/保存时烤进参数控件）。 */
 export type WorkflowEnumOption = { classType: string; inputKey: string; options: string[] };
@@ -58,8 +59,43 @@ export type WorkflowEnumOption = { classType: string; inputKey: string; options:
 // WanVideoWrapper 系；宽松正则容社区变体）。
 const TEXT_ENCODE_RE = /textencode|encode.*text|cliptext/i;
 const LOAD_IMAGE_RE = /loadimage/i;
-const VIDEO_OUT_RE = /videocombine|savevideo|saveanimated|savewebp|createvideo/i;
-const IMAGE_OUT_RE = /saveimage/i;
+/** 视频输入节点（视频编辑/视频转视频工作流的入口）。语料实测 52 处，此前完全绑不上。 */
+const LOAD_VIDEO_RE = /loadvideo|vhs_loadvideo/i;
+const VIDEO_OUT_RE = /videocombine|savevideo|saveanimated|savewebp|savewebm|createvideo/i;
+/** 预览类也是输出（纯图工作流常只有 PreviewImage/MaskPreview，此前被判「无输出」整张图不可导入）。 */
+const IMAGE_OUT_RE = /saveimage|previewimage|maskpreview/i;
+/** 3D 网格输出——**Nomi 支持 model3d 产物**（GenerationResultType 含它、runtime 读 model_url、
+ *  画布 Model3DViewer 能转着看、runninghub3d 早有先例）。此前误标 unsupported 是错的，已纠正。 */
+const MODEL3D_OUT_RE = /saveglb|preview3d|save3d|savemesh/i;
+/** 真正还没通的产物类型：音频要动生成路由分叉（audioTaskRunner 是另一条同步链）、矢量图无对应类型。
+ *  识别得出但明着标缺口（D4 诚实交付），绝不硬塞成图让用户拿到打不开的东西。 */
+const UNSUPPORTED_OUT_RE = /saveaudio|savesvg|savewav|saveflac/i;
+/**
+ * 直接写在节点上的提示词键（云端 API 节点形态：prompt 就是节点自己的 widget，没有独立 CLIPTextEncode）。
+ * 语料实测：154 张识别不出提示词的图里 112 张（73%）其实 prompt 字符串就摆在节点上——全部
+ * ByteDance/Grok/Gemini/Kling/Runway 等云端节点工作流都踩这条。
+ */
+const INLINE_PROMPT_KEYS = new Set(["prompt", "positive_prompt", "text", "description"]);
+/**
+ * 明确**不是**正向提示词的键（命中 `*_prompt` 规则但语义相反/另有用途）。
+ * 实测本机 ComfyUI 全量 object_info：negative_prompt 出现在 30 个节点类、system_prompt 9 个。
+ */
+const NON_POSITIVE_PROMPT_KEYS = new Set(["negative_prompt", "system_prompt"]);
+/**
+ * 「这个键名像不像正向提示词」——**按规则派生，不列白名单**（P2 修根因）。
+ * 白名单追不完：实测真实键名有 prompt_text(3 类) / texture_prompt(2) / user_prompt / structured_prompt /
+ * text_prompt / text_style_prompt……以后厂商还会造新的。规则=「叫 prompt/text/description，
+ * 或以 _prompt 结尾、prompt_ 开头」，再减掉明确非正向的那几个。
+ */
+export function isPromptLikeKey(inputKey: string): boolean {
+  const key = inputKey.toLowerCase();
+  if (NON_POSITIVE_PROMPT_KEYS.has(key) || key.includes("negative")) return false;
+  return INLINE_PROMPT_KEYS.has(key) || key.endsWith("_prompt") || key.startsWith("prompt_");
+}
+/** text-encode 类节点上可能承载提示词的键（含 Flux 双编码器 clip_l/t5xxl、音频的 tags/lyrics）。 */
+const TEXT_ENCODE_TEXT_KEYS = new Set(["text", "prompt", "clip_l", "t5xxl", "tags", "lyrics"]);
+/** 像文件名/路径的字符串不是提示词（防把 "xxx.safetensors"、"video/ComfyUI" 当提示词）。 */
+const FILENAME_LIKE_RE = /\.(safetensors|ckpt|pt|pth|bin|gguf|onnx|png|jpg|jpeg|webp|mp4|webm|wav|mp3|flac|json|yaml|txt)$|^[\w-]+\/[\w-]+$/i;
 const STRING_SOURCE_RE = /primitive.*string|string.*multiline|stringinput|textinput/i;
 const SWITCH_RE = /switch/i;
 const PREVIEW_ANY_RE = /previewany/i;
@@ -193,13 +229,33 @@ export function parseComfyApiWorkflow(text: string): ComfyGraph {
   return obj as ComfyGraph;
 }
 
-/** 找「正向提示词」目标：某节点的 positive 输入连到的那个 text-encode 节点 id。 */
+/**
+ * 找「正向提示词」目标：沿 positive 连线**一路追到底**的那个节点 id。
+ *
+ * ⚠️ 只走一跳会撞在中间节点上：WAN/LTX/Flux 这类图的链是
+ * `KSampler.positive → WanImageToVideo.positive → CLIPTextEncode`，
+ * 一跳只拿到 WanImageToVideo（它自己也有 positive），于是 byPositive 落空、
+ * 掉进长度启发式 → **选中负向提示词**（负向几乎总比正向长一大串质量词）。
+ * WAN2.2 内置模板就是这么把用户的提示词灌进反向槽的（单测抓到，语料里同型图 60+ 张）。
+ */
 function findPositiveTargetId(graph: ComfyGraph): string | undefined {
+  let current: string | undefined;
   for (const node of Object.values(graph)) {
-    const pos = node.inputs?.positive;
-    if (isLink(pos)) return pos[0];
+    if (isLink(node.inputs?.positive)) { current = (node.inputs.positive as [string, number])[0]; break; }
   }
-  return undefined;
+  const visited = new Set<string>();
+  while (current && !visited.has(current)) {
+    visited.add(current);
+    const next = graph[current]?.inputs?.positive;
+    if (!isLink(next)) return current;
+    current = next[0];
+  }
+  return current;
+}
+
+/** 这个候选是不是**负向**提示词（标题/键名说了算——负向绝不能当用户提示词的落点）。 */
+function isNegativeCandidate(c: NodeInputCandidate): boolean {
+  return /negative|负向|反向/i.test(`${c.title ?? ""} ${c.inputKey}`);
 }
 
 function candidateForNodeInput(candidates: NodeInputCandidate[], nodeId: string | undefined, inputKey: string): NodeInputCandidate | undefined {
@@ -215,6 +271,37 @@ function findLinkedInputTargetId(graph: ComfyGraph, inputKeys: string[]): string
     }
   }
   return undefined;
+}
+
+/**
+ * 「这个字符串 widget 是不是提示词」——云端 API 节点（ByteDance/Grok/Gemini/Kling/Runway…）把 prompt
+ * 直接写在自己节点上，没有独立 CLIPTextEncode 可追。判据保守：键名在白名单 + 非空 + 不像文件名/路径。
+ * 不要求 TEXT_ENCODE_RE（那正是这类节点没有的）。
+ */
+function isInlinePromptWidget(classType: string, inputKey: string, value: string): boolean {
+  if (!isPromptLikeKey(inputKey)) return false;
+  const text = value.trim();
+  if (!text || FILENAME_LIKE_RE.test(text)) return false;
+  // 已被 TEXT_ENCODE 分支收过的不重复收（那条走连线追溯，语义更准）。
+  return !TEXT_ENCODE_RE.test(classType) || inputKey === "positive_prompt" || inputKey === "description";
+}
+
+/**
+ * 挑建议提示词：① 被 positive 连线指向的（语义最准）→ ② 排除负向后、键名像提示词的里挑最长
+ * → ③ 第一个非负向 → ④ 兜底第一个。
+ *
+ * **负向必须先排除再谈长度**：负向提示词几乎总比正向长（一长串质量词），
+ * 单纯按长度排序等于专挑负向。键名判定走 isPromptLikeKey（规则派生），
+ * 厂商新造的 xxx_prompt 自动进候选，不必再改这里。
+ */
+function pickSuggestedPrompt(textInputs: NodeInputCandidate[], positiveId: string | undefined): NodeInputCandidate | undefined {
+  const byPositive = textInputs.find((t) => t.nodeId === positiveId);
+  if (byPositive) return byPositive;
+  const positives = textInputs.filter((t) => !isNegativeCandidate(t));
+  const promptish = positives
+    .filter((t) => isPromptLikeKey(t.inputKey) && typeof t.value === "string")
+    .sort((a, b) => String(b.value).length - String(a.value).length);
+  return promptish[0] ?? positives[0] ?? textInputs[0];
 }
 
 /** 扫全图，识别可绑定输入 + 给出建议绑定。 */
@@ -234,29 +321,49 @@ export function analyzeComfyWorkflow(graph: ComfyGraph): WorkflowAnalysis {
         continue;
       }
       if (isLink(value)) continue; // 连线不可参数化；提示词连线已在上方追溯到可注入源
-      if (!(typeof value === "string" && LOAD_IMAGE_RE.test(classType) && inputKey === "image")) {
+      const isMediaInput = typeof value === "string" && inputKey === "image" && (LOAD_IMAGE_RE.test(classType) || LOAD_VIDEO_RE.test(classType));
+      if (!isMediaInput) {
         pushScalarWidgetCandidate(widgetInputs, nodeId, node, inputKey, value);
       }
-      if (typeof value === "string" && TEXT_ENCODE_RE.test(classType) && (inputKey === "text" || inputKey === "prompt")) {
+      if (typeof value === "string" && TEXT_ENCODE_RE.test(classType) && TEXT_ENCODE_TEXT_KEYS.has(inputKey)) {
+        // text-encode 变体的多文本键：CLIPTextEncodeFlux 的 clip_l/t5xxl、TextEncodeAceStepAudio 的 tags/lyrics。
         textInputs.push({ nodeId, inputKey, classType, title: node._meta?.title, value });
-      } else if (typeof value === "string" && LOAD_IMAGE_RE.test(classType) && inputKey === "image") {
-        imageInputs.push({ nodeId, inputKey, classType, title: node._meta?.title, value });
+      } else if (typeof value === "string" && STRING_SOURCE_RE.test(classType) && inputKey === "value" && value.trim()) {
+        // 独立字符串节点（PrimitiveStringMultiline 等）直接摆着提示词、没连去 text-encode 的情形。
+        textInputs.push({ nodeId, inputKey, classType, title: node._meta?.title, value });
+      } else if (typeof value === "string" && isInlinePromptWidget(classType, inputKey, value)) {
+        // 云端 API 节点形态：prompt 直接是节点自己的 widget（没有独立 CLIPTextEncode 可追）。
+        textInputs.push({ nodeId, inputKey, classType, title: node._meta?.title, value });
+      } else if (isMediaInput) {
+        imageInputs.push({ nodeId, inputKey, classType, title: node._meta?.title, value: value as string });
       } else if (typeof value === "number" && NUMERIC_PRIORITY.includes(inputKey)) {
         numericInputs.push({ nodeId, inputKey, classType, title: node._meta?.title, value });
       }
     }
     if (VIDEO_OUT_RE.test(classType)) outputNodes.push({ nodeId, classType, kind: "video" });
+    else if (MODEL3D_OUT_RE.test(classType)) outputNodes.push({ nodeId, classType, kind: "model3d" });
     else if (IMAGE_OUT_RE.test(classType)) outputNodes.push({ nodeId, classType, kind: "image" });
+    else if (UNSUPPORTED_OUT_RE.test(classType)) outputNodes.push({ nodeId, classType, kind: "unsupported" });
   }
 
   const positiveId = findPositiveTargetId(graph);
-  const suggestedPrompt = textInputs.find((t) => t.nodeId === positiveId) ?? textInputs[0];
-  const startImageId = findLinkedInputTargetId(graph, ["start_image", "first_image", "first_frame", "image"]);
+  const suggestedPrompt = pickSuggestedPrompt(textInputs, positiveId);
+  const startImageId = findLinkedInputTargetId(graph, ["start_image", "first_image", "first_frame", "image", "video"]);
   const endImageId = findLinkedInputTargetId(graph, ["end_image", "last_image", "last_frame"]);
   const suggestedFirstFrame = candidateForNodeInput(imageInputs, startImageId, "image") ?? imageInputs[0];
   const suggestedLastFrame = candidateForNodeInput(imageInputs, endImageId, "image");
-  // 视频输出优先（有视频节点就当视频工作流）；否则图片。
-  const suggestedOutput = outputNodes.find((o) => o.kind === "video") ?? outputNodes[0];
+  // 视频输出优先（有视频节点就当视频工作流）；否则图片。unsupported（3D/音频/矢量）不进建议——
+  // 它只留在 outputNodes 里供 UI 诚实说明「这条工作流产出 Nomi 存不下的类型」（D4 明着标缺口）。
+  // 类型上就把 unsupported 挡在建议之外（binding.outputKind 只有 image|video——typecheck 会拦住
+  // 任何未来想把 unsupported 塞进绑定的改动，这正是结构保证而不是靠注释约束）。
+  const usableOutputs = outputNodes.filter(
+    (o): o is OutputNodeCandidate & { kind: "image" | "video" | "model3d" } => o.kind !== "unsupported",
+  );
+  // 优先级 video > model3d > image：3D 工作流常同时挂 PreviewImage（预览渲染图），成品是 .glb 那个。
+  const suggestedOutput =
+    usableOutputs.find((o) => o.kind === "video") ??
+    usableOutputs.find((o) => o.kind === "model3d") ??
+    usableOutputs[0];
   // 建议数值参数：按优先序每个 inputKey 只取第一个（去重，clean）。
   const seenKey = new Set<string>();
   const suggestedNumeric: WorkflowNumericParam[] = [];
@@ -395,9 +502,11 @@ export function buildImportedWorkflow(graph: ComfyGraph, binding: WorkflowBindin
     (binding.lastFrameNodeId && binding.lastFrameInputKey),
   );
   const taskKind =
-    outputKind === "video"
-      ? hasFrameInput ? "image_to_video" : "text_to_video"
-      : hasFrameInput ? "image_edit" : "text_to_image";
+    outputKind === "model3d"
+      ? hasFrameInput ? "image_to_3d" : "text_to_3d"   // 混元3D/Tripo/Rodin 多是「传一张图出模型」
+      : outputKind === "video"
+        ? hasFrameInput ? "image_to_video" : "text_to_video"
+        : hasFrameInput ? "image_edit" : "text_to_image";
   return { templatedGraph: templated, parameters, kind: outputKind, taskKind };
 }
 
@@ -424,10 +533,13 @@ export function buildComfyImportModelMapping(
     method: "GET",
     path: "/history/{{providerMeta.task_id}}",
     response_transform: "comfyui-history",
+    // 各类产物读各自的键（runtime 的 mappedAssetValues 认 image_url/video_url/model_url）。
     response_mapping:
       imported.kind === "video"
         ? { video_url: "video_url", error_message: "error" }
-        : { image_url: "image_url", error_message: "error" },
+        : imported.kind === "model3d"
+          ? { model_url: "model_url", error_message: "error" }
+          : { image_url: "image_url", error_message: "error" },
   };
   return {
     model: {
@@ -456,7 +568,7 @@ export function importComfyWorkflow(
   payload: { text: string; binding: WorkflowBinding; labelZh: string; modelKey: string; enumOptions?: WorkflowEnumOption[]; vendorKey?: string },
   upsertModel: (model: Record<string, unknown>) => void,
   upsertMapping: (mapping: Record<string, unknown>) => void,
-): { modelKey: string; kind: "image" | "video"; taskKind: string } {
+): { modelKey: string; kind: "image" | "video" | "model3d"; taskKind: string } {
   const graph = parseComfyApiWorkflow(payload.text);
   const built = buildImportedWorkflow(graph, payload.binding, payload.enumOptions);
   const { model, mapping } = buildComfyImportModelMapping(built, {

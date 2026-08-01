@@ -1,3 +1,4 @@
+import { isComfyuiVendorKey } from '../runner/comfyuiTaskControl'
 import { create } from 'zustand'
 import { mintSpendGrant } from '../../api/taskApi'
 
@@ -67,8 +68,11 @@ export async function confirmAndMintGrant(opts: {
   confirmLabel?: string
   light?: boolean
   maxAttemptsPerNode?: number
+  /** 本次要跑的节点（用来判「花不花额度」——本地 ComfyUI 不花就不弹卡）。 */
+  nodes?: Array<{ meta?: Record<string, unknown> | null } | undefined>
 }): Promise<string | null> {
-  const ok = await useSpendConfirmStore.getState().requestConfirm({
+  // nodes 传进来才判得出花不花钱；没传就照旧弹卡（保守：宁可多问一次）。
+  const ok = await confirmGenerationSpend(opts.nodes ?? [undefined], {
     title: opts.title,
     message: opts.message,
     ...(opts.confirmLabel ? { confirmLabel: opts.confirmLabel } : {}),
@@ -76,6 +80,40 @@ export async function confirmAndMintGrant(opts: {
   })
   if (!ok) return null
   return mintSpendGrant(opts.nodeIds, opts.maxAttemptsPerNode)
+}
+
+/**
+ * 这批节点跑起来**花不花额度**——本地 ComfyUI 跑在用户自己的显卡上，一分钱不花。
+ *
+ * 真机走查抓到的：给本地 ComfyUI 点生成，弹的卡上写着「会消耗模型额度」。这既是**假话**，
+ * 又白挡一次点击——ComfyUI 用户一天点几十次生成，这一下下全是白费的摩擦。
+ * 付费确认卡的存在意义是「别让人意外花钱」；不花钱就没有要防的东西。
+ */
+export function generationSpendsCredits(nodes: Array<{ meta?: Record<string, unknown> | null } | undefined>): boolean {
+  const vendors = nodes
+    .map((n) => {
+      const meta = n?.meta || {}
+      const pick = (k: string) => (typeof meta[k] === 'string' ? (meta[k] as string).trim() : '')
+      return pick('modelVendor') || pick('vendor') || pick('imageModelVendor') || pick('videoModelVendor')
+    })
+    .filter(Boolean)
+  // 一个供应商都认不出 → 保守当付费（宁可多问一次，不可偷偷花钱）。
+  if (vendors.length === 0) return true
+  return !vendors.every((v) => isComfyuiVendorKey(v))
+}
+
+/** 付费确认（不花额度就直接放行，不弹卡）。返回 false = 用户取消。 */
+export async function confirmGenerationSpend(
+  nodes: Array<{ meta?: Record<string, unknown> | null } | undefined>,
+  opts: { title: string; message: string; confirmLabel?: string; light?: boolean },
+): Promise<boolean> {
+  if (!generationSpendsCredits(nodes)) return true
+  return useSpendConfirmStore.getState().requestConfirm({
+    title: opts.title,
+    message: opts.message,
+    ...(opts.confirmLabel ? { confirmLabel: opts.confirmLabel } : {}),
+    ...(opts.light ? { light: true } : {}),
+  })
 }
 
 /** 人话出片预估（C1：只显件数 + 预计时长，不显金额——守卫不依赖金额）。 */

@@ -72,8 +72,10 @@ export async function confirmAndRunPlan(plan: DependencyWavePlan): Promise<void>
     await runPlanWithToasts(plan) // 无可跑 → 复用人话 toast 报「为什么不能跑」
     return
   }
+  const nodesById = new Map(useGenerationCanvasStore.getState().nodes.map((n) => [n.id, n]))
   const grantId = await confirmAndMintGrant({
     nodeIds: ids,
+    nodes: ids.map((id) => nodesById.get(id)),
     title: i18n.t('generationCommon.batchPlan.startTitle'),
     message: describeGenerationCost(ids.length, spendCostKindForNodes(ids)),
     confirmLabel: i18n.t('generationCommon.batchPlan.confirmGenerate'),

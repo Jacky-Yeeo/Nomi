@@ -26,6 +26,7 @@ import {
   selectedVendor,
   uniqueStrings,
 } from './catalogTaskResolve'
+import { promptRequiredForNode } from './promptRequirement'
 import { normalizeCatalogTaskResult } from './catalogTaskResultParse'
 import { localizeRemoteResultUrl } from './resultAssetLocalization'
 import {
@@ -217,7 +218,9 @@ export function buildCatalogTaskRequest(
   const modelKey = selectedModelKey(node)
   if (!modelKey) throw new Error('请先选择模型')
   const rawPrompt = asTrimmedString(node.prompt)
-  if (!rawPrompt) throw new Error('prompt is required')
+  // 需不需要提示词按模型派生（promptRequirement 单源）：处理类 ComfyUI 工作流（去背景/超分/补帧）
+  // 本就没有提示词槽，此前这里无条件抛一句英文 'prompt is required' 把整类工作流堵死。
+  if (!rawPrompt && promptRequiredForNode(node, vendor)) throw new Error('请先写点提示词再生成。')
 
   const references = options.references || {}
   const kind = resolveTaskKind(node, references)

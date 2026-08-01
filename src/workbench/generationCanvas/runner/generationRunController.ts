@@ -6,7 +6,7 @@ import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import { useWorkbenchStore } from '../../workbenchStore'
 import { toast } from '../../../ui/toast'
 import { mintSpendGrant } from '../../api/taskApi'
-import { describeGenerationCost, useSpendConfirmStore } from '../spend/spendConfirm'
+import { confirmGenerationSpend, describeGenerationCost } from '../spend/spendConfirm'
 import { generationNodeExecutor, type GenerationNodeExecutor } from './generationNodeExecutor'
 import { narrateProgress } from '../../observability/narrate'
 import { ComfyuiTaskCancelledError, clearComfyuiCancel, isComfyuiCancelRequested, isComfyuiTaskCancelledError } from './comfyuiTaskControl'
@@ -373,7 +373,7 @@ export async function runGenerationNodesByPlan(
  */
 export async function confirmAndRunNode(nodeId: string, opts: { rerun?: boolean } = {}): Promise<void> {
   const node = useGenerationCanvasStore.getState().nodes.find((n) => n.id === nodeId)
-  const ok = await useSpendConfirmStore.getState().requestConfirm({
+  const ok = await confirmGenerationSpend([node], {
     title: opts.rerun
       ? i18n.t('generationCommon.spend.generateVariant')
       : i18n.t('generationCommon.spend.startGeneration'),
@@ -424,7 +424,7 @@ export async function confirmAndRunNodeVariants(
   if (!id) return
   const total = Math.max(1, Math.min(8, Math.floor(count)))
   const node = useGenerationCanvasStore.getState().nodes.find((n) => n.id === id)
-  const ok = await useSpendConfirmStore.getState().requestConfirm({
+  const ok = await confirmGenerationSpend([node], {
     title: i18n.t('generationCommon.spend.startGeneration'),
     message: describeGenerationCost(total, node ? spendCostKind(node.kind) : 'image'),
     confirmLabel: i18n.t('generationCommon.spend.generate'),
@@ -475,7 +475,7 @@ export async function regenerateNodeInPlace(nodeId: string): Promise<void> {
   const id = String(nodeId || '').trim()
   if (!id) return
   const node = useGenerationCanvasStore.getState().nodes.find((n) => n.id === id)
-  const ok = await useSpendConfirmStore.getState().requestConfirm({
+  const ok = await confirmGenerationSpend([node], {
     title: i18n.t('generationCommon.composer.regenerate'),
     message: describeGenerationCost(1, node ? spendCostKind(node.kind) : 'image'),
     confirmLabel: i18n.t('generationCommon.composer.regenerate'),

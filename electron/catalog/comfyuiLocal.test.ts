@@ -406,3 +406,45 @@ describe("comfyui-history 打断态", () => {
     expect(out.error).toContain("已取消");
   });
 });
+
+describe("3D 产物（model3d 是 Nomi 一等公民，此前被误挡）", () => {
+  it("SaveGLB 出的 .glb → model_url（runtime 的 mappedAssetValues 就读这个键）", () => {
+    const res = comfyuiHistoryTransform(
+      {
+        id: {
+          status: { status_str: "success", completed: true },
+          outputs: { "12": { "3d": [{ filename: "mesh_00001_.glb", subfolder: "3D", type: "output" }] } },
+        },
+      },
+      ctx,
+    ) as { model_url?: string; image_url?: string };
+    expect(res.model_url).toBe("http://127.0.0.1:8188/view?filename=mesh_00001_.glb&subfolder=3D&type=output");
+    expect(res.image_url).toBeUndefined();
+  });
+
+  it("3D 工作流常同时出预览图 → 两个 url 各出各的（mapping 按 kind 各取所需）", () => {
+    const res = comfyuiHistoryTransform(
+      {
+        id: {
+          outputs: {
+            "12": { result: [{ filename: "model.glb", subfolder: "", type: "output" }] },
+            "9": { images: [{ filename: "preview.png", subfolder: "", type: "temp" }] },
+          },
+        },
+      },
+      ctx,
+    ) as { model_url?: string; image_url?: string };
+    expect(res.model_url).toContain("model.glb");
+    expect(res.image_url).toContain("preview.png");
+  });
+
+  it("其它网格格式也认（obj/ply/fbx）", () => {
+    for (const ext of ["obj", "ply", "fbx", "gltf"]) {
+      const res = comfyuiHistoryTransform(
+        { id: { outputs: { "1": { files: [{ filename: `m.${ext}`, subfolder: "", type: "output" }] } } } },
+        ctx,
+      ) as { model_url?: string };
+      expect(res.model_url, ext).toContain(`m.${ext}`);
+    }
+  });
+});

@@ -1,6 +1,6 @@
 # ComfyUI 工作流语料 · Nomi 导入分析器兼容性报告
 
-> 生成时间：2026-08-01T15:38:14.488Z · ComfyUI @ http://127.0.0.1:8188 · 本机 /object_info 节点类 823 个
+> 生成时间：2026-08-01T17:06:09.188Z · ComfyUI @ http://127.0.0.1:8188 · 本机 /object_info 节点类 823 个
 
 ## 0. 语料规模（ComfyUI 0.29 官方模板包全量）
 
@@ -34,26 +34,29 @@
 |---|---|---|
 | 忠实语料进测 | 259 | 100% |
 | `parseComfyApiWorkflow` 解析通过 | 259 | 100% |
-| **识别出提示词节点**（可绑 {{request.prompt}}） | 223 | 86% |
-| **识别出输出节点**（判成图/视频） | 232 | 90% |
+| **识别出提示词节点**（可绑 {{request.prompt}}） | 226 | 87% |
+| **识别出输出节点**（判成图/视频） | 248 | 96% |
 | 识别出首帧输入（图生视频/图生图必需） | 154 | 59% |
 
 ### taskKind 分布（buildImportedWorkflow 判定）
 
 | taskKind | 数量 |
 |---|---|
-| `image_edit` | 90 |
-| `text_to_image` | 66 |
+| `image_edit` | 76 |
 | `image_to_video` | 64 |
-| `text_to_video` | 39 |
+| `text_to_image` | 62 |
+| `text_to_video` | 40 |
+| `image_to_3d` | 14 |
+| `text_to_3d` | 3 |
 
 ### 输出判定（图/视频）分布
 
 | outputKind | 数量 |
 |---|---|
-| image | 129 |
-| video | 103 |
-| (无输出) | 27 |
+| image | 127 |
+| video | 104 |
+| model3d | 17 |
+| (无输出) | 11 |
 
 ### 参数建议：平均每张建议 **3.1** 个可调参数（seed/steps/cfg/…）。0 参数的图：36 张。
 
@@ -79,7 +82,7 @@
 
 ## 5. 识别失败逐个剖析（忠实语料里没认全的）
 
-### 5a. 没识别出提示词节点（36 张）
+### 5a. 没识别出提示词节点（33 张）
 
 | 文件 | 节点数 | subgraph | 图里 class_type（截样） | 推断原因 |
 |---|---|---|---|---|
@@ -95,9 +98,6 @@
 | api_bria_video_green_screen.json | 3 |  | `LoadVideo` `SaveVideo` `BriaVideoGreenScreen` | 图里无任何 text-encode/string 源（纯 API 节点/纯图输入） |
 | api_bria_video_replace_background.json | 4 |  | `BriaVideoReplaceBackground` `LoadVideo` `SaveVideo` `LoadImage` | 图里无任何 text-encode/string 源（纯 API 节点/纯图输入） |
 | api_elevenlabs_voice_isolation.json | 3 |  | `ElevenLabsAudioIsolation` `LoadAudio` `SaveAudioMP3` | 图里无任何 text-encode/string 源（纯 API 节点/纯图输入） |
-| api_hailuo_minimax_i2v.json | 3 |  | `SaveVideo` `LoadImage` `MinimaxImageToVideoNode` | 图里无任何 text-encode/string 源（纯 API 节点/纯图输入） |
-| api_hailuo_minimax_t2v.json | 2 |  | `MinimaxTextToVideoNode` `SaveVideo` | 图里无任何 text-encode/string 源（纯 API 节点/纯图输入） |
-| api_hailuo_minimax_video.json | 3 |  | `MinimaxHailuoVideoNode` `LoadImage` `SaveVideo` | 图里无任何 text-encode/string 源（纯 API 节点/纯图输入） |
 | api_heygen_avatar_video.json | 4 |  | `HeyGenAvatarVideoNode` `SaveVideo` `ColorToRGBInt` `PreviewAny` | 图里无任何 text-encode/string 源（纯 API 节点/纯图输入） |
 | api_heygen_video_translate.json | 3 |  | `HeyGenVideoTranslateNode` `LoadVideo` `SaveVideo` | 图里无任何 text-encode/string 源（纯 API 节点/纯图输入） |
 | api_rodin_multiview_to_model.json | 6 |  | `Rodin3D_Regular` `LoadImage` `Preview3D` `BatchImagesNode` | 图里无任何 text-encode/string 源（纯 API 节点/纯图输入） |
@@ -120,28 +120,12 @@
 | utility_sdpose_multi_person.json | 13 | Y | `LoadImage` `SaveImage` `DrawBBoxes` `PreviewImage` `ResizeImageMaskNode` `PrimitiveInt` … | 图里无任何 text-encode/string 源（纯 API 节点/纯图输入） |
 | utility_video_frame_interpolation.json | 10 | Y | `LoadVideo` `SaveVideo` `FrameInterpolationModelLoader` `FrameInterpolate` `CreateVideo` `PrimitiveInt` … | 图里无任何 text-encode/string 源（纯 API 节点/纯图输入） |
 
-### 5b. 没识别出输出节点（27 张）
+### 5b. 没识别出输出节点（11 张）
 
 | 文件 | 节点数 | subgraph | 图里 class_type（截样） | 推断原因 |
 |---|---|---|---|---|
-| 04_hunyuan_3d_2.1_subgraphed.json | 10 | Y | `LoadImage` `SaveGLB` `KSampler` `CLIPVisionEncode` `Hunyuan3Dv2Conditioning` `EmptyLatentHunyuan3Dv2` … | 输出类名不在识别正则内：`SaveGLB` |
-| 3d_hunyuan3d-v2.1.json | 10 |  | `ImageOnlyCheckpointLoader` `LoadImage` `ModelSamplingAuraFlow` `EmptyLatentHunyuan3Dv2` `Hunyuan3Dv2Conditioning` `KSampler` … | 输出类名不在识别正则内：`SaveGLB` |
-| 3d_hunyuan3d_image_to_model.json | 10 |  | `KSampler` `CLIPVisionEncode` `ImageOnlyCheckpointLoader` `LoadImage` `VAEDecodeHunyuan3D` `EmptyLatentHunyuan3Dv2` … | 输出类名不在识别正则内：`SaveGLB` |
-| 3d_hunyuan3d_multiview_to_model.json | 12 |  | `KSampler` `CLIPVisionEncode` `ImageOnlyCheckpointLoader` `LoadImage` `VAEDecodeHunyuan3D` `Hunyuan3Dv2ConditioningMultiView` … | 输出类名不在识别正则内：`SaveGLB` |
-| 3d_hunyuan3d_multiview_to_model_turbo.json | 13 |  | `KSampler` `CLIPVisionEncode` `ImageOnlyCheckpointLoader` `LoadImage` `VAEDecodeHunyuan3D` `Hunyuan3Dv2ConditioningMultiView` … | 输出类名不在识别正则内：`SaveGLB` |
-| 3d_moge_panorama_to_mesh.json | 10 | Y | `SaveGLB` `LoadImage` `MoGePanoramaInference` `MoGePointMapToMesh` `LoadMoGeModel` `ComfyMathExpression` … | 输出类名不在识别正则内：`SaveGLB` |
-| api_bria_remove_video_background_transparent.json | 5 |  | `BriaTransparentVideoBackground` `LoadVideo` `JoinImageWithAlpha` `SaveWEBM` `GetVideoComponents` | 输出类名不在识别正则内：`SaveWEBM` |
 | api_elevenlabs_voice_isolation.json | 3 |  | `ElevenLabsAudioIsolation` `LoadAudio` `SaveAudioMP3` | 输出类名不在识别正则内：`SaveAudioMP3` |
 | api_recraft_vector_gen.json | 2 |  | `RecraftTextToVectorNode` `SaveSVGNode` | 输出类名不在识别正则内：`SaveSVGNode` |
-| api_rodin_multiview_to_model.json | 6 |  | `Rodin3D_Regular` `LoadImage` `Preview3D` `BatchImagesNode` | 输出类名不在识别正则内：`Preview3D` |
-| api_tripo3_0_image_to_model.json | 7 |  | `TripoImageToModelNode` `LoadImage` `Preview3D` `SaveGLB` `BatchImagesNode` | 输出类名不在识别正则内：`Preview3D` `SaveGLB` |
-| api_tripo3_0_text_to_model.json | 3 |  | `TripoTextToModelNode` `Preview3D` `SaveGLB` | 输出类名不在识别正则内：`Preview3D` `SaveGLB` |
-| api_tripo3_1_image_to_model.json | 3 |  | `SaveGLB` `LoadImage` `TripoImageToModelNode` | 输出类名不在识别正则内：`SaveGLB` |
-| api_tripo3_1_multiview_to_model.json | 5 |  | `SaveGLB` `LoadImage` `TripoMultiviewToModelNode` | 输出类名不在识别正则内：`SaveGLB` |
-| api_tripo3_1_text_to_model.json | 2 |  | `TripoTextToModelNode` `SaveGLB` | 输出类名不在识别正则内：`SaveGLB` |
-| api_tripo_image_to_model.json | 4 |  | `TripoImageToModelNode` `LoadImage` `Preview3D` `SaveGLB` | 输出类名不在识别正则内：`Preview3D` `SaveGLB` |
-| api_tripo_multiview_to_model.json | 5 |  | `TripoMultiviewToModelNode` `LoadImage` `Preview3D` `SaveGLB` | 输出类名不在识别正则内：`Preview3D` `SaveGLB` |
-| api_tripo_text_to_model.json | 3 |  | `TripoTextToModelNode` `Preview3D` `SaveGLB` | 输出类名不在识别正则内：`Preview3D` `SaveGLB` |
 | audio_ace_step_1_5_split_llm.json | 15 | Y | `SaveAudioMP3` `PreviewAny` `GeminiNode` `RegexExtract` `DualCLIPLoader` `VAELoader` … | 输出类名不在识别正则内：`SaveAudioMP3` `PreviewAny` |
 | audio_ace_step_1_m2m_editing.json | 11 |  | `TextEncodeAceStepAudio` `VAEDecodeAudio` `CheckpointLoaderSimple` `ConditioningZeroOut` `LatentApplyOperationCFG` `LatentOperationTonemapReinhard` … | 输出类名不在识别正则内：`SaveAudioMP3` |
 | audio_ace_step_1_t2a_instrumentals.json | 10 |  | `TextEncodeAceStepAudio` `EmptyAceStepLatentAudio` `VAEDecodeAudio` `CheckpointLoaderSimple` `ConditioningZeroOut` `LatentApplyOperationCFG` … | 输出类名不在识别正则内：`SaveAudioMP3` |
@@ -162,15 +146,15 @@
 
 | class_type | 次数 |
 |---|---|
-| `SaveGLB` | 14 |
 | `SaveAudioMP3` | 8 |
-| `Preview3D` | 6 |
 | `PreviewAny` | 4 |
-| `SaveWEBM` | 1 |
 | `SaveSVGNode` | 1 |
 
 
 <!-- ===== AUTO-GENERATED DATA ABOVE · MANUAL ANALYSIS BELOW (preserved across re-runs) ===== -->
+
+
+
 
 
 

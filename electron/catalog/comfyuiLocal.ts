@@ -56,7 +56,9 @@ function buildViewUrl(baseUrl: string, img: Record<string, unknown>): string {
   return `${base}/view?${qs}`;
 }
 
-type ComfyAssetKind = "image" | "video";
+// model3d 是 Nomi 的一等公民产物（GenerationResultType 含 model3d；runtime 读 model_url 取它；
+// runninghub3d 早有先例；画布 Model3DViewer 能转着看）——ComfyUI 这层认 .glb 即可接上，不是新能力。
+type ComfyAssetKind = "image" | "video" | "model3d";
 
 // 落盘扩展名集合（实查内置 SaveImage/SaveAnimatedWEBP/SaveAnimatedPNG、VHS_VideoCombine、原生 SaveVideo、
 // 社区 save-image-extended[AVIF/WebP/JPEG]，docs.comfy.org + 各节点源 2026-07）——放宽到含 heic/jxl/ts/flv 等
@@ -68,6 +70,8 @@ const IMAGE_EXTENSIONS = new Set([
 const VIDEO_EXTENSIONS = new Set([
   "3gp", "avi", "flv", "m2ts", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "mts", "ogv", "ts", "webm",
 ]);
+// 3D 网格（SaveGLB/Preview3D 等；官方模板里混元3D/Tripo/Rodin 都出这些）。obj/ply 少见但真实会有。
+const MODEL3D_EXTENSIONS = new Set(["glb", "gltf", "obj", "ply", "stl", "fbx", "usdz"]);
 // 中间产物 / 非可预览文件：即便带完整 {filename,subfolder,type} 三元组也不当产物拉
 // （SaveLatent 同样出 /view 三元组，靠这条挡住，别把 latent/权重/文本误当图）。
 const NON_MEDIA_EXTENSIONS = new Set([
@@ -97,6 +101,7 @@ function assetExtension(asset: Record<string, unknown>): string {
 function kindFromAsset(asset: Record<string, unknown>, parentKey: string): ComfyAssetKind | null {
   const extension = assetExtension(asset);
   if (VIDEO_EXTENSIONS.has(extension)) return "video";
+  if (MODEL3D_EXTENSIONS.has(extension)) return "model3d";
   if (IMAGE_EXTENSIONS.has(extension)) return "image";
   if (NON_MEDIA_EXTENSIONS.has(extension)) return null;
 
@@ -122,13 +127,14 @@ function kindFromAsset(asset: Record<string, unknown>, parentKey: string): Comfy
  * 自定义保存节点的键名，同时不会把 latent/checkpoint 误当成可预览产物。标准键（gifs/videos/images）先访问，
  * 只是为了同节点同时出「预览图 + 最终视频」时选对，不影响自定义键的识别。
  */
-function findOutputAssets(outputs: Record<string, unknown>): { image: Record<string, unknown> | null; video: Record<string, unknown> | null } {
+function findOutputAssets(outputs: Record<string, unknown>): { image: Record<string, unknown> | null; video: Record<string, unknown> | null; model3d: Record<string, unknown> | null } {
   let image: Record<string, unknown> | null = null;
   let video: Record<string, unknown> | null = null;
+  let model3d: Record<string, unknown> | null = null;
   const seen = new Set<unknown>();
 
   const visit = (value: unknown, parentKey = ""): void => {
-    if (image && video) return;
+    if (image && video && model3d) return;
     if ((isRec(value) || Array.isArray(value)) && seen.has(value)) return;
     if (isRec(value) || Array.isArray(value)) seen.add(value);
 
@@ -136,6 +142,7 @@ function findOutputAssets(outputs: Record<string, unknown>): { image: Record<str
       const kind = kindFromAsset(value, parentKey);
       if (kind === "image" && !image) image = value;
       if (kind === "video" && !video) video = value;
+      if (kind === "model3d" && !model3d) model3d = value;
     }
     if (Array.isArray(value)) {
       for (const item of value) visit(item, parentKey);
@@ -144,17 +151,17 @@ function findOutputAssets(outputs: Record<string, unknown>): { image: Record<str
     if (!isRec(value)) return;
 
     // 标准键优先，避免同一节点同时带预览图和最终视频时选错。
-    for (const key of ["gifs", "videos", "images"]) {
+    for (const key of ["gifs", "videos", "images", "3d", "model_file", "result"]) {
       if (key in value) visit(value[key], key);
     }
     for (const [key, nested] of Object.entries(value)) {
-      if (key === "gifs" || key === "videos" || key === "images") continue;
+      if (key === "gifs" || key === "videos" || key === "images" || key === "3d" || key === "model_file" || key === "result") continue;
       visit(nested, key);
     }
   };
 
   visit(outputs);
-  return { image, video };
+  return { image, video, model3d };
 }
 
 /** 找到真正的 history entry，兼容动态 prompt_id、多顶层字段以及 data/history/result 包装。 */
@@ -203,8 +210,8 @@ export const comfyuiHistoryTransform: ResponseTransformFn = (response, { baseUrl
 
   const outputs = isRec(entry.outputs) ? entry.outputs : null;
   if (!outputs) return response; // outputs 未出现 → 未完成
-  const { video, image } = findOutputAssets(outputs);
-  if (!video && !image) {
+  const { video, image, model3d } = findOutputAssets(outputs);
+  if (!video && !image && !model3d) {
     const statusText = typeof status?.status_str === "string" ? status.status_str.toLowerCase() : "";
     const explicitlyIncomplete = status?.completed === false;
     const completed = status?.completed === true || (!explicitlyIncomplete && ["success", "completed", "complete"].includes(statusText));
@@ -214,6 +221,8 @@ export const comfyuiHistoryTransform: ResponseTransformFn = (response, { baseUrl
     return response;
   }
   return {
+    // model_url 是 runtime 既有的 3D 产物读点（mappedAssetValues 含它；runninghub3d 同款）。
+    ...(model3d ? { model_url: buildViewUrl(baseUrl, model3d) } : {}),
     ...(video ? { video_url: buildViewUrl(baseUrl, video) } : {}),
     ...(image ? { image_url: buildViewUrl(baseUrl, image) } : {}),
   };
