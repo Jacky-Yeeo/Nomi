@@ -4,7 +4,7 @@
   "version": "0.18.1",
   "description": "Open-source, local-first AI video creation workbench for writing scripts, generating assets, editing timelines, and exporting videos.",
   "author": "青阳 <TZ857886159>",
-  "license": "Apache-2.0",
+  "license": "AGPL-3.0-only",
   "packageManager": "pnpm@10.8.1",
   "engines": {
     "node": ">=20.19.0"
