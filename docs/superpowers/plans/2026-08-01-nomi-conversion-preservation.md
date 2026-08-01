@@ -32,7 +32,7 @@
 - Modify: `tests/ux/marketing-home.static.mjs`
 - Test: `tests/ux/marketing-home.static.mjs`
 
-- [ ] **Step 1: Add every durable conversion asset to the existence contract**
+- [x] **Step 1: Add every durable conversion asset to the existence contract**
 
 Append these paths to the existing `files` array:
 
@@ -43,7 +43,7 @@ Append these paths to the existing `files` array:
   'docs/media/qingyang-wechat.jpg',
 ```
 
-- [ ] **Step 2: Read both README files once and add exact website assertions**
+- [x] **Step 2: Read both README files once and add exact website assertions**
 
 Immediately after reading `marketing/_headers`, add:
 
@@ -71,7 +71,7 @@ for (const service of ['Custom builds', 'System and model integrations', 'White-
 }
 ```
 
-- [ ] **Step 3: Add exact README preservation assertions**
+- [x] **Step 3: Add exact README preservation assertions**
 
 Before the final `console.log`, add:
 
@@ -89,7 +89,7 @@ expect(readmeEn.includes('github.com/aqm857886159/Nomi/discussions'), 'English R
 expect(readmeEn.includes('business_inquiry.yml'), 'English README keeps business inquiry')
 ```
 
-- [ ] **Step 4: Run the contract and prove the homepage/README regression exists**
+- [x] **Step 4: Run the contract and prove the homepage/README regression exists**
 
 Run:
 
@@ -99,7 +99,7 @@ node tests/ux/marketing-home.static.mjs
 
 Expected: FAIL at `Chinese community section exists`; the current generated homepage has no `#community` section. After that failure is implemented, the same test must still fail until the README first-screen labels are restored.
 
-- [ ] **Step 5: Commit only the red contract**
+- [x] **Step 5: Commit only the red contract**
 
 ```bash
 git add tests/ux/marketing-home.static.mjs
@@ -115,7 +115,7 @@ git commit -m "test(marketing): lock community and business conversion paths"
 - Modify: `scripts/marketing/content.mjs`
 - Test: `tests/ux/marketing-home.static.mjs`
 
-- [ ] **Step 1: Add shared destinations as the only source of truth**
+- [x] **Step 1: Add shared destinations as the only source of truth**
 
 Extend `shared` with:
 
@@ -128,7 +128,7 @@ Extend `shared` with:
 
 Do not duplicate these URLs or the WeChat ID inside the locale objects.
 
-- [ ] **Step 2: Add the navigation label and strengthen the Chinese team copy**
+- [x] **Step 2: Add the navigation label and strengthen the Chinese team copy**
 
 Add `community: '社群'` after `teams: '团队服务'` in `zhCN.nav`. Replace the Chinese team title/description and add a secondary action label:
 
@@ -145,7 +145,7 @@ Add `community: '社群'` after `teams: '团队服务'` in `zhCN.nav`. Replace t
       wechat: '微信沟通',
 ```
 
-- [ ] **Step 3: Add the Chinese community object**
+- [x] **Step 3: Add the Chinese community object**
 
 Insert `community` after `paths` and before `closing`:
 
@@ -175,7 +175,7 @@ Insert `community` after `paths` and before `closing`:
   },
 ```
 
-- [ ] **Step 4: Add the parity-matching English content**
+- [x] **Step 4: Add the parity-matching English content**
 
 Add `community: 'Community'` after `teams: 'For Teams'` in `english.nav`. Keep the four existing service titles exactly, replace the team copy, and add `wechat: 'WeChat contact'`:
 
@@ -212,7 +212,7 @@ Insert the parity-matching English community object:
   },
 ```
 
-- [ ] **Step 5: Prove locale parity before rendering**
+- [x] **Step 5: Prove locale parity before rendering**
 
 Run:
 
@@ -222,7 +222,7 @@ node --input-type=module -e "import('./scripts/marketing/content.mjs').then(({as
 
 Expected: `LOCALE PARITY PASS`.
 
-- [ ] **Step 6: Verify the stylesheet remains untouched**
+- [x] **Step 6: Verify the stylesheet remains untouched**
 
 Run:
 
@@ -243,7 +243,7 @@ Expected: exit 0 with no output.
 - Generate: `marketing/en/index.html`
 - Test: `tests/ux/marketing-home.static.mjs`
 
-- [ ] **Step 1: Restore the community anchor in the existing navigation**
+- [x] **Step 1: Restore the community anchor in the existing navigation**
 
 In `renderNav`, insert after the teams link:
 
@@ -251,7 +251,7 @@ In `renderNav`, insert after the teams link:
   <a class="nav-link" href="#community">${escapeText(content.nav.community)}</a>
 ```
 
-- [ ] **Step 2: Add a secondary WeChat action to the existing team button row**
+- [x] **Step 2: Add a secondary WeChat action to the existing team button row**
 
 Replace the current one-link `path-actions` inside the team card with:
 
@@ -264,7 +264,7 @@ Replace the current one-link `path-actions` inside the team card with:
 
 Add this sentence to the Chinese team description in `content.mjs`, not the template: `作者微信 TZ857886159；GitHub Issue 只提交非保密摘要。` Add the English equivalent: `The public issue should contain only a non-confidential summary.`
 
-- [ ] **Step 3: Add a renderer that only composes existing classes**
+- [x] **Step 3: Add a renderer that only composes existing classes**
 
 Insert before `renderClosing`:
 
@@ -293,7 +293,7 @@ function renderCommunity(content, shared) {
 }
 ```
 
-- [ ] **Step 4: Place the existing-design section without changing section order elsewhere**
+- [x] **Step 4: Place the existing-design section without changing section order elsewhere**
 
 Inside `<main>`, render it after the team paths and before the current closing:
 
@@ -303,7 +303,7 @@ ${renderCommunity(content, runtimeFacts)}
 ${renderClosing(content, runtimeFacts, locale)}
 ```
 
-- [ ] **Step 5: Generate the two static pages**
+- [x] **Step 5: Generate the two static pages**
 
 Run:
 
@@ -313,7 +313,7 @@ pnpm run build:site
 
 Expected: `marketing/index.html` and `marketing/en/index.html` are rewritten, and the built-in `--check` phase exits 0.
 
-- [ ] **Step 6: Confirm the static contract now advances to README failures**
+- [x] **Step 6: Confirm the static contract now advances to README failures**
 
 Run:
 
@@ -323,7 +323,7 @@ node tests/ux/marketing-home.static.mjs
 
 Expected: website conversion assertions pass; the command fails at the first missing README first-screen conversion label.
 
-- [ ] **Step 7: Commit content and generated output**
+- [x] **Step 7: Commit content and generated output**
 
 ```bash
 git add scripts/marketing/content.mjs scripts/marketing/template.mjs marketing/index.html marketing/en/index.html
@@ -340,7 +340,7 @@ git commit -m "feat(marketing): restore community and direct business paths"
 - Modify: `README.zh-CN.md`
 - Test: `tests/ux/marketing-home.static.mjs`
 
-- [ ] **Step 1: Restore the Chinese first-screen actions**
+- [x] **Step 1: Restore the Chinese first-screen actions**
 
 Replace the current first-screen link line with:
 
@@ -350,7 +350,7 @@ Replace the current first-screen link line with:
 
 Do not delete the existing download table, first-launch warning, team section, user-group section, author QR, license text, or developer commands.
 
-- [ ] **Step 2: Strengthen the existing Chinese team paragraph in place**
+- [x] **Step 2: Strengthen the existing Chinese team paragraph in place**
 
 Replace the one-line introduction immediately under `## 团队服务` with:
 
@@ -364,7 +364,7 @@ Keep the existing four-item list. Keep both the Business Inquiry and `TZ85788615
 [提交商务咨询](https://github.com/aqm857886159/Nomi/issues/new?template=business_inquiry.yml)，或添加作者微信 **TZ857886159**（[查看个人微信二维码](docs/media/qingyang-wechat.jpg)）。GitHub Issue 是公开页面，请勿填写密钥、私人联系方式、预算明细或受 NDA 保护的材料。
 ```
 
-- [ ] **Step 3: Restore the English first-screen Community action**
+- [x] **Step 3: Restore the English first-screen Community action**
 
 Replace the current first-screen link line with:
 
@@ -372,7 +372,7 @@ Replace the current first-screen link line with:
 [简体中文](README.zh-CN.md) · [Website](https://nomiaqm.com/en/) · [Download](https://github.com/aqm857886159/Nomi/releases/latest) · [Community](https://github.com/aqm857886159/Nomi/discussions) · [For Teams](https://nomiaqm.com/en/#teams) · [Watch the 60s film](https://nomiaqm.com/assets/video/launch-film-en.mp4) · [Documentation](docs/user-guide.md)
 ```
 
-- [ ] **Step 4: Add an international Community section without forcing WeChat**
+- [x] **Step 4: Add an international Community section without forcing WeChat**
 
 Insert before `## For Teams`:
 
@@ -384,7 +384,7 @@ Join [GitHub Discussions](https://github.com/aqm857886159/Nomi/discussions) to s
 
 Keep the current `## For Teams`, Contributing links, and License Business Inquiry.
 
-- [ ] **Step 5: Run the full static site contract green**
+- [x] **Step 5: Run the full static site contract green**
 
 Run:
 
@@ -399,7 +399,7 @@ MARKETING SITE CHECK PASS
 MARKETING HOME STATIC PASS
 ```
 
-- [ ] **Step 6: Commit the README preservation change and red-contract test together**
+- [x] **Step 6: Commit the README preservation change and red-contract test together**
 
 ```bash
 git add README.md README.zh-CN.md tests/ux/marketing-home.static.mjs
@@ -415,7 +415,7 @@ git commit -m "docs(marketing): preserve README conversion channels"
 - Modify: `tests/ux/marketing-home.visual.mjs`
 - Generate but do not commit: `tests/ux/_marketing/home-*.png`
 
-- [ ] **Step 1: Add community facts to every standard browser case**
+- [x] **Step 1: Add community facts to every standard browser case**
 
 Extend the `facts` object in `auditStandardCase` with:
 
@@ -439,7 +439,7 @@ Add these assertions after the existing product/teams assertion:
   if (testCase.path === '/') assert(facts.wechatText, `${testCase.name}: direct Chinese contact remains textual`)
 ```
 
-- [ ] **Step 2: Protect the no-JavaScript journey**
+- [x] **Step 2: Protect the no-JavaScript journey**
 
 In `auditNoJavaScript`, count `#community`, the business link, and the locale-appropriate text destination. Assert all remain available next to the existing download/film check:
 
@@ -449,7 +449,7 @@ In `auditNoJavaScript`, count `#community`, the business link, and the locale-ap
   assert(community === 1 && business > 0, `${locale}: no-JS conversion paths remain`)
 ```
 
-- [ ] **Step 3: Protect resource-failure fallbacks**
+- [x] **Step 3: Protect resource-failure fallbacks**
 
 Extend `auditBlockedMedia` facts with `community`, `business`, `discussions`, and `wechatText`; then assert the English Community/Discussions and For Teams/Business Inquiry paths survive even when fonts and videos are blocked.
 
@@ -459,7 +459,7 @@ Use this exact assertion:
   assert(facts.community && facts.business && facts.discussions, 'blocked media: community and business paths remain usable')
 ```
 
-- [ ] **Step 4: Run the full visual matrix**
+- [x] **Step 4: Run the full visual matrix**
 
 Run:
 
@@ -469,7 +469,7 @@ pnpm run test:site:visual
 
 Expected: `MARKETING HOME VISUAL PASS` with new assertions passing for all five standard viewports and all failure-mode journeys.
 
-- [ ] **Step 5: Inspect every regenerated screenshot**
+- [x] **Step 5: Inspect every regenerated screenshot**
 
 Open these files with human vision:
 
@@ -485,7 +485,7 @@ tests/ux/_marketing/home-blocked-media.png
 
 Acceptance: the original typography, warm-paper/dark-section palette, path-card borders, button shapes, proof layout, and mobile stacking remain unchanged; only copy, links, and one additional section composed from existing path cards appear. Reject any new QR card, contact card, coral band, gradient, or layout language.
 
-- [ ] **Step 6: Verify the stylesheet was never modified**
+- [x] **Step 6: Verify the stylesheet was never modified**
 
 Run:
 
@@ -495,7 +495,7 @@ git diff --exit-code origin/main...HEAD -- scripts/marketing/styles.mjs
 
 Expected: exit 0 with no output.
 
-- [ ] **Step 7: Commit the browser guard**
+- [x] **Step 7: Commit the browser guard**
 
 ```bash
 git add tests/ux/marketing-home.visual.mjs
@@ -511,7 +511,7 @@ git commit -m "test(marketing): verify community conversion journeys"
 - Modify: `docs/superpowers/specs/2026-08-01-nomi-conversion-preservation-design.md`
 - Modify: `docs/superpowers/plans/2026-08-01-nomi-conversion-preservation.md`
 
-- [ ] **Step 1: Run focused website verification**
+- [x] **Step 1: Run focused website verification**
 
 ```bash
 pnpm run test:site
@@ -522,7 +522,7 @@ git diff --check
 
 Expected: both site suites pass, generated output is current, and there are no whitespace errors.
 
-- [ ] **Step 2: Run the complete repository gate**
+- [x] **Step 2: Run the complete repository gate**
 
 ```bash
 pnpm run gates
@@ -530,22 +530,22 @@ pnpm run gates
 
 Expected: filesize, tokens, dangling tokens, archetype defaults, secrets, i18n, marketing site, lint ratchet, typecheck, all Vitest tests, renderer build, and Electron build pass.
 
-- [ ] **Step 3: Append evidence and check only completed boxes**
+- [x] **Step 3: Append evidence and check only completed boxes**
 
 Update the spec state to `已实施并验证`. Append an evidence block containing the exact site-test results, screenshot paths, stylesheet byte-identity check, full-gate result, final commit, Cloudflare check, and live HTTP checks. Convert plan checkboxes only after each action has actually happened.
 
-- [ ] **Step 4: Commit verification evidence**
+- [x] **Step 4: Commit verification evidence**
 
 ```bash
 git add docs/superpowers/specs/2026-08-01-nomi-conversion-preservation-design.md docs/superpowers/plans/2026-08-01-nomi-conversion-preservation.md
 git commit -m "docs(marketing): record conversion recovery evidence"
 ```
 
-- [ ] **Step 5: Integrate onto the newest remote main**
+- [x] **Step 5: Integrate onto the newest remote main**
 
 From the primary repository: fetch `origin/main`; create a fresh detached sibling worktree at that commit; cherry-pick this plan's commits in order; link the existing `node_modules`; run `pnpm run gates`; fetch again; require `git merge-base --is-ancestor origin/main HEAD` to exit 0.
 
-- [ ] **Step 6: Push and verify the deployment chain**
+- [x] **Step 6: Push and verify the deployment chain**
 
 ```bash
 git push origin HEAD:main
@@ -553,7 +553,7 @@ git push origin HEAD:main
 
 Poll the final commit's GitHub check runs until `Workers Builds: nomi`, `Quality Gate`, and `Mac Package` all complete successfully. Do not claim production complete while Cloudflare is still in progress.
 
-- [ ] **Step 7: Verify the live bilingual conversion paths**
+- [x] **Step 7: Verify the live bilingual conversion paths**
 
 Check `https://nomiaqm.com/` and `https://nomiaqm.com/en/` from the live domain. Require:
 
@@ -571,13 +571,13 @@ Remove only the clean temporary integration worktree after `origin/main` equals 
 
 ## Final acceptance checklist
 
-- [ ] Current homepage visual design and `scripts/marketing/styles.mjs` are unchanged.
-- [ ] Chinese homepage restores community, group QR, maintainer QR, textual WeChat ID, and Business Inquiry.
-- [ ] English homepage exposes Discussions and Business Inquiry while keeping WeChat secondary.
-- [ ] Four paid service categories remain explicit in both languages.
-- [ ] Chinese README first screen includes download, Quark mirror, community, and team conversion actions.
-- [ ] Chinese README retains the group QR, maintainer QR, WeChat ID, team services, and commercial-license contact.
-- [ ] English README first screen includes Community and For Teams, with durable Discussions and Business Inquiry links.
-- [ ] Static contracts fail if any protected conversion path disappears.
-- [ ] Desktop, 390 px, 320 px, no-JS, reduced-motion, and blocked-media browser journeys pass and are visually inspected.
-- [ ] Focused site tests, full gates, newest-main integration gates, Cloudflare deployment, GitHub checks, and live-domain checks all pass.
+- [x] Current homepage visual design and `scripts/marketing/styles.mjs` are unchanged.
+- [x] Chinese homepage restores community, group QR, maintainer QR, textual WeChat ID, and Business Inquiry.
+- [x] English homepage exposes Discussions and Business Inquiry while keeping WeChat secondary.
+- [x] Four paid service categories remain explicit in both languages.
+- [x] Chinese README first screen includes download, Quark mirror, community, and team conversion actions.
+- [x] Chinese README retains the group QR, maintainer QR, WeChat ID, team services, and commercial-license contact.
+- [x] English README first screen includes Community and For Teams, with durable Discussions and Business Inquiry links.
+- [x] Static contracts fail if any protected conversion path disappears.
+- [x] Desktop, 390 px, 320 px, no-JS, reduced-motion, and blocked-media browser journeys pass and are visually inspected.
+- [x] Focused site tests, full gates, newest-main integration gates, Cloudflare deployment, GitHub checks, and live-domain checks all pass.

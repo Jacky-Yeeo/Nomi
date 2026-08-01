@@ -1,7 +1,7 @@
 # Nomi 官网与 README 转化入口保护设计
 
 日期：2026-08-01
-状态：用户已确认“保留现官网设计、只调整内容与转化入口”，准备实施
+状态：已实施并验证
 范围：双语官网、双语 README、现有社群与商务转化入口、对应自动化契约
 
 ## 1. 问题与底层判断
@@ -141,3 +141,16 @@
 5. 静态契约能在任一关键入口被删除时失败，视觉矩阵能发现现有官网设计被破坏、入口隐藏或资源失败后的死路。
 6. `pnpm run test:site`、`pnpm run test:site:visual`、项目完整 gates、最新远端 main 集成 gates 全部通过。
 7. 上线后从正式域名检查两个语言路由、两张二维码、Discussions、Business Inquiry 与三支宣传片均返回成功状态。
+
+## 10. 实施与验证证据
+
+验证时间：2026-08-01 23:46 CST
+
+- 实现已基于当时最新远端 `main`（`300ee075`）集成，并以 `8d431edc` 推送到 `main`；推送前再次确认远端是当前提交的祖先，没有覆盖并行工作。
+- `scripts/marketing/styles.mjs` 相对集成基线逐字节无变化；新增社群与团队内容只组合原有 `.paths-section`、`.paths`、`.path`、`.service` 与 `.button`。
+- `pnpm run test:site`、`pnpm run test:site:visual` 与 `node scripts/build-marketing-site.mjs --check` 均通过；视觉矩阵覆盖中英文桌面、390 px、320 px、无 JavaScript、减少动画和媒体阻断。
+- 已人工查看 `tests/ux/_marketing/home-zh-desktop.png`、`home-en-desktop.png`、`home-zh-mobile.png`、`home-en-mobile.png`、`home-en-320.png`、`home-reduced-motion.png` 与 `home-blocked-media.png`；原官网字体、暖纸/深色分区、卡片边框、按钮和移动端堆叠均保持一致。
+- 最新主线完整 `pnpm run gates` 通过：367 个测试文件通过、1 个跳过；3397 项测试通过、1 项跳过；lint 保持既有 98 条 warning / 0 error；renderer 与 Electron 构建成功。
+- 提交 `8d431edc` 的 `Workers Builds: nomi`、`Quality Gate` 与 `Mac Package` 三项远端检查均为 `completed/success`。
+- 正式域名 `https://nomiaqm.com/` 与 `https://nomiaqm.com/en/` 已命中社群、作者微信、Business Inquiry、Discussions 与双语四项团队服务；线上双语 README 入口也通过精确检查。
+- `group-wechat.png`、`qingyang-wechat.jpg`、中文宣传片、英文宣传片和 hero loop 五项正式资源均返回 HTTP 200。
