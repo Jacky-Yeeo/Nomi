@@ -1,7 +1,7 @@
 # Nomi 双语增长入口设计规格
 
 日期：2026-08-01
-状态：架构方案 B、视觉样张与新增品牌/MCP 表达均已由用户确认，实施中
+状态：已实施并验证
 范围：官网首页、仓库 README、商务咨询入口与发布资产映射
 
 ## 1. 目标与底层逻辑
@@ -219,3 +219,13 @@ README 不直接嵌入 GIF 自动播放。使用一张经过检查的 poster 链
 - Bilibili、小红书、视频号、抖音：中文 16:9 或 1080×1920 版本，按平台形态选择。
 
 正式推广顺序固定为：增长入口上线并验证 → GitHub Release 与 X → Show HN → 按社区规则分别撰写 Reddit 内容 → Product Hunt 集中发布。商业服务在官网中明确，在 Show HN 与 Reddit 中只作为次要信息，避免把开源发布写成外包广告。
+
+## 13. 实施证据（2026-08-01）
+
+- 已生成并提交两个独立静态路由：`marketing/index.html`（`/`，简体中文）与 `marketing/en/index.html`（`/en/`，英文）。
+- 真实浏览器截图保存在忽略目录 `tests/ux/_marketing/`，覆盖中英文桌面端、中英文 390 px 移动端、英文 320 px、减少动态效果以及视频/字体阻断场景；所有截图均已人工查看并与批准样张逐项对账。
+- 已提交三支网页影片：`marketing/assets/video/hero-loop.mp4`、`marketing/assets/demo.mp4`、`marketing/assets/video/launch-film-en.mp4`。Hero 为 15 秒、1920×1080、H.264、无音轨；两支宣传片均约 60.096 秒、1280×720、H.264/AAC，且全部低于规格体积上限。
+- `pnpm run test:site`：通过；双语生成漂移、首页静态契约与既有快速开始页契约全部通过。
+- `pnpm run test:site:visual`：通过；路由、语言偏好、影片弹层、WebVTT、无 JavaScript、减少动态效果、资源阻断与横向溢出矩阵全部通过。
+- `pnpm run gates`：在推送前的最新 `origin/main` 集成工作树通过；设计 token 为 `0/0/0/0`，lint 保持 98-warning 棘轮且 0 error，Vitest 为 3381 passed / 1 skipped，前端与 Electron 生产构建通过。
+- 已于 2026-08-01 将实现快进推送到 `origin/main`；基线中的小窗圆角问题已由远端先行提交使用现有 `rounded-nomi` 解决，因此集成时没有制造重复修复提交。

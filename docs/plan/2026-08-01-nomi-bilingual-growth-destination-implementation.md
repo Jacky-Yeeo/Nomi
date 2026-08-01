@@ -35,7 +35,7 @@ Generated outputs are committed, but source-of-truth edits happen only under `sc
 - Modify: `src/workbench/timeline/TimelineMiniPreview.tsx:78`
 - Verify: `scripts/check-dangling-tokens.mjs`
 
-- [ ] **Step 1: Reproduce the exact baseline failure**
+- [x] **Step 1: Reproduce the exact baseline failure**
 
 Run:
 
@@ -45,7 +45,7 @@ pnpm run check:dangling-tokens
 
 Expected before the fix: FAIL listing only `--nomi-radius-md` at `TimelineMiniPreview.tsx:78`. If latest `origin/main` already changed the line to `--nomi-radius`, expect PASS and mark Steps 2 and 4 as already satisfied without creating a redundant commit.
 
-- [ ] **Step 2: Replace the invented medium token with the existing default-radius token**
+- [x] **Step 2: Replace the invented medium token with the existing default-radius token**
 
 Change the class fragment exactly to:
 
@@ -55,7 +55,7 @@ Change the class fragment exactly to:
 
 Do not add `--nomi-radius-md`: the design system already exposes `--nomi-radius-sm`, `--nomi-radius`, and `--nomi-radius-lg`; the bug is a caller naming drift, not a missing design-system tier.
 
-- [ ] **Step 3: Verify the structural guard**
+- [x] **Step 3: Verify the structural guard**
 
 Run:
 
@@ -65,7 +65,7 @@ pnpm run check:dangling-tokens
 
 Expected: PASS with no undefined CSS variables.
 
-- [ ] **Step 4: Commit the isolated baseline repair**
+- [x] **Step 4: Commit the isolated baseline repair**
 
 ```bash
 git add src/workbench/timeline/TimelineMiniPreview.tsx
@@ -82,7 +82,7 @@ Expected: one-line commit, no website files included.
 - Read: `docs/design/nomi-design-system.md`
 - Read: `docs/superpowers/specs/2026-08-01-nomi-bilingual-growth-destination-design.md`
 
-- [ ] **Step 1: Author one self-contained two-locale mockup**
+- [x] **Step 1: Author one self-contained two-locale mockup**
 
 The file must open without a build step and switch locale through `?lang=en` / `?lang=zh-CN`. Use this exact structural outline; populate the sections with the verbatim copy in design-spec Sections 3.2–3.5 and real images from `marketing/assets/`:
 
@@ -125,7 +125,7 @@ CSS variables must start with:
 
 The visual job is “director contact sheet”: deep monitor Hero, warm editorial proof chapters, coral director marks, timecodes, and asymmetric image/text rhythm. Do not introduce gradient blobs, glass cards, neon, centered feature-card grids, or fabricated UI.
 
-- [ ] **Step 2: Serve and capture the sample at the two target sizes**
+- [x] **Step 2: Serve and capture the sample at the two target sizes**
 
 Run:
 
@@ -142,7 +142,7 @@ http://127.0.0.1:4179/docs/plan/mockups/2026-08-01-nomi-bilingual-homepage.html?
 
 Capture full-page screenshots at 1440×900 and 390×844 into the ignored `tests/ux/_marketing/` directory.
 
-- [ ] **Step 3: Inspect all four screenshots pixel-by-pixel**
+- [x] **Step 3: Inspect all four screenshots pixel-by-pixel**
 
 Acceptance:
 
@@ -153,11 +153,11 @@ Acceptance:
 - Open Source is visually primary; For Teams is equally discoverable but not louder.
 - No horizontal overflow at 390 px or 320 px.
 
-- [ ] **Step 4: Stop for the required user visual approval**
+- [x] **Step 4: Stop for the required user visual approval**
 
 Show both desktop and mobile screenshots. Do not begin Task 2 until the user explicitly approves the sample or requests a revision.
 
-- [ ] **Step 5: Commit the approved sample**
+- [x] **Step 5: Commit the approved sample**
 
 ```bash
 git add docs/plan/mockups/2026-08-01-nomi-bilingual-homepage.html
@@ -171,7 +171,7 @@ git commit -m "docs(marketing): approve bilingual homepage sample"
 - Create: `tests/ux/marketing-home.static.mjs`
 - Modify: `package.json:24,65`
 
-- [ ] **Step 1: Write the generated-page contract test before the generator**
+- [x] **Step 1: Write the generated-page contract test before the generator**
 
 Create `tests/ux/marketing-home.static.mjs` with these complete assertions:
 
@@ -227,7 +227,7 @@ expect(!fs.existsSync(path.join(root, 'marketing/assets/vendor/ScrollTrigger.min
 console.log('MARKETING HOME STATIC PASS')
 ```
 
-- [ ] **Step 2: Add scripts that expose the missing generator contract**
+- [x] **Step 2: Add scripts that expose the missing generator contract**
 
 Set the relevant `package.json` scripts exactly to:
 
@@ -240,7 +240,7 @@ Set the relevant `package.json` scripts exactly to:
 }
 ```
 
-- [ ] **Step 3: Run the test to prove the feature does not exist**
+- [x] **Step 3: Run the test to prove the feature does not exist**
 
 Run:
 
@@ -250,7 +250,7 @@ node tests/ux/marketing-home.static.mjs
 
 Expected: FAIL because `marketing/en/index.html` does not exist.
 
-- [ ] **Step 4: Commit only the red contract**
+- [x] **Step 4: Commit only the red contract**
 
 ```bash
 git add tests/ux/marketing-home.static.mjs package.json
@@ -272,7 +272,7 @@ git commit -m "test(marketing): define bilingual homepage contract"
 - Generate: `marketing/index.html`
 - Generate: `marketing/en/index.html`
 
-- [ ] **Step 1: Define one shared-facts object and two complete locales**
+- [x] **Step 1: Define one shared-facts object and two complete locales**
 
 `content.mjs` must export this public contract:
 
@@ -293,7 +293,7 @@ Define `zhCN` and `english` immediately above the export as literal objects. Bot
 
 Export an `assertLocaleParity()` function that recursively compares object keys and array lengths between `zh-CN` and `en`, rejects empty strings, requires the four proof IDs `context`, `world`, `canvas`, `agentic`, and throws a path-specific error such as `Locale parity error at paths.teams.services[3].title`.
 
-- [ ] **Step 2: Generate locale-specific metadata from shared facts**
+- [x] **Step 2: Generate locale-specific metadata from shared facts**
 
 `metadata.mjs` exports `buildMetadata(locale, content, shared)`. Its return shape is:
 
@@ -326,7 +326,7 @@ Export an `assertLocaleParity()` function that recursively compares object keys 
 
 Chinese uses `/assets/social-preview-zh.jpg`; English uses `/assets/social-preview-en.jpg`.
 
-- [ ] **Step 3: Split visual, behavior, and semantic rendering**
+- [x] **Step 3: Split visual, behavior, and semantic rendering**
 
 `styles.mjs` exports `homepageCss`; copy the approved mockup’s exact CSS and add production rules for `dialog`, visible focus, `.js-only`, `.no-js-fallback`, `prefers-reduced-motion`, 390 px, and 320 px.
 
@@ -358,11 +358,11 @@ Chinese uses `/assets/social-preview-zh.jpg`; English uses `/assets/social-previ
 
 `template.mjs` exports `renderHomepage(locale, runtimeFacts)`. Split the body into `renderNav`, `renderHero`, `renderProofs`, `renderPaths`, `renderClosing`, `renderFilmDialog`, and `renderFooter`; each receives only the content it renders. Escape text and attributes with dedicated functions. Inline the CSS and client string so no runtime script dependency can blank the page.
 
-- [ ] **Step 4: Implement atomic write/check behavior**
+- [x] **Step 4: Implement atomic write/check behavior**
 
 `build-marketing-site.mjs` must read `package.json`, create `runtimeFacts = Object.freeze({ ...shared, version: packageJson.version })`, call `assertLocaleParity()`, and render both pages with `runtimeFacts` before touching disk. In normal mode, create `marketing/en/` and write both files. In `--check`, compare bytes and exit non-zero with the exact stale paths; do not rewrite them.
 
-- [ ] **Step 5: Generate and inspect both outputs**
+- [x] **Step 5: Generate and inspect both outputs**
 
 Run:
 
@@ -372,7 +372,7 @@ pnpm run build:site
 
 Expected: `marketing/index.html` and `marketing/en/index.html` are generated; the immediate `--check` passes.
 
-- [ ] **Step 6: Commit the generator and generated pages**
+- [x] **Step 6: Commit the generator and generated pages**
 
 ```bash
 git add scripts/marketing scripts/build-marketing-site.mjs marketing/index.html marketing/en/index.html
@@ -400,7 +400,7 @@ git commit -m "feat(marketing): generate bilingual static homepage"
 - Delete: `marketing/assets/vendor/gsap.min.js`
 - Delete: `marketing/assets/vendor/ScrollTrigger.min.js`
 
-- [ ] **Step 1: Produce the three web video files from the already-QA’d masters**
+- [x] **Step 1: Produce the three web video files from the already-QA’d masters**
 
 Run exactly:
 
@@ -411,7 +411,7 @@ ffmpeg -y -i /Users/aoqimin/Downloads/Nomi-Launch-Film-CN-Master-v2.mp4 -vf "sca
 ffmpeg -y -i /Users/aoqimin/Downloads/Nomi-Launch-Film-EN-Master-v1.mp4 -vf "scale=1280:-2:flags=lanczos" -c:v libx264 -preset slow -crf 24 -c:a aac -b:a 160k -movflags +faststart marketing/assets/video/launch-film-en.mp4
 ```
 
-- [ ] **Step 2: Convert captions and extract the hero fallback**
+- [x] **Step 2: Convert captions and extract the hero fallback**
 
 ```bash
 ffmpeg -y -i /Users/aoqimin/Downloads/Nomi-Launch-Film-CN.srt marketing/assets/video/launch-film-zh.vtt
@@ -419,7 +419,7 @@ ffmpeg -y -i /Users/aoqimin/Downloads/Nomi-Launch-Film-EN.srt marketing/assets/v
 ffmpeg -y -ss 00:00:02 -i marketing/assets/video/hero-loop.mp4 -frames:v 1 -q:v 2 marketing/assets/video/hero-poster.jpg
 ```
 
-- [ ] **Step 3: Probe hard media constraints**
+- [x] **Step 3: Probe hard media constraints**
 
 Run:
 
@@ -429,7 +429,7 @@ ffprobe -v error -show_entries stream=codec_name,width,height,channels:format=du
 
 If this FFprobe build accepts one input at a time, run the same command separately for each file. Acceptance: Hero is about 15.08 s, has no audio stream, and is ≤6 MB; both trailers are 1280×720, about 60.096 s, H.264/AAC, and ≤12 MB each. If a trailer exceeds 12 MB, rerun only that trailer at `-crf 26`, then probe again.
 
-- [ ] **Step 4: Generate deterministic bilingual social cards**
+- [x] **Step 4: Generate deterministic bilingual social cards**
 
 Before the social cards, extract the real MCP connection proof from the user-provided FocuSee recording. Use the source recording around `00:09:20`, crop only to a 16:9 frame without hiding the Claude Code / Codex / Cursor controls, resize to 1600 px wide, and save it as `marketing/assets/screen-agentic.jpg`. Do not use a generated UI or a launch-film frame with burned-in subtitle text.
 
@@ -443,7 +443,7 @@ node scripts/render-marketing-social-previews.mjs
 
 Expected: two 1200×630 JPEGs. Inspect both images; reject text clipping, low-contrast coral, fake UI, or unreadable small copy.
 
-- [ ] **Step 5: Delete superseded media and animation runtime**
+- [x] **Step 5: Delete superseded media and animation runtime**
 
 Delete only these exact tracked files after confirming the generated homepage has no references:
 
@@ -453,7 +453,7 @@ marketing/assets/vendor/gsap.min.js
 marketing/assets/vendor/ScrollTrigger.min.js
 ```
 
-- [ ] **Step 6: Rebuild and verify the media migration directly**
+- [x] **Step 6: Rebuild and verify the media migration directly**
 
 ```bash
 pnpm run build:site
@@ -462,7 +462,7 @@ node -e "const fs=require('fs'); for (const f of ['marketing/assets/video/hero-l
 
 Expected: exit 0; all new assets exist and all superseded files are absent. The full static contract remains intentionally red until Task 5 creates the README pair and Issue Form.
 
-- [ ] **Step 7: Commit media migration**
+- [x] **Step 7: Commit media migration**
 
 ```bash
 git add marketing/assets scripts/marketing/social-card.mjs scripts/render-marketing-social-previews.mjs marketing/index.html marketing/en/index.html
@@ -480,7 +480,7 @@ git commit -m "feat(marketing): ship verified bilingual launch media"
 - Create: `.github/ISSUE_TEMPLATE/business_inquiry.yml`
 - Create: `.github/ISSUE_TEMPLATE/config.yml`
 
-- [ ] **Step 1: Replace the root README with the approved English-first sequence**
+- [x] **Step 1: Replace the root README with the approved English-first sequence**
 
 Use these exact first-screen claims and destinations:
 
@@ -498,7 +498,7 @@ Then include: badges; the inspected poster linked to the film; `Why Nomi` with C
 
 The English License section must say: `Current releases are licensed under AGPL-3.0-only. Historical releases published under Apache-2.0 keep their original license.`
 
-- [ ] **Step 2: Create the concise Chinese README**
+- [x] **Step 2: Create the concise Chinese README**
 
 Start with:
 
@@ -514,7 +514,7 @@ Nomi 是本地优先、开源的 AI 视频导演工作台：把故事、分镜�
 
 Retain the current Chinese domestic download mirror, first-open warning, Quick start, user group/WeChat, development commands, CLA, AGPL current-license rule, and historical Apache wording. Remove the long model/provider feature wall and expiring “8 月 4 日前有效” group-QR claim.
 
-- [ ] **Step 3: Add the public-safe GitHub Issue Form**
+- [x] **Step 3: Add the public-safe GitHub Issue Form**
 
 Create `.github/ISSUE_TEMPLATE/business_inquiry.yml` exactly as:
 
@@ -597,7 +597,7 @@ contact_links:
     about: Do not disclose vulnerabilities in a public issue.
 ```
 
-- [ ] **Step 4: Run the now-complete static contract**
+- [x] **Step 4: Run the now-complete static contract**
 
 ```bash
 pnpm run build:site
@@ -606,7 +606,7 @@ node tests/ux/marketing-home.static.mjs
 
 Expected: `MARKETING HOME STATIC PASS`.
 
-- [ ] **Step 5: Commit README and inquiry path**
+- [x] **Step 5: Commit README and inquiry path**
 
 ```bash
 git add README.md README.zh-CN.md .github/ISSUE_TEMPLATE marketing/index.html marketing/en/index.html
@@ -625,7 +625,7 @@ git commit -m "docs: add bilingual product and business entry"
 - Modify: `.github/workflows/quality-gate.yml`
 - Modify: `tests/ux/marketing-home.static.mjs`
 
-- [ ] **Step 1: Add exact route metadata assertions**
+- [x] **Step 1: Add exact route metadata assertions**
 
 Extend the static test with:
 
@@ -640,7 +640,7 @@ expect(read('README.md').includes('historical releases'), 'English historical-li
 expect(read('README.zh-CN.md').includes('历史版本'), 'Chinese historical-license context')
 ```
 
-- [ ] **Step 2: Run the new assertion red**
+- [x] **Step 2: Run the new assertion red**
 
 ```bash
 node tests/ux/marketing-home.static.mjs
@@ -648,11 +648,11 @@ node tests/ux/marketing-home.static.mjs
 
 Expected: FAIL because `/en/` is not yet in the sitemap.
 
-- [ ] **Step 3: Update sitemap and HTML cache headers**
+- [x] **Step 3: Update sitemap and HTML cache headers**
 
 Add `/en/` with lastmod `2026-08-01`, weekly changefreq, priority `1.0`; keep root, quickstart, and handbook. In `_headers`, add `/en/index.html` with `Cache-Control: public, max-age=0, must-revalidate`. Keep the general immutable asset rule, but override `/assets/demo.mp4`, `/assets/video/*`, `/assets/social-preview-zh.jpg`, and `/assets/social-preview-en.jpg` with `Cache-Control: public, max-age=3600, must-revalidate` because these public filenames are intentionally stable while their bytes can change.
 
-- [ ] **Step 4: Put the site contract into local and CI gates**
+- [x] **Step 4: Put the site contract into local and CI gates**
 
 In `package.json`, insert `pnpm run check:site` after `pnpm run check:i18n` and before lint in the `gates` command. In `.github/workflows/quality-gate.yml`, add:
 
@@ -663,7 +663,7 @@ In `package.json`, insert `pnpm run check:site` after `pnpm run check:i18n` and 
 
 Place it after File size guard and before Lint.
 
-- [ ] **Step 5: Run site build, drift check, and both site tests**
+- [x] **Step 5: Run site build, drift check, and both site tests**
 
 ```bash
 pnpm run build:site
@@ -673,7 +673,7 @@ pnpm run test:site
 
 Expected: bilingual contract and existing quickstart visual/static test both pass; `git diff --exit-code -- marketing/index.html marketing/en/index.html` is clean after generation.
 
-- [ ] **Step 6: Commit SEO and gate coverage**
+- [x] **Step 6: Commit SEO and gate coverage**
 
 ```bash
 git add marketing/sitemap.xml marketing/_headers package.json .github/workflows/quality-gate.yml tests/ux/marketing-home.static.mjs
@@ -689,11 +689,11 @@ git commit -m "test(marketing): gate bilingual SEO and generated output"
 - Create: `tests/ux/marketing-home.visual.mjs`
 - Generate but do not commit: `tests/ux/_marketing/home-*.png`
 
-- [ ] **Step 1: Implement a static server that handles directory routes**
+- [x] **Step 1: Implement a static server that handles directory routes**
 
 Copy the safe-path and MIME approach from `marketing-quickstart.static.mjs`. Route `/` to `index.html`, `/en/` to `en/index.html`, and reject any resolved path outside `marketingRoot`. Include MIME types for `.html`, `.svg`, `.png`, `.jpg`, `.mp4`, and `.vtt`.
 
-- [ ] **Step 2: Implement the browser audit matrix**
+- [x] **Step 2: Implement the browser audit matrix**
 
 The script must launch Chromium and run these cases:
 
@@ -708,7 +708,7 @@ const cases = [
 
 For each case: wait for `networkidle`; assert horizontal overflow ≤1 px; assert one H1; assert `#product`, `#teams`, Download, GitHub, locale link, hero poster/video, and four proof sections; capture a full-page screenshot; open the film dialog and assert the locale-matching `<track>`; close with Escape.
 
-- [ ] **Step 3: Add the three failure-mode journeys**
+- [x] **Step 3: Add the three failure-mode journeys**
 
 1. `javaScriptEnabled: false`: open both direct locale routes; assert H1, Download, and direct Watch link remain usable.
 2. `reducedMotion: 'reduce'`: assert hero video is paused and all sections have non-zero layout boxes.
@@ -716,7 +716,7 @@ For each case: wait for `networkidle`; assert horizontal overflow ≤1 px; asser
 
 Add an English-preference case that opens `/` in a fresh `en-US` context and expects the final URL to end in `/en/`. Then click the Chinese locale link, revisit `/`, and expect the explicit `zh-CN` preference to prevent redirect.
 
-- [ ] **Step 4: Run the visual journey**
+- [x] **Step 4: Run the visual journey**
 
 ```bash
 pnpm run test:site:visual
@@ -724,13 +724,13 @@ pnpm run test:site:visual
 
 Expected: all assertions pass and screenshots are created under `tests/ux/_marketing/`.
 
-- [ ] **Step 5: Inspect every screenshot with human vision**
+- [x] **Step 5: Inspect every screenshot with human vision**
 
 Open the four standard screenshots plus reduced-motion and blocked-media screenshots. Compare with the approved Task 1 sample. Check real pixels for: no crop, no black frame, no subtitle overflow, no orphan service word, CTA hierarchy, 320/390 px wrapping, visible focus, and no section stranded invisible.
 
 If any screenshot differs materially from the approved sample, fix `styles.mjs` or `template.mjs`, regenerate, rerun the matrix, and inspect the new pixels. Do not declare completion from assertions alone.
 
-- [ ] **Step 6: Commit the durable journey, not the ignored screenshots**
+- [x] **Step 6: Commit the durable journey, not the ignored screenshots**
 
 ```bash
 git add tests/ux/marketing-home.visual.mjs scripts/marketing marketing/index.html marketing/en/index.html
@@ -746,11 +746,11 @@ git commit -m "test(marketing): verify bilingual homepage journeys"
 - Modify: `docs/superpowers/specs/2026-08-01-nomi-bilingual-growth-destination-design.md`
 - Modify: `docs/plan/2026-08-01-nomi-bilingual-growth-destination-implementation.md`
 
-- [ ] **Step 1: Mark evidence, not hopes**
+- [x] **Step 1: Mark evidence, not hopes**
 
 Update the spec state to `implemented and verified`. Append a short evidence block containing the exact generated routes, screenshot directory, three local video paths, `pnpm run test:site` result, visual journey result, and final gate result. Check completed plan boxes only for actions actually performed.
 
-- [ ] **Step 2: Run the complete project gate**
+- [x] **Step 2: Run the complete project gate**
 
 ```bash
 pnpm run gates
@@ -758,7 +758,7 @@ pnpm run gates
 
 Expected: filesize, tokens, dangling tokens, archetype defaults, secrets, i18n, site tests, lint, typecheck, all Vitest tests, and production build pass. Existing warning count must not exceed the repository ratchet.
 
-- [ ] **Step 3: Inspect the final diff for source/generated discipline**
+- [x] **Step 3: Inspect the final diff for source/generated discipline**
 
 ```bash
 git diff --check
@@ -769,18 +769,18 @@ node scripts/build-marketing-site.mjs --check
 
 Expected: no whitespace errors, no untracked deliverables, generated pages current, no unrelated user changes, and no deleted asset still referenced by tracked files.
 
-- [ ] **Step 4: Commit evidence**
+- [x] **Step 4: Commit evidence**
 
 ```bash
 git add docs/superpowers/specs/2026-08-01-nomi-bilingual-growth-destination-design.md docs/plan/2026-08-01-nomi-bilingual-growth-destination-implementation.md
 git commit -m "docs(marketing): record bilingual launch verification"
 ```
 
-- [ ] **Step 5: Integrate onto latest remote main in a fresh sibling worktree**
+- [x] **Step 5: Integrate onto latest remote main in a fresh sibling worktree**
 
 From the primary repository, fetch `origin/main`, create a detached sibling worktree pinned to it, cherry-pick only this plan’s commits, install dependencies, and rerun `pnpm run gates`. Before push, fetch again and require `git merge-base --is-ancestor origin/main HEAD` to succeed.
 
-- [ ] **Step 6: Push only after the latest-main gate is green**
+- [x] **Step 6: Push only after the latest-main gate is green**
 
 ```bash
 git push origin HEAD:main
@@ -792,15 +792,15 @@ Expected: fast-forward update of `origin/main`. Remove the temporary integration
 
 ## Final acceptance checklist
 
-- [ ] `/` is static Chinese and `/en/` is static English.
-- [ ] Browser-language redirect runs once and an explicit locale choice wins thereafter.
-- [ ] Both routes have localized canonical, hreflang, OG, Twitter, and JSON-LD metadata.
-- [ ] Current-license positions say AGPL-3.0-only; Apache appears only in historical context.
-- [ ] Hero proof is silent, reduced-motion safe, and survives failed video/font loads.
-- [ ] Chinese and English 60-second films play with locale-matching WebVTT captions.
-- [ ] Four real product proofs are legible at 1440, 390, and 320 px.
-- [ ] Open Source is primary; Custom builds, Integrations, White-label, and Ongoing iteration are explicit.
-- [ ] Business inquiry warns that the issue is public and collects no private details or budget.
-- [ ] Root README is English-first and `README.zh-CN.md` preserves Chinese download/community needs.
-- [ ] Old demo GIF and GSAP files are gone and unreferenced.
-- [ ] Static tests, visual journeys, project gates, latest-main gates, and human screenshot comparison all pass.
+- [x] `/` is static Chinese and `/en/` is static English.
+- [x] Browser-language redirect runs once and an explicit locale choice wins thereafter.
+- [x] Both routes have localized canonical, hreflang, OG, Twitter, and JSON-LD metadata.
+- [x] Current-license positions say AGPL-3.0-only; Apache appears only in historical context.
+- [x] Hero proof is silent, reduced-motion safe, and survives failed video/font loads.
+- [x] Chinese and English 60-second films play with locale-matching WebVTT captions.
+- [x] Four real product proofs are legible at 1440, 390, and 320 px.
+- [x] Open Source is primary; Custom builds, Integrations, White-label, and Ongoing iteration are explicit.
+- [x] Business inquiry warns that the issue is public and collects no private details or budget.
+- [x] Root README is English-first and `README.zh-CN.md` preserves Chinese download/community needs.
+- [x] Old demo GIF and GSAP files are gone and unreferenced.
+- [x] Static tests, visual journeys, project gates, latest-main gates, and human screenshot comparison all pass.
