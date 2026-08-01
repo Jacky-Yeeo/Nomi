@@ -90,8 +90,10 @@ describe('nomi-mcp · 技能库经 resources + prompts 暴露（渐进披露）'
     harness = new SkillsHarness()
     const res = await harness.call(2, 'resources/list')
     const resources = (res.result as { resources: Array<{ uri: string; name: string; mimeType: string }> }).resources
-    expect(resources).toHaveLength(2)
-    expect(resources[0]).toMatchObject({ uri: 'nomi-skill://director-cinematography', name: 'director.cinematography', mimeType: 'text/markdown' })
+    // 列表含活 widget 资源（ui://）+ 技能资源（nomi-skill://）——这里只校技能映射。
+    const skillResources = resources.filter((r) => r.uri.startsWith('nomi-skill://'))
+    expect(skillResources).toHaveLength(2)
+    expect(skillResources[0]).toMatchObject({ uri: 'nomi-skill://director-cinematography', name: 'director.cinematography', mimeType: 'text/markdown' })
     // 渐进披露：列表阶段只调 skills.list，绝不调 skills.read（不载正文）。
     expect(harness.invoke).toHaveBeenCalledWith('skills.list', {})
     expect(harness.invoke).not.toHaveBeenCalledWith('skills.read', expect.anything())

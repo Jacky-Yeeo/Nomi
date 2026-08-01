@@ -7,8 +7,25 @@
 //
 // 传输经 McpTransport 注入：send（服务端→客户端帧）/ invoke（调能力核）/ isAppOpen（Nomi 开着没，决定
 // 付费确认走应用内卡片还是 Claude 侧 elicitation）。本模块不 import electron → 协议握手可纯逻辑单测。
+//
+// MCP Apps（GUI 宿主内嵌活 widget，扩展 id io.modelcontextprotocol/ui，Stable 2026-01-26）：
+// nomi_generate 挂 _meta.ui.resourceUri → 指向 ui:// 资源（widget HTML，经 resources/read 取）；
+// 生成结果回 structuredContent.nomiDraft，宿主注入 iframe 渲染活生成面板。mcpAppWidget.ts 是纯字符串，
+// import 它不破「本模块不碰 electron」的纯逻辑单测边界。宿主不支持时 tool 仍回文本兜底（不裸奔）。
+import {
+  NOMI_LIVE_DRAFT_UI_URI,
+  MCP_APP_MIME_TYPE,
+  MCP_UI_EXTENSION_ID,
+  NOMI_LIVE_DRAFT_WIDGET_HTML,
+  buildNomiDraftFromGenerate,
+} from './mcpAppWidget'
 
 export type McpInvokeOptions = { spendConfirmed?: boolean }
+
+// 哪些工具挂活 widget（tool.name → ui:// 资源）。目前 nomi_generate（活生成面板）。
+const TOOL_UI_RESOURCE: Record<string, string> = {
+  nomi_generate: NOMI_LIVE_DRAFT_UI_URI,
+}
 
 export interface McpTransport {
   /** 发一帧给客户端（响应 / 服务端→客户端请求如 elicitation/create）。 */
@@ -158,6 +175,8 @@ type SkillContentFrame = { name: string; directoryName: string; description: str
 export function createMcpProtocol(transport: McpTransport) {
   // 客户端能力（initialize 时捕获）。elicitation = 客户端能代我们向真人弹确认对话框（MCP 规范 2025-06-18）。
   let clientSupportsElicitation = false
+  // MCP Apps UI 扩展：客户端声明 capabilities.extensions['io.modelcontextprotocol/ui'] = 宿主能渲活 widget。
+  let clientSupportsUiApps = false
   // 服务端→客户端请求自管 id 与 pending，等客户端回响应。
   let serverReqSeq = 0
   const pendingServerReqs = new Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>()
@@ -170,6 +189,28 @@ export function createMcpProtocol(transport: McpTransport) {
   }
   function replyError(id: unknown, code: number, message: string): void {
     send({ jsonrpc: '2.0', id, error: { code, message } })
+  }
+
+  // tool result 载荷：文本兜底（宿主无 UI 时也看得到）+ 挂 widget 的工具额外带 structuredContent.nomiDraft
+  // （宿主注入 iframe 渲活生成面板）+ _meta.ui.resourceUri（本次结果关联的 widget，冗余声明）。
+  function buildToolResultPayload(toolName: string, args: Record<string, unknown>, result: unknown): Record<string, unknown> {
+    const payload: Record<string, unknown> = { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+    // 只对声明了 UI 扩展的宿主附 widget 数据——纯终端客户端（Claude Code 等）保持原文本结果，零回归。
+    if (toolName === 'nomi_generate' && clientSupportsUiApps) {
+      payload.structuredContent = {
+        nomiDraft: buildNomiDraftFromGenerate({
+          intent: typeof args.intent === 'string' ? args.intent : undefined,
+          prompt: typeof args.prompt === 'string' ? args.prompt : undefined,
+          projectId: typeof args.projectId === 'string' ? args.projectId : undefined,
+          vendor: typeof args.vendor === 'string' ? args.vendor : undefined,
+          modelKey: typeof args.modelKey === 'string' ? args.modelKey : undefined,
+          result,
+        }),
+      }
+      const uiUri = TOOL_UI_RESOURCE[toolName]
+      if (uiUri) payload._meta = { ui: { resourceUri: uiUri } }
+    }
+    return payload
   }
 
   function sendServerRequest(method: string, params: unknown, timeoutMs = 300000): Promise<unknown> {
@@ -217,6 +258,8 @@ export function createMcpProtocol(transport: McpTransport) {
 
     if (method === 'initialize') {
       clientSupportsElicitation = Boolean(params?.capabilities && (params.capabilities as Record<string, unknown>).elicitation)
+      const clientExtensions = (params?.capabilities as Record<string, unknown> | undefined)?.extensions as Record<string, unknown> | undefined
+      clientSupportsUiApps = Boolean(clientExtensions && clientExtensions[MCP_UI_EXTENSION_ID])
       // 协议版本回显客户端请求的版本（兼容性根因 R5 实证）：硬回我们偏好版本会让只讲老协议的客户端按规范断开。
       const requested = params?.protocolVersion
       const negotiatedVersion = typeof requested === 'string' && requested ? requested : PROTOCOL_VERSION
@@ -232,7 +275,13 @@ export function createMcpProtocol(transport: McpTransport) {
       return
     }
     if (method === 'tools/list') {
-      reply(id, { tools: TOOLS.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })) })
+      reply(id, {
+        tools: TOOLS.map(({ name, description, inputSchema }) => {
+          // _meta.ui.resourceUri：预声明该工具的活 widget（MCP Apps 2026-01-26）。只发给声明了 UI 扩展的宿主。
+          const uiUri = clientSupportsUiApps ? TOOL_UI_RESOURCE[name] : undefined
+          return uiUri ? { name, description, inputSchema, _meta: { ui: { resourceUri: uiUri } } } : { name, description, inputSchema }
+        }),
+      })
       return
     }
     if (method === 'tools/call') {
@@ -262,11 +311,11 @@ export function createMcpProtocol(transport: McpTransport) {
             return
           }
           const result = await transport.invoke(tool.method, tool.build(args), { spendConfirmed: true })
-          reply(id, { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] })
+          reply(id, buildToolResultPayload(tool.name, args, result))
           return
         }
         const result = await transport.invoke(tool.method, tool.build(args))
-        reply(id, { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] })
+        reply(id, buildToolResultPayload(tool.name, args, result))
       } catch (error) {
         // 工具执行失败用 isError 返回（让模型看到错误而非协议级 error）。
         reply(id, { content: [{ type: 'text', text: `错误：${error instanceof Error ? error.message : String(error)}` }], isError: true })
@@ -278,17 +327,31 @@ export function createMcpProtocol(transport: McpTransport) {
     const SKILL_URI_PREFIX = 'nomi-skill://'
     if (method === 'resources/list') {
       const res = (await transport.invoke('skills.list', {})) as { skills?: SkillSummaryFrame[] } | null
-      const resources = (res?.skills || []).map((s) => ({
+      const skillResources = (res?.skills || []).map((s) => ({
         uri: `${SKILL_URI_PREFIX}${s.directoryName}`,
         name: s.name,
         description: s.description,
         mimeType: 'text/markdown',
       }))
-      reply(id, { resources })
+      // 活 widget 资源（MCP Apps）：宿主预取渲染 nomi_generate 的活生成面板。只列给声明了 UI 扩展的宿主。
+      const uiResources = clientSupportsUiApps
+        ? [{
+            uri: NOMI_LIVE_DRAFT_UI_URI,
+            name: 'Nomi 活生成面板',
+            description: '在支持 MCP Apps 的宿主里内嵌显示 Nomi 生成的画面缩略图与状态。',
+            mimeType: MCP_APP_MIME_TYPE,
+          }]
+        : []
+      reply(id, { resources: [...uiResources, ...skillResources] })
       return
     }
     if (method === 'resources/read') {
       const uri = String(params?.uri || '')
+      // 活 widget HTML（text/html;profile=mcp-app）——宿主装进沙箱 iframe。
+      if (uri === NOMI_LIVE_DRAFT_UI_URI) {
+        reply(id, { contents: [{ uri, mimeType: MCP_APP_MIME_TYPE, text: NOMI_LIVE_DRAFT_WIDGET_HTML }] })
+        return
+      }
       if (!uri.startsWith(SKILL_URI_PREFIX)) {
         replyError(id, -32602, `未知资源 uri: ${uri}`)
         return
