@@ -1,7 +1,7 @@
 # Nomi 国际宣传片制作追踪
 
 更新时间：2026-08-01  
-状态：中文与英文 16:9 母版均已完成导出、响度检查与成片像素校对；待用户播放确认后派生竖版与官网静音版
+状态：中文 / 英文 16:9 母版、中文 / 英文 9:16 社交版、15 秒官网静音循环版与双语 SRT 均已完成导出；全部成片已做媒体探测与最终 MP4 像素校对
 
 ## ChatCut 项目
 
@@ -9,6 +9,9 @@
 - Project ID：`e972cb0b-b0bf-4c14-98ab-25093c2d0475`
 - 初始 Timeline ID：`c995e3a0-b174-4736-b7aa-e86b3aa72b58`
 - 英文 Timeline ID：`c77f89cb-a09d-40f2-935f-7b3b966a9094`
+- 中文竖版 Timeline ID：`7d4dde53-0579-4ae7-b869-be912102dade`
+- 英文竖版 Timeline ID：`dc8ac171-cb5a-4bde-825f-8b6fb48ac918`
+- 官网静音版 Timeline ID：`fe40f4b3-0c6e-442b-83bd-5eb4d79796da`
 - 画布：1920×1080，30 fps
 - 编辑器：<https://app.chatcut.io/zh/editor/e972cb0b-b0bf-4c14-98ab-25093c2d0475>
 
@@ -175,3 +178,34 @@ CTA 首次稳定帧曾把“贴牌交付 / 持续迭代”拆成孤字；第一�
 | 英文 v1 | `f6ad67d359` | `/Users/aoqimin/Downloads/Nomi-Launch-Film-EN-Master-v1.mp4` | 1920×1080，30 fps，60.096 s，17,395,771 bytes | -17.5 LUFS，LRA 5.5 LU，true peak -2.1 dBTP | **当前英文母版**；英文排版、字幕、桥段与 CTA 全部在安全区 |
 
 成片 QA 不是只看导出任务成功：中文 v2 与英文 v1 都从最终 MP4 抽取接触表并亲眼检查像素；中文又从当前时间线重新渲染关键帧，验证英文属性适配没有误伤中文。两版当前均无黑帧、破字、字幕溢出、CTA 裁切或可见供应商报错。
+
+### 9:16 社交版派生与根因修正
+
+- 中文时间线：`03-CN-Social-9x16`；英文时间线：`04-EN-Social-9x16`；均为 1080×1920、30 fps、1800 帧。
+- 初次 `contain` 适配留下大面积黑边；`cover` 虽填满画布，却把真实产品 UI 和关键文字裁掉。两种自动适配均未作为交付版本。
+- 最终采用同一个可编辑的竖版编辑舞台 Motion Graphic：`Nomi Vertical Editorial Stage`（Asset `dbcb4604-45ce-4cb9-b02d-05b6902c8a0d`）。中文 Item `cb056a387f`，英文 Item `898244afef`。
+- 产品证据段完整保留 16:9 产品窗口，不裁核心 UI；上下留白改造成暖纸编辑版式，承载章节编号、标题、进度与字幕安全区。Hook、集成桥和 CTA 使用原生 9:16 全屏构图。
+- 中文 Hook 初检发现末字换行，字号从 94 调至 82 后重新渲染检查；中英文接触表均覆盖 Hook、六个产品章节、集成桥与 CTA。
+- 竖版没有复制一套独立动效代码：中英文复用同一个 Motion Graphic，仅以实例属性适配语言。
+
+### 官网 15 秒静音循环版
+
+- 时间线：`05-Web-Hero-Silent`，1920×1080、30 fps、450 帧。
+- Motion Graphic：`Nomi Web Hero Silent Loop`（Asset `fe2c65ff-47e2-4475-9378-5cf4e64e8bf9`，Item `8d7de5bd4e`），全长覆盖 0–449 帧。
+- V1 只保留四段真实产品证据：故事 / 分镜、视觉锚点、画布导演、时间线结果；0–29 帧为暖纸 Hook，390–449 帧为下载与企业服务 CTA。
+- 首尾都回到同一暖纸基底，循环边界无黑闪；字幕被禁用，所有原旁白、配乐和音效条目均已移除。
+- H.264 导出仍封装了一条 AAC 静音流；最终 MP4 实测 `mean_volume=-91.0 dB`、`max_volume=-91.0 dB`，属于数字静音，不存在可闻内容。
+
+### 派生版本导出与最终 MP4 QA
+
+| 版本 | Render ID | 本地文件 | 媒体事实 | 音频事实 | 结论 |
+|---|---|---|---|---|---|
+| 中文 9:16 | `f95b597b3e` | `/Users/aoqimin/Downloads/Nomi-Launch-Film-CN-Social-9x16.mp4` | 1080×1920，H.264，30 fps，60.096 s，11,496,855 bytes | AAC 48 kHz 双声道；mean -21.0 dB，peak -4.5 dB | 通过最终接触表；文字、字幕、产品窗口与 CTA 均在安全区 |
+| 英文 9:16 | `0977e8f3dd` | `/Users/aoqimin/Downloads/Nomi-Launch-Film-EN-Social-9x16.mp4` | 1080×1920，H.264，30 fps，60.096 s，12,219,390 bytes | AAC 48 kHz 双声道；mean -20.6 dB，peak -2.1 dB | 通过最终接触表；英文长句没有越界或被裁 |
+| 官网静音循环 | `f89f9c6d75` | `/Users/aoqimin/Downloads/Nomi-Web-Hero-Silent-15s.mp4` | 1920×1080，H.264，30 fps，15.083 s，5,216,827 bytes | AAC 48 kHz 双声道；mean / peak 均 -91.0 dB | 通过最终接触表；无黑帧、无可闻音频、首尾暖纸基底一致 |
+
+### 字幕文件
+
+- 中文 SRT：Render `9fb82f5abd`，`/Users/aoqimin/Downloads/Nomi-Launch-Film-CN.srt`，87 行。
+- 英文 SRT：Render `7a74ba3e0b`，`/Users/aoqimin/Downloads/Nomi-Launch-Film-EN.srt`，86 行。
+- 两份 SRT 均从各自 16:9 母版的 Caption Singleton 导出；抽查开头时间码与语义分句正确。
