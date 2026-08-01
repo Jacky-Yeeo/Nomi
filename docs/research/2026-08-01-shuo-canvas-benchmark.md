@@ -91,3 +91,14 @@
 - 官方 showcase：`https://raw.githubusercontent.com/ashuoAI/SHUO-Canvas/master/images/readme/showcase/*.webp`（video-editor-node / story-workspace / character-replacement-workspace 等 13 张）。
 - 安装包：GitHub `ashuoAI/SHUO-Canvas` v0.7.0（Mac arm64 zip 383MB，ad-hoc 签名）；本机装于 `/tmp/shuo-canvas/app/SHUO Canvas.app`，带 `--remote-debugging-port=9333` 可 CDP 复驱。
 - Nomi 侧 file:line 均为 2026-08-01 main（92cc3260）。
+
+---
+
+## 补充（当日晚·Nomi 侧真机走查实录）
+
+对 Nomi 自身跑了同旅程真机走查（隔离实例 + 4 段本地视频 → 组装 30s 成片），推翻了上文一个假设并挖出一个 P0：
+
+- **P0（已修 c2fa668a）**：视频/音频 clip 裁剪在生成页与预览页 UI 上"纹丝不动"，但 store/落盘/导出已按裁剪走——根因 `TimelineClip.tsx` 宽度绑 `clip.frameCount`（源总长，上古读点），6 月引入 offset 裁剪模型后视频/音频 trim 只改 offset+endFrame。视觉跨度≠真实跨度还使按视觉位置的分割落进"幽灵区"被守卫静默 no-op——**用户感知即"裁剪/分割全是坏的"**。修=抽 `clipVisibleFrames` 单源（宽度+剪刀范围）+ 回归测试；真机复验裁剪跟手、分割生效。
+- 上文 §2.3"体感差距"三条仍成立，但权重重排：真机下最痛的是 ①剪辑无画面反馈（生成页时间轴无预览，盲剪；预览页有画面但丢画布上下文）②自由摆放税（拖放落点字面化→随手拖=空隙；重叠拖放被拒 toast 让用户自己找空位；拖放不吸附）③空隙进播放头显示全局空态文案「从生成区拖入素材即可显示」（有素材的用户会懵）。
+- 微摩擦实录：「拖拽到时间轴」按钮样式不可点击（死点击零反馈）；点 clip 播放头跳 clip 头非点击处；trim 手柄 12px 且选中才出现；项目卡封面对本地素材项目显示「加载失败」。
+- 走查证据：/tmp/nomi-uxwalk/shots/n01–n28（临时目录）。
