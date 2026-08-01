@@ -46,6 +46,7 @@ function renderNav(content, shared, locale) {
   </a>
   <a class="nav-link" href="#product">${escapeText(content.nav.product)}</a>
   <a class="nav-link" href="#teams">${escapeText(content.nav.teams)}</a>
+  <a class="nav-link" href="#community">${escapeText(content.nav.community)}</a>
   <a class="nav-link" href="${escapeAttr(content.nav.docsHref)}">${escapeText(content.nav.docs)}</a>
   <a class="nav-link" href="${escapeAttr(shared.repositoryUrl)}" ${externalAttrs}>GitHub</a>
   <span class="locale" aria-label="${escapeAttr(content.a11y.currentLocale)}">
@@ -132,10 +133,38 @@ function renderPaths(content, shared) {
         <span class="path-number">${escapeText(content.paths.teams.kicker)}</span>
         <h3>${escapeText(content.paths.teams.title)}</h3>
         <p class="path-description">${escapeText(content.paths.teams.description)}</p>
+        <p class="path-description">${escapeText(content.paths.teams.wechatLabel)} · ${escapeText(shared.wechatId)}</p>
         <div class="service-list">${services}</div>
-        <div class="path-actions"><a class="button button--ink" href="${escapeAttr(shared.businessUrl)}" ${externalAttrs}><span>${escapeText(content.paths.teams.discuss)}</span><span aria-hidden="true">↗</span></a></div>
+        <div class="path-actions">
+          <a class="button button--ink" href="${escapeAttr(shared.businessUrl)}" ${externalAttrs}><span>${escapeText(content.paths.teams.discuss)}</span><span aria-hidden="true">↗</span></a>
+          <a class="button" href="${escapeAttr(shared.authorQr)}" ${externalAttrs}><span>${escapeText(content.paths.teams.wechat)}</span><span aria-hidden="true">↗</span></a>
+        </div>
       </article>
     </div>
+  </div>
+</section>`
+}
+
+function renderCommunity(content, shared) {
+  const cards = content.community.cards.map((card) => {
+    const primaryHref = shared[card.primary.target]
+    const secondaryHref = shared[card.secondary.target]
+    if (!primaryHref || !secondaryHref) throw new Error(`Unknown community target: ${card.id}`)
+    const contact = card.id === 'author' ? ` ${content.community.contactLabel} · ${shared.wechatId}` : ''
+    return `<article class="path" data-community-card="${escapeAttr(card.id)}">
+        <span class="path-number">${escapeText(card.kicker)}</span>
+        <h3>${escapeText(card.title)}</h3>
+        <p class="path-description">${escapeText(card.description)}${escapeText(contact)}</p>
+        <div class="service-list">
+          <a class="service" href="${escapeAttr(primaryHref)}" ${externalAttrs}><span>${escapeText(card.primary.label)}</span><span>${escapeText(card.primary.code)}</span></a>
+          <a class="service" href="${escapeAttr(secondaryHref)}" ${externalAttrs}><span>${escapeText(card.secondary.label)}</span><span>${escapeText(card.secondary.code)}</span></a>
+        </div>
+      </article>`
+  }).join('')
+  return `<section id="community" class="paths-section" aria-labelledby="community-title">
+  <div class="shell">
+    <div class="paths-head"><h2 id="community-title">${escapeText(content.community.titleLead)}<br /><em>${escapeText(content.community.titleEmphasis)}</em></h2><p>${escapeText(content.community.description)}</p></div>
+    <div class="paths">${cards}</div>
   </div>
 </section>`
 }
@@ -203,6 +232,7 @@ ${renderHero(content, runtimeFacts)}
 <main>
 ${renderProofs(content)}
 ${renderPaths(content, runtimeFacts)}
+${renderCommunity(content, runtimeFacts)}
 ${renderClosing(content, runtimeFacts, locale)}
 </main>
 ${renderFilmDialog(content)}
