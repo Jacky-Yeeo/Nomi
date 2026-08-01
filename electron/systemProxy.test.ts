@@ -37,8 +37,12 @@ describe("parseEnvProxy", () => {
     expect(parseEnvProxy({ https_proxy: "http://10.0.0.1:8080" })).toMatchObject({ kind: "http" });
   });
 
-  it("SOCKS 代理 → unsupported（Phase 1 不支持）", () => {
-    expect(parseEnvProxy({ ALL_PROXY: "socks5://127.0.0.1:7891" }).kind).toBe("unsupported");
+  it("SOCKS 代理 → socks（2026-08-01 起真支持，不再是 unsupported）", () => {
+    expect(parseEnvProxy({ ALL_PROXY: "socks5://127.0.0.1:7891" })).toEqual({
+      kind: "socks",
+      url: "socks5://127.0.0.1:7891",
+      source: "env",
+    });
   });
 
   it("无任何代理环境变量 → none", () => {
@@ -73,8 +77,20 @@ describe("parseResolveProxyString（Electron session.resolveProxy 返回串）",
     });
   });
 
-  it("SOCKS5 → unsupported", () => {
-    expect(parseResolveProxyString("SOCKS5 127.0.0.1:7891").kind).toBe("unsupported");
+  it("SOCKS5 → socks5 隧道", () => {
+    expect(parseResolveProxyString("SOCKS5 127.0.0.1:7891")).toEqual({
+      kind: "socks",
+      url: "socks5://127.0.0.1:7891",
+      source: "system",
+    });
+  });
+
+  // Chromium/PAC 约定：裸 SOCKS = SOCKS4。当成 5 发握手就不对，会连不上。
+  it("裸 SOCKS → socks4（不是 socks5）", () => {
+    expect(parseResolveProxyString("SOCKS 127.0.0.1:1080")).toMatchObject({
+      kind: "socks",
+      url: "socks4://127.0.0.1:1080",
+    });
   });
 });
 
@@ -148,12 +164,12 @@ describe("describeNetworkError（把 fetch failed 翻成人话）", () => {
     expect(out).not.toBe("fetch failed");
   });
 
-  it("探到 SOCKS-only（unsupported）后 → 诊断说人话「检测到 SOCKS 但本版不支持，改用 HTTP 代理」，不误说「未启用代理」", () => {
-    rememberProxyStateForTests({ kind: "unsupported", detail: "系统代理是 SOCKS（SOCKS5 127.0.0.1:7891）", source: "system" });
+  it("探到「配了但用不了的地址」后 → 诊断如实说地址有问题，不误说「未启用代理」", () => {
+    rememberProxyStateForTests({ kind: "unsupported", detail: "解析不了的 SOCKS 地址（socks5://）", source: "system" });
     const out = describeNetworkError(withCause("ETIMEDOUT"));
     expect(out).toMatch(/SOCKS/);
-    expect(out).toMatch(/不支持|HTTP 代理/);
-    // 关键：不再误导用户「当前未启用代理」（他明明开了 SOCKS）。
+    expect(out).toMatch(/用不了|地址/);
+    // 关键：不再误导用户「当前未启用代理」（他明明配了）。
     expect(out).not.toMatch(/未启用代理/);
   });
 
@@ -191,10 +207,14 @@ describe("resolveProxy — 用户偏好先于系统探测", () => {
     expect(calls).toEqual([]);
   });
 
-  it("自定义填了 SOCKS → unsupported（本版只支持 HTTP），来源标 custom", async () => {
+  it("自定义填 SOCKS → socks 隧道，来源标 custom", async () => {
     const r = await resolveProxy(askedSession("DIRECT", []), { mode: "custom", customUrl: "socks5://127.0.0.1:7897" });
+    expect(r).toEqual({ kind: "socks", url: "socks5://127.0.0.1:7897", source: "custom" });
+  });
+
+  it("自定义填了残缺的 socks 地址 → unsupported，绝不静默按直连跑", async () => {
+    const r = await resolveProxy(askedSession("DIRECT", []), { mode: "custom", customUrl: "socks5://:::" });
     expect(r.kind).toBe("unsupported");
-    expect(r.kind === "unsupported" && r.source).toBe("custom");
   });
 
   // ⚠️ resolveProxy 直读 process.env，而开发机/CI 上很可能真的导出着 HTTPS_PROXY。
@@ -235,11 +255,20 @@ describe("resolveProxy — 用户偏好先于系统探测", () => {
 });
 
 describe("getProxyStatus — 选了什么 × 实际生效什么", () => {
-  it("探到 SOCKS 时说「未生效」而不是「直连」——用户其实开着代理，说直连是误导", () => {
-    rememberProxyStateForTests({ kind: "unsupported", detail: "系统代理是 SOCKS（SOCKS5 127.0.0.1:7897）", source: "system" });
+  it("地址用不了时说「未生效」而不是「直连」——用户其实配了代理，说直连是误导", () => {
+    rememberProxyStateForTests({ kind: "unsupported", detail: "解析不了的 SOCKS 地址（socks5://）", source: "system" });
     const s = getProxyStatus({ mode: "system", customUrl: "" });
     expect(s.unsupported).toMatch(/SOCKS/);
     expect(s.activeUrl).toBe("");
+  });
+
+  it("socks 生效时 activeUrl 要带出来（和 http 同构，面板不分叉）", () => {
+    rememberProxyStateForTests({ kind: "socks", url: "socks5://127.0.0.1:7897", source: "custom" });
+    expect(getProxyStatus({ mode: "custom", customUrl: "socks5://127.0.0.1:7897" })).toMatchObject({
+      activeUrl: "socks5://127.0.0.1:7897",
+      unsupported: "",
+      source: "custom",
+    });
   });
 
   it("生效时带出实际地址与来源", () => {

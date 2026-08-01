@@ -31,10 +31,14 @@
 
 ### 不做（明确划界）
 
-- **SOCKS 支持**：Electron 31 内置 undici 6.19.8，而 `Socks5ProxyAgent` 要 undici ≥7.25；跨版本
-  混用 dispatcher（undici 7 的 agent 被 undici 6 的 fetch 以 v6 handler 调用）风险太大。留到本设置
-  落地后单独做（那时用 `socks` 包对着 undici 6 自写 connector）。本期只把 SOCKS **状态可见化**：
-  探到 SOCKS → 状态胶囊显示「检测到 SOCKS · 未生效」+ 展开处说明改用 HTTP 端口。
+- ~~**SOCKS 支持**~~ → **已做**（同日追加，`electron/socksDispatcher.ts`）。
+  升 undici 拿内置 `Socks5ProxyAgent` 那条路**否掉了**：它要 undici ≥7.25，而 Electron 31 内置
+  undici 6.19.8、package.json 也刻意钉同版（全局 fetch 用的是 Electron 那份，靠
+  `Symbol.for('undici.globalDispatcher.1')` 桥接，符号在 7.27 翻 `.2`）；升上去 = undici 7 的 agent
+  被 undici 6 的 fetch 以 v6 handler 调用，炸的是所有网络请求。`fetch-socks` 声明 `undici: >=7`
+  同理用不了。故留在 6.19.8，用 `socks`（MIT，本来就在依赖树里，提成直接依赖）自接
+  `Agent({ connect })`：SOCKS 隧道拿裸 socket，https 目标交给 undici 自己的 connector 做 TLS 升级。
+  三档偏好与 http 完全同构，UI 不分叉。`unsupported` 现在只剩「地址解析不了/协议不认识」。
 - 通用设置页 / 设置中心（fb-20260729-settings-hub 另立）。
 - 渲染层 Chromium 代理的完整三态同步：现有实现只在 env 来源时 `session.setProxy`；custom 模式
   同理需要喂给 session（否则预览区远端视频撕裂），这条**要做**；off 模式要显式 `direct://`。

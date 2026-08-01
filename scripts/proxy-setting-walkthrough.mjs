@@ -153,6 +153,26 @@ try {
     console.log('  收起态胶囊：' + pill)
     if (!/自定义/.test(pill)) fail('状态胶囊没反映「自定义」，实际：' + pill)
   }
+  // SOCKS——单测只能证明地址解析对，**隧道真跑得起来只有这一步能证**：
+  // undici 6 上手写的 connector（socks 建隧道 → https 交给 undici 自己做 TLS 升级）是全项最有
+  // 风险的一块。这台机器 Clash 的 SOCKS 口同为 7897（scutil 确认）。
+  console.log('\n  ── 自定义 · SOCKS5（连接器真跑隧道）──')
+  const socksInput = win.locator('[role="dialog"] input[type="text"]').first()
+  if (!(await socksInput.isVisible().catch(() => false))) fail('自定义输入框不见了，测不了 SOCKS')
+  else {
+    await socksInput.fill('socks5://127.0.0.1:7897')
+    await socksInput.press('Enter')
+    await win.waitForTimeout(1800)
+    await shot(win, '07-socks.png')
+    const socks = await runTest()
+    console.log('  聚合=' + socks.agg + '  tmpfiles=' + socks.tmpfiles + '  明细=' + JSON.stringify(socks.tried.map((t) => [t.target, t.ok])))
+    if (socks.tmpfiles !== 'ok') fail('SOCKS5 隧道应能到 tmpfiles（https 要经 TLS 升级），实际 ' + socks.tmpfiles)
+    const st = await win.evaluate(async () => (await window.nomiDesktop?.proxy?.get?.())?.status)
+    console.log('  状态：activeUrl=' + st?.activeUrl + '  unsupported=' + JSON.stringify(st?.unsupported))
+    if (!/^socks5:/.test(st?.activeUrl || '')) fail('状态里 activeUrl 应是 socks5://…，实际 ' + st?.activeUrl)
+    if (st?.unsupported) fail('SOCKS 不该再被标成 unsupported，实际：' + st.unsupported)
+  }
+
   await clickMode('跟随系统') // 走查不留副作用（虽然用的是隔离 settings 目录）
 
   const finalText = await win.evaluate(() => (document.querySelector('[role="dialog"]')?.textContent || '').trim())

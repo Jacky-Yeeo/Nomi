@@ -21,9 +21,9 @@
  *  - `applySystemProxy` 可重复调用 = 改完设置即时生效，不用重启（见 directDispatcher 的套娃注释）。
  *  - `getProxyStatus()` 把「选了什么 × 实际生效什么」暴露给设置面板。
  *
- * 仍未做：SOCKS。Electron 31 内置 undici 6.19.8，而内置 `Socks5ProxyAgent` 要 undici ≥7.25；
- * 跨版本混用 dispatcher（undici 7 的 agent 被 undici 6 的 fetch 以 v6 handler 调）风险太大。
- * 本期只把它**可见化**：探到 SOCKS → 面板显示「检测到 SOCKS · 未生效」并指路改用 HTTP 端口。
+ * Phase 3（2026-08-01）：SOCKS 支持。Electron 31 内置 undici 6.19.8（内置 `Socks5ProxyAgent`
+ * 要 undici ≥7.25，升不得——理由见 socksDispatcher 头注释），故用 `socks` 包自接
+ * `Agent({ connect })`。三档偏好与 http 完全同构，UI 无需分叉。
  */
 import { URL } from "node:url";
 import type { Session } from "electron";
@@ -34,6 +34,7 @@ import {
   setGlobalDispatcher,
 } from "undici";
 import { isPrivateHost } from "./hardenedFetch";
+import { createSocksDispatcher, parseSocksProxyUrl } from "./socksDispatcher";
 // **只引类型**：proxySettings → runtimePaths → electron 有运行时依赖，引进来会让本模块
 // 没法在纯 Node 下单测（既有 systemProxy.test.ts 正是靠"不碰 electron 运行时"跑起来的）。
 // 故偏好由调用方（main.ts / proxyIpc.ts，它们本来就在 electron 里）读好了注入。
@@ -47,7 +48,13 @@ export type ProxySource = "env" | "system" | "custom";
 export type ProxyResolution =
   | { kind: "none" }
   | { kind: "http"; url: string; source: ProxySource }
+  | { kind: "socks"; url: string; source: ProxySource }
   | { kind: "unsupported"; detail: string; source: ProxySource };
+
+/** http / socks 都算"真的在走代理"；判据收在这里，别让调用方各写一份。 */
+function isActiveProxy(r: ProxyResolution): r is Extract<ProxyResolution, { kind: "http" | "socks" }> {
+  return r.kind === "http" || r.kind === "socks";
+}
 
 /** 面板要显示的「当前网络状态」（用户选了什么 × 实际生效什么，两者可能不同）。 */
 export type ProxyStatus = {
@@ -86,15 +93,15 @@ const LOCAL_BYPASS_RULES = "localhost,127.0.0.1,[::1],10.0.0.0/8,172.16.0.0/12,1
 /** 当前生效代理的人类可读标签（供 describeNetworkError 的诊断提示用）；无代理/未生效为 null。 */
 let activeProxyLabel: string | null = null;
 /**
- * 探到「检测到了代理、但本版不支持」（SOCKS-only / 未知协议）时的人话详情。
- * 与 activeProxyLabel 互斥：unsupported 时按直连跑，但用户其实**开了**代理——诊断必须如实说
- * 「检测到 SOCKS 但本版不支持，请改用 HTTP 代理」，绝不误说「当前未启用代理」（P2·别误导）。
+ * 探到「配了代理、但这个地址用不了」（解析不出的 SOCKS 地址 / QUIC 等未知协议）时的人话详情。
+ * 与 activeProxyLabel 互斥：unsupported 时按直连跑，但用户其实**配了**代理——诊断必须如实说
+ * 地址有问题，绝不误说「当前未启用代理」（P2·别误导）。SOCKS 本身自 2026-08-01 起已支持。
  */
 let unsupportedProxyDetail: string | null = null;
 
 /**
  * 把一次探测结果记进模块级诊断状态（唯一写入口；applySystemProxy 与测试都经它，避免两份真相源）。
- *  - http       → 记生效标签，清 unsupported。
+ *  - http/socks  → 记生效标签，清 unsupported。
  *  - unsupported → 记 unsupported 详情，清生效标签（按直连跑但用户开了代理）。
  *  - none        → 两者皆清（确无代理）。
  */
@@ -106,7 +113,7 @@ function sourceLabel(source: ProxySource): string {
 
 function rememberProxyState(resolution: ProxyResolution): void {
   lastResolution = resolution;
-  if (resolution.kind === "http") {
+  if (isActiveProxy(resolution)) {
     activeProxyLabel = `${resolution.url}（来源：${sourceLabel(resolution.source)}）`;
     unsupportedProxyDetail = null;
   } else if (resolution.kind === "unsupported") {
@@ -121,13 +128,17 @@ function rememberProxyState(resolution: ProxyResolution): void {
 /**
  * 把一个原始代理串规范成 ProxyResolution。
  *  - 接受 `http://h:p` / `https://h:p` / 裸 `h:p`（补 http://）。
- *  - SOCKS 标记为 unsupported（见文件头「仍未做」）。
+ *  - `socks5://` / `socks4://` / `socks://` 走 SOCKS 隧道（见 socksDispatcher）。
  */
 function classifyProxyString(raw: string, source: ProxySource): ProxyResolution {
   const value = raw.trim();
   if (!value) return { kind: "none" };
   if (/^socks/i.test(value)) {
-    return { kind: "unsupported", detail: `SOCKS 代理（${value}）`, source };
+    // socks 从 2026-08-01 起真支持（见 socksDispatcher）。解析不出主机/端口才算 unsupported——
+    // 绝不静默按直连跑，那会让用户以为代理生效了。
+    return parseSocksProxyUrl(value)
+      ? { kind: "socks", url: value, source }
+      : { kind: "unsupported", detail: `解析不了的 SOCKS 地址（${value}）`, source };
   }
   const withScheme = /^https?:\/\//i.test(value) ? value : `http://${value}`;
   try {
@@ -169,9 +180,9 @@ export function parseResolveProxyString(result: string): ProxyResolution {
     if (/^DIRECT$/i.test(entry)) continue;
     const [type, hostPort] = entry.split(/\s+/);
     if (!hostPort) continue;
-    if (/^socks/i.test(type)) {
-      return { kind: "unsupported", detail: `系统代理是 SOCKS（${entry}）`, source: "system" };
-    }
+    // Chromium/PAC 约定：裸 `SOCKS` = SOCKS4，`SOCKS5` = SOCKS5。别把 4 当 5 发（握手不同，会连不上）。
+    if (/^socks5$/i.test(type)) return classifyProxyString(`socks5://${hostPort}`, "system");
+    if (/^socks4?$/i.test(type)) return classifyProxyString(`socks4://${hostPort}`, "system");
     if (/^https$/i.test(type)) return classifyProxyString(`https://${hostPort}`, "system");
     if (/^proxy$/i.test(type)) return classifyProxyString(`http://${hostPort}`, "system");
     // 其它类型（QUIC 等）当前不支持
@@ -281,9 +292,11 @@ export async function applySystemProxy(session: Session, prefs?: ProxyPrefs): Pr
     if (effectivePrefs.mode === "system") await session.setProxy({ mode: "system" });
     const resolution = await resolveProxy(session, effectivePrefs);
     rememberProxyState(resolution);
-    if (resolution.kind === "http") {
+    if (isActiveProxy(resolution)) {
       const direct = directDispatcher();
-      const proxy = new ProxyAgent(resolution.url);
+      // socks 与 http 只差"造哪个 dispatcher"，外面那层选择性代理（私网直连）完全共用。
+      const socks = resolution.kind === "socks" ? parseSocksProxyUrl(resolution.url) : null;
+      const proxy = socks ? createSocksDispatcher(socks) : new ProxyAgent(resolution.url);
       setGlobalDispatcher(new SelectiveProxyDispatcher(proxy, direct));
       console.log(`${LOG} 已启用代理 ${activeProxyLabel}；本地/私网地址直连`);
       // 渲染层同源修复：主进程 undici 走代理后，渲染层的 Chromium 网络栈（<video>/<img>/
@@ -312,9 +325,9 @@ export async function applySystemProxy(session: Session, prefs?: ProxyPrefs): Pr
       // 中途打开系统代理后渲染层再也跟不上（而主进程下次 apply 就跟上了，又是一次两层撕裂）。
       await session.setProxy(effectivePrefs.mode === "off" ? { mode: "direct" } : { mode: "system" });
       if (resolution.kind === "unsupported") {
-        // 按直连跑，但记下 unsupported 详情 → describeNetworkError 与设置面板都会如实告知
-        //「检测到 SOCKS 但本版不支持，请改用 HTTP 代理」，而非误说「未启用代理」。
-        console.warn(`${LOG} 探测到${resolution.detail}，本版暂不支持；请改用 HTTP 代理端口。当前按直连处理。`);
+        // 按直连跑，但记下 unsupported 详情 → describeNetworkError 与设置面板都会如实说
+        //「地址无效/协议不认识，已按直连」，绝不误说「未启用代理」（用户其实配了）。
+        console.warn(`${LOG} 探测到${resolution.detail}，用不了；当前按直连处理。`);
       } else {
         console.log(`${LOG} 按直连处理`);
       }
@@ -335,7 +348,7 @@ export function getProxyStatus(prefs: ProxyPrefs = FOLLOW_SYSTEM): ProxyStatus {
   return {
     mode: prefs.mode,
     customUrl: prefs.customUrl,
-    activeUrl: lastResolution.kind === "http" ? lastResolution.url : "",
+    activeUrl: isActiveProxy(lastResolution) ? lastResolution.url : "",
     unsupported: lastResolution.kind === "unsupported" ? lastResolution.detail : "",
     source: lastResolution.kind === "none" ? "" : lastResolution.source,
   };
@@ -349,7 +362,7 @@ export function describeNetworkError(error: unknown): string {
   const proxyHint = activeProxyLabel
     ? `（当前代理：${activeProxyLabel}）`
     : unsupportedProxyDetail
-      ? `（检测到 ${unsupportedProxyDetail}，但本版仅支持 HTTP 代理，已按直连处理；请在系统/Clash 里改用 HTTP 代理端口后重启应用）`
+      ? `（检测到 ${unsupportedProxyDetail}，这个地址用不了、已按直连处理；请在「模型设置 → 网络」里改成有效的 http:// 或 socks5:// 地址）`
       : "（当前未启用代理；若该地址需科学上网，请开启系统代理后重启应用）";
 
   if (error instanceof Error && error.name === "AbortError") {
