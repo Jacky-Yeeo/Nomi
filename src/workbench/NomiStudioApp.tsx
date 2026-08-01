@@ -3,9 +3,11 @@ import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ConfirmDialogHost, confirmDialog, NomiLoadingMark } from '../design'
 import ProjectLibraryPage from './library/ProjectLibraryPage'
+import { SettingsDialog } from './settings/SettingsDialog'
 import {
   createLocalProject,
   deleteLocalProject,
+  renameLocalProject,
   useLocalProjects,
   type LocalProjectSummary,
 } from './library/localProjectStore'
@@ -134,6 +136,7 @@ export default function NomiStudioApp(): JSX.Element {
   const [activeProject, setActiveProject] = React.useState<LocalProjectSummary | null>(null)
   const generationAiCollapsed = useGenerationCanvasStore((state) => state.generationAiCollapsed)
   const [modelCatalogOpened, setModelCatalogOpened] = React.useState(false)
+  const [settingsOpened, setSettingsOpened] = React.useState(false)
   const [promptLibraryOpened, setPromptLibraryOpened] = React.useState(false)
   const [skillLibraryOpened, setSkillLibraryOpened] = React.useState(false)
   const [handbookOpened, setHandbookOpened] = React.useState(false)
@@ -471,6 +474,22 @@ export default function NomiStudioApp(): JSX.Element {
     [navigate, t],
   )
 
+  // 列表页「双击改名」：只改名不动内容；若改的正是当前打开的项目，同步顶栏显示名（activeProject）。
+  const renameLibraryProject = React.useCallback(
+    (projectId: string, name: string) => {
+      try {
+        const record = renameLocalProject(projectId, name)
+        if (record && activeProjectIdRef.current === projectId) {
+          setActiveProject((prev) => (prev && prev.id === projectId ? { ...prev, name: record.name } : prev))
+        }
+      } catch (error: unknown) {
+        console.error('project rename error', error)
+        toast(t('studio.renameFailed'), 'error')
+      }
+    },
+    [t],
+  )
+
   React.useEffect(() => {
     if (initialHydrationAttemptedRef.current) return
     initialHydrationAttemptedRef.current = true
@@ -611,10 +630,12 @@ export default function NomiStudioApp(): JSX.Element {
           projects={projects}
           onOpenProject={openProject}
           onDeleteProject={deleteProject}
+          onRenameProject={renameLibraryProject}
           onNewProject={() => void newProject()}
           onOpenFolder={() => void openWorkspaceFolder()}
           onRevealProjectFolder={revealProjectFolder}
           onOpenModelCatalog={() => setModelCatalogOpened(true)}
+          onOpenSettings={() => setSettingsOpened(true)}
           onPlayJourneyTour={playJourneyTour}
           journeyTourSeen={hasSeenJourneyTour()}
           onReplaySplash={() => setSplashDone(false)}
@@ -636,6 +657,7 @@ export default function NomiStudioApp(): JSX.Element {
             <OnboardingFloatingPanel opened={modelCatalogOpened} onClose={closeModelCatalog} />
           </React.Suspense>
         ) : null}
+        {settingsOpened ? <SettingsDialog onClose={() => setSettingsOpened(false)} /> : null}
         {/* 付费确认卡提全局：外部 MCP 想在「非当前项目」生成时，用户停在项目库首页也能弹卡确认
                     （治静默黑洞，用户拍板 A）。同一全局 store，库/studio 任一时刻只一个分支渲染、不双弹。 */}
         {hasPendingSpendConfirm ? (
@@ -671,6 +693,7 @@ export default function NomiStudioApp(): JSX.Element {
           projectName={activeProject?.name}
           onBackToLibrary={backToLibrary}
           onOpenModelCatalog={() => setModelCatalogOpened(true)}
+          onOpenSettings={() => setSettingsOpened(true)}
           onRenameProject={handleRenameProject}
         />
 
@@ -679,6 +702,7 @@ export default function NomiStudioApp(): JSX.Element {
             <OnboardingFloatingPanel opened={modelCatalogOpened} onClose={closeModelCatalog} />
           </React.Suspense>
         ) : null}
+        {settingsOpened ? <SettingsDialog onClose={() => setSettingsOpened(false)} /> : null}
 
         {promptLibraryOpened ? (
           <React.Suspense fallback={null}>

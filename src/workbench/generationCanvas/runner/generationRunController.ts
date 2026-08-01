@@ -1,4 +1,5 @@
 import type { GenerationCanvasEdge, GenerationCanvasNode, GenerationNodeResult } from '../model/generationCanvasTypes'
+import { getDesktopBridge } from '../../../desktop/bridge'
 import { getGenerationNodeExecutionKind } from '../model/generationNodeKinds'
 import { persistActiveWorkbenchProjectNow } from '../../project/workbenchProjectSession'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
@@ -205,6 +206,15 @@ export async function runGenerationNode(
     }
     if (!result) throw new Error('生成失败')
     useGenerationCanvasStore.getState().addNodeResult(id, result)
+    // 自动另存（集中设置页开启时）：新生成的图/视频静默复制一份到用户目录。fire-and-forget——不 await
+    // （不拖慢生成收尾）、失败不冒泡（best-effort 全在主进程侧，关着/没设目录/失败都静默）。只对新生成，
+    // 找回(recoverTaskActions)不触发、避免重复另存。
+    if ((result.type === 'image' || result.type === 'video') && (result.url || '').trim()) {
+      const title = (useGenerationCanvasStore.getState().nodes.find((n) => n.id === id)?.title || '').trim()
+      void getDesktopBridge()
+        ?.assets?.autoSave?.({ url: result.url as string, suggestedName: title || undefined })
+        .catch(() => undefined)
+    }
     recordModelSuccess(currentNodeModelKey(id))
     await persistActiveWorkbenchProjectNow().catch(() => {})
     return result

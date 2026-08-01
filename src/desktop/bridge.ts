@@ -365,6 +365,11 @@ export type DesktopBridge = {
       url: string
       suggestedName?: string
     }) => Promise<{ ok: boolean; canceled?: boolean; path?: string }>
+    /** 自动另存（集中设置页开启时，生成完成即调；best-effort）+ 设置读写/选目录。 */
+    autoSave?: (payload: { url: string; suggestedName?: string }) => Promise<{ ok: boolean; path?: string }>
+    getAutoSavePrefs?: () => Promise<{ enabled: boolean; dir: string }>
+    setAutoSavePrefs?: (payload: { enabled: boolean; dir: string }) => Promise<{ enabled: boolean; dir: string }>
+    pickSaveDir?: () => Promise<{ dir: string }>
   }
   browser?: {
     createView: (payload: { tabId: string; partition?: string }) => Promise<{ viewId: number }>
