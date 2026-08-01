@@ -20,7 +20,7 @@ The website, README pair, and business form stay in one plan because they are on
 | Generator source | Create `scripts/marketing/{content,metadata,styles,client,template,social-card}.mjs`, `scripts/build-marketing-site.mjs`, `scripts/render-marketing-social-previews.mjs` |
 | Generated pages | Replace `marketing/index.html`; create `marketing/en/index.html` |
 | Automated evidence | Create `tests/ux/marketing-home.static.mjs` and `tests/ux/marketing-home.visual.mjs` |
-| Media | Create `marketing/assets/video/{hero-loop.mp4,launch-film-en.mp4,launch-film-zh.vtt,launch-film-en.vtt,hero-poster.jpg}` and two localized social-preview JPEGs; replace `marketing/assets/demo.mp4` |
+| Media | Create `marketing/assets/video/{hero-loop.mp4,launch-film-en.mp4,launch-film-zh.vtt,launch-film-en.vtt,hero-poster.jpg}`, `marketing/assets/screen-agentic.jpg`, and two localized social-preview JPEGs; replace `marketing/assets/demo.mp4` |
 | Repository entry | Replace `README.md`; create `README.zh-CN.md` and `.github/ISSUE_TEMPLATE/{business_inquiry.yml,config.yml}` |
 | Routing/gates | Modify `marketing/{sitemap.xml,_headers}`, `package.json`, `.github/workflows/quality-gate.yml` |
 | Baseline blocker | Modify `src/workbench/timeline/TimelineMiniPreview.tsx:78` |
@@ -391,6 +391,7 @@ git commit -m "feat(marketing): generate bilingual static homepage"
 - Create: `marketing/assets/video/launch-film-zh.vtt`
 - Create: `marketing/assets/video/launch-film-en.vtt`
 - Create: `marketing/assets/video/hero-poster.jpg`
+- Create: `marketing/assets/screen-agentic.jpg`
 - Create: `scripts/marketing/social-card.mjs`
 - Create: `scripts/render-marketing-social-previews.mjs`
 - Create: `marketing/assets/social-preview-zh.jpg`
@@ -429,6 +430,8 @@ ffprobe -v error -show_entries stream=codec_name,width,height,channels:format=du
 If this FFprobe build accepts one input at a time, run the same command separately for each file. Acceptance: Hero is about 15.08 s, has no audio stream, and is ≤6 MB; both trailers are 1280×720, about 60.096 s, H.264/AAC, and ≤12 MB each. If a trailer exceeds 12 MB, rerun only that trailer at `-crf 26`, then probe again.
 
 - [ ] **Step 4: Generate deterministic bilingual social cards**
+
+Before the social cards, extract the real MCP connection proof from the user-provided FocuSee recording. Use the source recording around `00:09:20`, crop only to a 16:9 frame without hiding the Claude Code / Codex / Cursor controls, resize to 1600 px wide, and save it as `marketing/assets/screen-agentic.jpg`. Do not use a generated UI or a launch-film frame with burned-in subtitle text.
 
 `social-card.mjs` exports `renderSocialCard(locale)` and returns a 1200×630 self-contained HTML document using the official `marketing/assets/nomi-logo.svg`, warm-paper/dark-monitor split, coral director frame, locale claim, and `LOCAL-FIRST · OPEN SOURCE · AI VIDEO WORKBENCH`. `render-marketing-social-previews.mjs` opens each returned document in Playwright at 1200×630 and saves JPEG quality 92 to the two target paths.
 

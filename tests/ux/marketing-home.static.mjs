@@ -19,6 +19,7 @@ const files = [
   'marketing/assets/video/hero-poster.jpg',
   'marketing/assets/social-preview-zh.jpg',
   'marketing/assets/social-preview-en.jpg',
+  'marketing/assets/screen-agentic.jpg',
   '.github/ISSUE_TEMPLATE/business_inquiry.yml',
   'README.zh-CN.md',
 ]
