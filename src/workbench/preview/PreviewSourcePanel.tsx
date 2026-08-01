@@ -1,6 +1,6 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import { IconChevronLeft, IconChevronRight, IconMovie } from '@tabler/icons-react'
+import { IconChevronLeft, IconMovie, IconPhoto } from '@tabler/icons-react'
 import { cn } from '../../utils/cn'
 import { DesignEmptyState } from '../../design'
 import { lazyWithChunkBoundary } from '../../ui/chunkBoundary'
@@ -119,19 +119,24 @@ export default function PreviewSourcePanel(): JSX.Element {
   const projectId = getActiveWorkbenchProjectId()
 
   if (collapsed) {
+    // 收起态照抄侧栏 rail 的既定做法（2026-07-12 方案 A）：图标下带微字。
+    // 只留一个箭头的话「一列孤图标认不出这是素材库」——那正是 rail 当初要治的毛病。
     return (
       <button
         type="button"
         className={cn(
           'workbench-preview-source workbench-preview-source--collapsed',
-          'flex w-7 flex-none cursor-pointer items-start justify-center border-0 border-r border-[var(--workbench-border)]',
-          'bg-[var(--workbench-surface)] pt-2.5 text-[var(--workbench-muted)] hover:text-[var(--workbench-ink)]',
+          'flex w-11 flex-none cursor-pointer flex-col items-center gap-0.5 border-0 border-r border-[var(--workbench-border)]',
+          'bg-[var(--workbench-surface)] pt-2.5 text-[var(--workbench-muted)]',
+          'transition-[color,background] duration-[var(--nomi-transition-fast)]',
+          'hover:bg-nomi-ink-05 hover:text-[var(--workbench-ink)]',
         )}
         aria-label={t('previewSource.expand')}
         title={t('previewSource.expand')}
         onClick={() => setCollapsed(false)}
       >
-        <IconChevronRight size={15} stroke={1.8} aria-hidden="true" />
+        <IconPhoto size={17} stroke={1.7} aria-hidden="true" />
+        <span className="text-micro leading-none">{t('previewSource.railLabel')}</span>
       </button>
     )
   }

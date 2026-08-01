@@ -1,6 +1,7 @@
 export const zhPreviewSource = {
   aria: '素材来源',
   collapse: '收起',
+  railLabel: '素材',
   expand: '展开素材来源',
   tabs: {
     shots: '镜头',
@@ -20,6 +21,7 @@ type TranslationShape<T> = {
 export const enPreviewSource = {
   aria: 'Media sources',
   collapse: 'Collapse',
+  railLabel: 'Media',
   expand: 'Expand media sources',
   tabs: {
     shots: 'Shots',
