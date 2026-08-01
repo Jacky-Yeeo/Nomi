@@ -8,6 +8,13 @@ import { useComfyuiPreviewStore } from '../store/comfyuiPreviewStore'
 
 const cancelRequested = new Set<string>()
 
+/** 渲染层侧的「这是不是一台 ComfyUI」判据——与主进程 catalog/types.isComfyuiVendor 同口径（前缀）。
+ *  两端各一份是刻意的：渲染层不 import electron 侧模块；改一处必同步另一处（此注释即约定）。 */
+const COMFYUI_VENDOR_KEY = 'comfyui-local'
+export function isComfyuiVendorKey(vendorKey: string | null | undefined): boolean {
+  return typeof vendorKey === 'string' && (vendorKey === COMFYUI_VENDOR_KEY || vendorKey.startsWith(`${COMFYUI_VENDOR_KEY}-`))
+}
+
 export class ComfyuiTaskCancelledError extends Error {
   constructor() {
     super('已取消')
@@ -51,6 +58,8 @@ export function watchComfyuiProgress(payload: {
   projectId?: string
   taskKind?: string
   modelKey?: string | null
+  /** 多实例：跑这个任务的那台 ComfyUI 的 vendorKey。 */
+  vendorKey?: string
 }): void {
   void getDesktopBridge()?.tasks?.comfyuiWatch?.(payload).catch(() => undefined)
 }

@@ -407,8 +407,11 @@ export function buildImportedWorkflow(graph: ComfyGraph, binding: WorkflowBindin
  */
 export function buildComfyImportModelMapping(
   imported: ImportedWorkflow,
-  opts: { modelKey: string; labelZh: string; draft?: ComfyWorkflowImportDraft },
+  opts: { modelKey: string; labelZh: string; draft?: ComfyWorkflowImportDraft; vendorKey?: string },
 ): { model: Record<string, unknown>; mapping: Record<string, unknown> } {
+  // 多实例：工作流归属**哪一台** ComfyUI（缺省第一台）。地址由该 vendor 的 baseUrlHint 决定，
+  // 故同一张图导到两台机器互不干扰、各按各的缺件情况跑。
+  const vendorKey = opts.vendorKey || COMFYUI_VENDOR_KEY;
   const create: HttpOperation = {
     method: "POST",
     path: "/prompt",
@@ -429,7 +432,7 @@ export function buildComfyImportModelMapping(
   return {
     model: {
       modelKey: opts.modelKey,
-      vendorKey: COMFYUI_VENDOR_KEY,
+      vendorKey,
       labelZh: opts.labelZh,
       kind: imported.kind,
       enabled: true,
@@ -438,7 +441,7 @@ export function buildComfyImportModelMapping(
         ...(opts.draft ? { comfyWorkflowImport: opts.draft } : {}),
       },
     },
-    mapping: { vendorKey: COMFYUI_VENDOR_KEY, taskKind: imported.taskKind, modelKey: opts.modelKey, name: opts.labelZh, create, query },
+    mapping: { vendorKey, taskKind: imported.taskKind, modelKey: opts.modelKey, name: opts.labelZh, create, query },
   };
 }
 
@@ -450,7 +453,7 @@ export function slugifyModelKey(labelZh: string, uniq: string): string {
 
 /** 编排：解析 → 建图 → 建 model+mapping → upsert（注入 store 写函数，可测、无副作用耦合）。 */
 export function importComfyWorkflow(
-  payload: { text: string; binding: WorkflowBinding; labelZh: string; modelKey: string; enumOptions?: WorkflowEnumOption[] },
+  payload: { text: string; binding: WorkflowBinding; labelZh: string; modelKey: string; enumOptions?: WorkflowEnumOption[]; vendorKey?: string },
   upsertModel: (model: Record<string, unknown>) => void,
   upsertMapping: (mapping: Record<string, unknown>) => void,
 ): { modelKey: string; kind: "image" | "video"; taskKind: string } {
@@ -460,6 +463,7 @@ export function importComfyWorkflow(
     modelKey: payload.modelKey,
     labelZh: payload.labelZh,
     draft: { text: payload.text, binding: payload.binding },
+    ...(payload.vendorKey ? { vendorKey: payload.vendorKey } : {}),
   });
   upsertModel(model);
   upsertMapping(mapping);

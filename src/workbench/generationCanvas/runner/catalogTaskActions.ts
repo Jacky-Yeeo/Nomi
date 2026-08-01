@@ -31,6 +31,7 @@ import { localizeRemoteResultUrl } from './resultAssetLocalization'
 import {
   ComfyuiTaskCancelledError,
   isComfyuiCancelRequested,
+  isComfyuiVendorKey,
   unwatchComfyuiProgress,
   watchComfyuiProgress,
 } from './comfyuiTaskControl'
@@ -387,7 +388,8 @@ export async function runCatalogGenerationTask(
   const initialResult = await runTask(vendor, request)
   report('waiting', initialResult.id)
   // P 轨：本地 ComfyUI 提交成功即登记 ws 进度（prompt_id→节点）。桥不在/失败 = 没进度，轮询照常。
-  const comfyWatching = vendor === 'comfyui-local' && Boolean(initialResult.id)
+  // 多实例：vendor 就是「跑这个任务的那台机器」的 key，带下去让主进程连对地址、查对 mapping。
+  const comfyWatching = isComfyuiVendorKey(vendor) && Boolean(initialResult.id)
   if (comfyWatching) {
     watchComfyuiProgress({
       promptId: initialResult.id,
@@ -395,6 +397,7 @@ export async function runCatalogGenerationTask(
       projectId: asTrimmedString(request.extras?.projectId),
       taskKind: request.kind,
       modelKey: asTrimmedString(request.extras?.modelKey) || null,
+      vendorKey: vendor,
     })
   }
   let finalResult: TaskResultDto

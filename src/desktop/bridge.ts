@@ -506,7 +506,7 @@ export type DesktopBridge = {
     cancelTextStream: (streamId: string) => Promise<unknown>
     onTextEvent: (streamId: string, callback: (event: unknown) => void) => () => void
     /** ComfyUI ws 进度桥（P 轨）。旧 preload 可能没有 → 全部可选。 */
-    comfyuiWatch?: (payload: { promptId: string; nodeId: string; projectId?: string; taskKind?: string; modelKey?: string | null }) => Promise<{ ok: boolean }>
+    comfyuiWatch?: (payload: { promptId: string; nodeId: string; projectId?: string; taskKind?: string; modelKey?: string | null; vendorKey?: string }) => Promise<{ ok: boolean }>
     comfyuiUnwatch?: (promptId: string) => Promise<void>
     comfyuiInterrupt?: (promptId: string) => Promise<{ ok: boolean }>
     onComfyuiProgress?: (callback: (event: unknown) => void) => () => void
@@ -678,7 +678,7 @@ export type DesktopBridge = {
     /** 校验 + 识别 workflow_api.json 可绑定节点（同步）。analysis 结构见 comfyuiWorkflowImport.WorkflowAnalysis。 */
     analyzeComfyWorkflow: (text: string) => { ok: true; analysis: unknown } | { ok: false; error: string }
     /** 缺件对账（异步问本机 /object_info）：缺节点类 + 引用了本机没有的模型文件 + combo 可选值。旧 preload 可能没有 → 可选。 */
-    reconcileComfyWorkflow?: (text: string) => Promise<
+    reconcileComfyWorkflow?: (text: string, vendorKey?: string) => Promise<
       | {
           ok: true
           serverReachable: boolean
@@ -694,10 +694,10 @@ export type DesktopBridge = {
       models: Array<{ file: string; dir: string; url: string }>
     }>
     /** 按绑定落库为用户自有 model+mapping（同步）。enumOptions 可选 = combo 参数烤成真实文件下拉。 */
-    importComfyWorkflow: (payload: { text: string; binding: unknown; labelZh: string; enumOptions?: unknown }) =>
+    importComfyWorkflow: (payload: { text: string; binding: unknown; labelZh: string; enumOptions?: unknown; vendorKey?: string }) =>
       { ok: true; modelKey: string; kind: string; taskKind: string } | { ok: false; error: string }
     /** 用同一 modelKey 更新已导入 workflow（同步）。 */
-    updateComfyWorkflow?: (payload: { modelKey: string; text: string; binding: unknown; labelZh: string; enumOptions?: unknown }) =>
+    updateComfyWorkflow?: (payload: { modelKey: string; text: string; binding: unknown; labelZh: string; enumOptions?: unknown; vendorKey?: string }) =>
       { ok: true; modelKey: string; kind: string; taskKind: string } | { ok: false; error: string }
   }
   skill: {

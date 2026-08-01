@@ -154,3 +154,53 @@ describe("importComfyWorkflowToCatalog（S3 落库）", () => {
     expect(listModelCatalogModels({ vendorKey: "comfyui-local" })).toHaveLength(0);
   });
 });
+
+describe("多实例：两台 ComfyUI 互不串台（方案 A · key 前缀身份）", () => {
+  it("isComfyuiVendor：第一台与第 2+ 台都认，别家一律不认", async () => {
+    const { isComfyuiVendor } = await import("./types");
+    expect(isComfyuiVendor({ key: "comfyui-local" })).toBe(true);
+    expect(isComfyuiVendor({ key: "comfyui-local-workstation" })).toBe(true);
+    for (const key of ["apimart", "kie", "comfyui", "comfyui-cloud", "", undefined]) {
+      expect(isComfyuiVendor({ key }), String(key)).toBe(false);
+    }
+    expect(isComfyuiVendor(null)).toBe(false);
+  });
+
+  it("导入到第二台：model 与 mapping 都落在那一台名下（不串到第一台）", async () => {
+    const { importComfyWorkflow } = await import("./comfyuiWorkflowImport");
+    const models: Array<Record<string, unknown>> = [];
+    const mappings: Array<Record<string, unknown>> = [];
+    importComfyWorkflow(
+      {
+        text: JSON.stringify({
+          "1": { class_type: "CheckpointLoaderSimple", inputs: { ckpt_name: "a.safetensors" } },
+          "9": { class_type: "SaveImage", inputs: { filename_prefix: "x", images: ["1", 0] } },
+        }),
+        binding: { outputNodeId: "9", outputKind: "image", params: [] },
+        labelZh: "工作站的图",
+        modelKey: "comfy-ws-1",
+        vendorKey: "comfyui-local-workstation",
+      },
+      (m) => models.push(m),
+      (m) => mappings.push(m),
+    );
+    expect(models[0].vendorKey).toBe("comfyui-local-workstation");
+    expect(mappings[0].vendorKey).toBe("comfyui-local-workstation");
+  });
+
+  it("缺省仍是第一台（存量零迁移）", async () => {
+    const { buildComfyImportModelMapping } = await import("./comfyuiWorkflowImport");
+    const built = { templatedGraph: {}, parameters: [], kind: "image" as const, taskKind: "text_to_image" as const };
+    const { model, mapping } = buildComfyImportModelMapping(built, { modelKey: "k", labelZh: "旧的" });
+    expect(model.vendorKey).toBe("comfyui-local");
+    expect(mapping.vendorKey).toBe("comfyui-local");
+  });
+
+  it("SSRF 信任：每台只信自己的 origin（多一台不放宽范围）", async () => {
+    const { trustedLocalOutputOrigin } = await import("./assetLocalization");
+    expect(trustedLocalOutputOrigin({ key: "comfyui-local", baseUrlHint: "http://127.0.0.1:8188" })).toBe("http://127.0.0.1:8188");
+    expect(trustedLocalOutputOrigin({ key: "comfyui-local-ws", baseUrlHint: "http://192.168.1.9:8188" })).toBe("http://192.168.1.9:8188");
+    // 别家 vendor 即便配了私网地址也不给信任
+    expect(trustedLocalOutputOrigin({ key: "apimart", baseUrlHint: "http://192.168.1.9:8188" })).toBeNull();
+  });
+});

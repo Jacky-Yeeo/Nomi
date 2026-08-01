@@ -12,7 +12,7 @@
 import { webContents } from "electron";
 import { WebSocket } from "undici";
 import { readCatalog } from "./catalog/catalogStore";
-import { COMFYUI_VENDOR_KEY } from "./catalog/types";
+import { COMFYUI_VENDOR_KEY, isComfyuiVendor } from "./catalog/types";
 
 export const COMFYUI_PROGRESS_CHANNEL = "nomi:tasks:comfyui:progress";
 
@@ -102,8 +102,10 @@ function send(entry: WatchEntry, event: Omit<ComfyuiProgressEvent, "promptId" | 
   } satisfies ComfyuiProgressEvent);
 }
 
-function comfyuiBaseUrl(): string {
-  const vendor = readCatalog().vendors.find((v) => v.key === COMFYUI_VENDOR_KEY);
+/** 多实例：连**这一台**的 ws（各机器各连各的；socketsByBase 本就按地址分池，天然隔离）。 */
+function comfyuiBaseUrl(vendorKey?: string): string {
+  const key = vendorKey && isComfyuiVendor({ key: vendorKey }) ? vendorKey : COMFYUI_VENDOR_KEY;
+  const vendor = readCatalog().vendors.find((v) => v.key === key);
   return String(vendor?.baseUrlHint || "http://127.0.0.1:8188").replace(/\/+$/, "");
 }
 
@@ -269,17 +271,19 @@ function ensureSocket(baseUrl: string): void {
 
 /** 渲染层提交拿到 prompt_id 后登记（comfyuiIpc: nomi:tasks:comfyui:watch）。 */
 export function watchComfyuiTask(
-  payload: { promptId?: unknown; nodeId?: unknown; projectId?: unknown; taskKind?: unknown; modelKey?: unknown },
+  payload: { promptId?: unknown; nodeId?: unknown; projectId?: unknown; taskKind?: unknown; modelKey?: unknown; vendorKey?: unknown },
   webContentsId: number,
 ): { ok: boolean } {
   sweepExpired();
   const promptId = String(payload.promptId || "").trim();
   const nodeId = String(payload.nodeId || "").trim();
   if (!promptId || !nodeId) return { ok: false };
-  const baseUrl = comfyuiBaseUrl();
-  // 从 mapping 的 workflow 图取总节点数 + class 名（进度分母与人话标签）。
+  const rawVendorKey = String(payload.vendorKey || "").trim();
+  const vendorKey = rawVendorKey && isComfyuiVendor({ key: rawVendorKey }) ? rawVendorKey : COMFYUI_VENDOR_KEY;
+  const baseUrl = comfyuiBaseUrl(vendorKey);
+  // 从 mapping 的 workflow 图取总节点数 + class 名（进度分母与人话标签）。多实例：只找这一台名下的。
   const mapping = readCatalog().mappings.find(
-    (m) => m.vendorKey === COMFYUI_VENDOR_KEY && m.taskKind === payload.taskKind && (!payload.modelKey || m.modelKey === payload.modelKey),
+    (m) => m.vendorKey === vendorKey && m.taskKind === payload.taskKind && (!payload.modelKey || m.modelKey === payload.modelKey),
   );
   const body = isRec(mapping?.create) ? (mapping.create as { body?: unknown }).body : null;
   const graph = isRec(body) && isRec(body.prompt) ? (body.prompt as Record<string, unknown>) : {};

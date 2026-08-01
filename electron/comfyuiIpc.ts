@@ -20,7 +20,7 @@ export function registerComfyuiIpc(registerSyncIpc: RegisterSyncIpc): void {
   // 自定义 workflow 导入（S3）：analyze 同步纯解析；reconcile 异步问本机 /object_info 对账缺节点/缺模型；
   // import/update 落库为用户自有 model+mapping。
   registerSyncIpc("nomi:model-catalog:comfyui:analyze-workflow", (text: unknown) => analyzeComfyWorkflowText(text));
-  ipcMain.handle("nomi:model-catalog:comfyui:reconcile-workflow", (_event, text: unknown) => reconcileComfyWorkflowText(text));
+  ipcMain.handle("nomi:model-catalog:comfyui:reconcile-workflow", (_event, text: unknown, vendorKey: unknown) => reconcileComfyWorkflowText(text, vendorKey));
   registerSyncIpc("nomi:model-catalog:comfyui:import-workflow", (payload: unknown) => importComfyWorkflowToCatalog(payload));
   registerSyncIpc("nomi:model-catalog:comfyui:update-workflow", (payload: unknown) => updateComfyWorkflowInCatalog(payload));
   // 预置模板（S5）：静态清单，启用前经 reconcile 缺件闸、启用走既有 import 链。

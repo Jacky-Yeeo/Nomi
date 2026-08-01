@@ -45,6 +45,8 @@ type ComfyuiWorkflowImportPanelProps = {
   onImported: () => void
   initial?: WorkflowEditInitial
   onCancel?: () => void
+  /** 多实例：这张面板属于**哪一台** ComfyUI（对账打它的 /object_info、工作流落它名下）。缺省=第一台。 */
+  vendorKey?: string
 }
 
 const NONE = '__none__'
@@ -140,7 +142,7 @@ const PARAM_PRESETS: ParamPreset[] = [
   },
 ]
 
-export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel }: ComfyuiWorkflowImportPanelProps): JSX.Element {
+export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel, vendorKey }: ComfyuiWorkflowImportPanelProps): JSX.Element {
   const { t } = useTranslation()
   const catalog = getDesktopBridge()?.modelCatalog
   const editMode = Boolean(initial)
@@ -161,10 +163,10 @@ export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel }: Co
     setReconcile(null)
     const call = getDesktopBridge()?.modelCatalog?.reconcileComfyWorkflow
     if (!call) return
-    void call(value)
+    void call(value, vendorKey)
       .then((r) => { if (reconcileSeq.current === seq && r && r.ok) setReconcile(r) })
       .catch(() => {})
-  }, [])
+  }, [vendorKey])
 
   const reset = React.useCallback(() => {
     setText(''); setAnalysis(null); setBinding(null); setLabelZh(''); setError(''); setReconcile(null)
@@ -220,8 +222,8 @@ export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel }: Co
       // enumOptions（reconcile 带出）随导入/保存烤进参数控件——combo 参数在画布变成真实文件下拉。
       const enumOptions = reconcile && reconcile.enumOptions?.length ? reconcile.enumOptions : undefined
       const r = editMode && initial
-        ? catalog.updateComfyWorkflow?.({ modelKey: initial.modelKey, text, binding, labelZh: name, enumOptions }) ?? { ok: false as const, error: t('onboardingProviders.comfyWorkflow.unsupportedEdit') }
-        : catalog.importComfyWorkflow({ text, binding, labelZh: name, enumOptions })
+        ? catalog.updateComfyWorkflow?.({ modelKey: initial.modelKey, text, binding, labelZh: name, enumOptions, vendorKey }) ?? { ok: false as const, error: t('onboardingProviders.comfyWorkflow.unsupportedEdit') }
+        : catalog.importComfyWorkflow({ text, binding, labelZh: name, enumOptions, vendorKey })
       if (!r.ok) { setError(r.error); return }
       const kindLabel = r.kind === 'video' ? t('onboardingProviders.comfyWorkflow.video') : t('onboardingProviders.comfyWorkflow.image')
       toast(t(editMode ? 'onboardingProviders.comfyWorkflow.saved' : 'onboardingProviders.comfyWorkflow.imported', { name, kind: kindLabel }), 'success')
@@ -229,7 +231,7 @@ export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel }: Co
       else { reset(); setOpen(false) }
       onImported()
     } finally { setBusy(false) }
-  }, [binding, catalog, editMode, initial, text, labelZh, onCancel, reset, onImported, paramKeyError, reconcile, t])
+  }, [binding, catalog, editMode, initial, text, labelZh, onCancel, reset, onImported, paramKeyError, reconcile, vendorKey, t])
 
   if (!open && !editMode) {
     return (
