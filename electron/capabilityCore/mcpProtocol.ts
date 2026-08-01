@@ -147,6 +147,10 @@ function describeSpend(args: Record<string, unknown>): string {
 
 type RpcMessage = { jsonrpc?: string; id?: unknown; method?: string; params?: Record<string, unknown>; result?: unknown; error?: { code?: number; message?: string } }
 
+// 能力核 skills.list / skills.read 返回的形状（协议层据此把技能映射成 MCP resources/prompts）。
+type SkillSummaryFrame = { name: string; directoryName: string; description: string }
+type SkillContentFrame = { name: string; directoryName: string; description: string; body: string }
+
 /**
  * 建一个 MCP 协议处理器。喂入客户端发来的每一帧（handleIncoming），它经 transport.send 回响应；
  * 服务端→客户端请求（elicitation/create）的响应由 handleIncoming 按 id 路由回 pending。
@@ -218,9 +222,12 @@ export function createMcpProtocol(transport: McpTransport) {
       const negotiatedVersion = typeof requested === 'string' && requested ? requested : PROTOCOL_VERSION
       reply(id, {
         protocolVersion: negotiatedVersion,
-        capabilities: { tools: {} },
+        capabilities: { tools: {}, resources: {}, prompts: {} },
         serverInfo: { name: 'nomi-capability-core', version: '0.1.0' },
-        instructions: '用 nomi_* 工具在本机驱动 Nomi：列项目/模型、建项目、读画布、加节点/连线/改提示词、触发生成。生成会花用户额度。',
+        instructions:
+          '用 nomi_* 工具在本机驱动 Nomi：列项目/模型、建项目、读画布、加节点/连线/改提示词、触发生成（会花用户额度）。' +
+          '另经 resources/prompts 暴露 Nomi 的「导演/编剧技能库」（从阿泽导演台整过来的电影方法论：拆镜头/运镜/一致性/摄影/对白/结构等）——' +
+          '做视频/剧本前先 resources/list 看有哪些、resources/read 或 prompts/get 载入相关技能，再据其方法论写提示词、组装画布、驱动生成，产出质量更专业。',
       })
       return
     }
@@ -264,6 +271,55 @@ export function createMcpProtocol(transport: McpTransport) {
         // 工具执行失败用 isError 返回（让模型看到错误而非协议级 error）。
         reply(id, { content: [{ type: 'text', text: `错误：${error instanceof Error ? error.message : String(error)}` }], isError: true })
       }
+      return
+    }
+    // ── 技能库（导演/编剧方法论）经 resources + prompts 暴露 · 渐进披露 ────────────
+    // skills.list 只返元数据（name+描述，不含正文）；skills.read 才载正文——客户端只为用到的技能付上下文。
+    const SKILL_URI_PREFIX = 'nomi-skill://'
+    if (method === 'resources/list') {
+      const res = (await transport.invoke('skills.list', {})) as { skills?: SkillSummaryFrame[] } | null
+      const resources = (res?.skills || []).map((s) => ({
+        uri: `${SKILL_URI_PREFIX}${s.directoryName}`,
+        name: s.name,
+        description: s.description,
+        mimeType: 'text/markdown',
+      }))
+      reply(id, { resources })
+      return
+    }
+    if (method === 'resources/read') {
+      const uri = String(params?.uri || '')
+      if (!uri.startsWith(SKILL_URI_PREFIX)) {
+        replyError(id, -32602, `未知资源 uri: ${uri}`)
+        return
+      }
+      const key = uri.slice(SKILL_URI_PREFIX.length)
+      const content = (await transport.invoke('skills.read', { name: key })) as SkillContentFrame | null
+      if (!content?.body) {
+        replyError(id, -32602, `未找到技能资源: ${uri}`)
+        return
+      }
+      reply(id, { contents: [{ uri, mimeType: 'text/markdown', text: content.body }] })
+      return
+    }
+    if (method === 'prompts/list') {
+      const res = (await transport.invoke('skills.list', {})) as { skills?: SkillSummaryFrame[] } | null
+      // name 用 directoryName（斜杠命令友好，如 CodeBuddy 会转成 /director-cinematography）；无参数。
+      const prompts = (res?.skills || []).map((s) => ({ name: s.directoryName, title: s.name, description: s.description }))
+      reply(id, { prompts })
+      return
+    }
+    if (method === 'prompts/get') {
+      const name = String(params?.name || '')
+      const content = (await transport.invoke('skills.read', { name })) as SkillContentFrame | null
+      if (!content?.body) {
+        replyError(id, -32602, `未找到技能提示词: ${name}`)
+        return
+      }
+      reply(id, {
+        description: content.description,
+        messages: [{ role: 'user', content: { type: 'text', text: content.body } }],
+      })
       return
     }
     if (method === 'ping') {

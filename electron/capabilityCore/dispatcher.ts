@@ -14,6 +14,7 @@ import {
   type GenerateInput,
   type RunTaskFn,
 } from './core'
+import { listSkillSummaries, readSkillContent } from '../skills/skillStore'
 import type { ProjectGateway } from './gateway'
 
 export class RpcError extends Error {
@@ -46,6 +47,12 @@ export async function dispatch(method: string, params: Record<string, unknown>, 
       return createNamedProject(typeof params.name === 'string' ? params.name : undefined)
     case 'models.list':
       return { models: listAvailableModels() }
+    case 'skills.list':
+      // 导演/编剧技能库元数据（渐进披露，不含正文）。供 MCP 脊柱 resources/prompts 列表。
+      return { skills: listSkillSummaries() }
+    case 'skills.read':
+      // 按 name/directoryName 读一个技能正文。找不到 ⇒ null（协议层转 error）。
+      return readSkillContent(String(params.name || params.directoryName || ''))
     case 'canvas.read':
       return readProjectCanvas(ctx.makeGateway(projectIdOf(params)))
     case 'canvas.addNodes':
