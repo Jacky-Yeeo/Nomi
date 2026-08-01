@@ -43,10 +43,10 @@
 | 04–12s | Nomi keeps the story, storyboard, and generation context connected from the first line. | Story → storyboard → generation | Writing, shot breakdown, and generation live in one creative path. |
 | 12–24s | Lock characters, locations, props, and style first, so every shot inherits the same world instead of restarting from another prompt. | Build the world first. | Visual anchors and shot relationships carry context across the sequence. |
 | 24–35s | Build on a visual canvas. Let the assistant draft prompts, place media, and call generation tools while you keep the whole sequence in view. | The directing canvas | The assistant acts inside a visible, editable shot system. |
-| 35–43s | Found the right reference? Capture it, reverse-engineer the prompt, and reuse it without moving between tools. | Capture · reverse · reuse | Browser research becomes reusable project media and prompt context. |
-| 43–50s | Connect your own models, ComfyUI workflows, and AI coding assistants without tying the process to one provider. | Bring your own stack. | The product shows the real integration surfaces, not a conceptual logo wall. |
-| 50–55s | From intent to timeline, directing finally becomes one continuous workflow. | Intent → timeline | Generated material resolves into a timeline the creator can finish. |
-| 55–60s | Download open-source Nomi. For tailored, integrated, or white-label builds, talk to us. | Download / For Teams | Self-serve download remains primary; team services are an honest secondary path. |
+| 35–43s | Found the right reference? Capture it, reverse the prompt, and reuse it without changing tools. | Capture · reverse · reuse | Browser research becomes reusable project media and prompt context. |
+| 43–50s | Connect your models, ComfyUI, and AI coding assistants without locking into one provider. | Bring your own stack. | The product shows the real integration surfaces, not a conceptual logo wall. |
+| 50–55s | From intent to timeline, directing becomes one continuous workflow. | Intent → timeline | Generated material resolves into a timeline the creator can finish. |
+| 55–60s | Download Nomi. For custom or white-label builds, talk to us. | Download Nomi / For Teams | Self-serve download remains primary; team services are an honest secondary path. |
 
 ### English voice-over copy
 
@@ -58,13 +58,13 @@
 >
 > Build on a visual canvas. Let the assistant draft prompts, place media, and call generation tools while you keep the whole sequence in view.
 >
-> Found the right reference? Capture it, reverse-engineer the prompt, and reuse it without moving between tools.
+> Found the right reference? Capture it, reverse the prompt, and reuse it without changing tools.
 >
-> Connect your own models, ComfyUI workflows, and AI coding assistants without tying the process to one provider.
+> Connect your models, ComfyUI, and AI coding assistants without locking into one provider.
 >
-> From intent to timeline, directing finally becomes one continuous workflow.
+> From intent to timeline, directing becomes one continuous workflow.
 >
-> Download open-source Nomi. For tailored, integrated, or white-label builds, talk to us.
+> Download Nomi. For custom or white-label builds, talk to us.
 
 ## 逐镜素材来源图
 
@@ -88,6 +88,7 @@
 - 中文语速目标为克制的产品纪录片语气，句间保留约 0.18–0.35 秒呼吸。
 - 英文按英语自然重音重写，不逐字追随中文断句；“ComfyUI”与“Nomi”必须在试听时核对发音。
 - 字幕只显示“屏幕短句”或旁白的语义短句，不逐字蹦字；同屏最多两行。
+- 最终中文声线：豆包 `liuchang`；最终英文声线：ElevenLabs `peter`。两版均按八段独立生成，并以真实音频时长回填时间线。
 
 ## 事实与宣称审计
 

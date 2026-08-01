@@ -1,13 +1,14 @@
 # Nomi 国际宣传片制作追踪
 
 更新时间：2026-08-01  
-状态：Task 5 品牌动效已完成真实帧校对，待旁白声线确认
+状态：中文与英文 16:9 母版均已完成导出、响度检查与成片像素校对；待用户播放确认后派生竖版与官网静音版
 
 ## ChatCut 项目
 
 - 项目：`Nomi International Launch Film`
 - Project ID：`e972cb0b-b0bf-4c14-98ab-25093c2d0475`
 - 初始 Timeline ID：`c995e3a0-b174-4736-b7aa-e86b3aa72b58`
+- 英文 Timeline ID：`c77f89cb-a09d-40f2-935f-7b3b966a9094`
 - 画布：1920×1080，30 fps
 - 编辑器：<https://app.chatcut.io/zh/editor/e972cb0b-b0bf-4c14-98ab-25093c2d0475>
 
@@ -127,6 +128,50 @@ CTA 首次稳定帧曾把“贴牌交付 / 持续迭代”拆成孤字；第一�
 
 英文 Hook 与 CTA 也已从 195 / 180 WPM 的过快初稿压到约 135 / 144 WPM；其余英文段落保持 98–146 WPM，待英文声线确定后用同一套真实时长门验证。
 
-### 音频、字幕与导出
+### 旁白与同步
 
-尚未执行。
+- 中文声线：豆包 `liuchang`（流畅女声）；英文声线：ElevenLabs `peter`。选择均由用户在 ChatCut 声线卡中确认。
+- 两种语言都拆成 8 个独立 TTS 资产，逐段测量真实时长后放入各自 A1；没有把 60 秒旁白锁成一个不可局部替换的文件。
+- 中文 A1：`df9b16d005`，8 段分别从 0 / 120 / 360 / 720 / 1050 / 1290 / 1500 / 1650 帧开始；实际长度为 116 / 138 / 191 / 179 / 156 / 161 / 134 / 143 帧，全部留在各自镜头窗口内。
+- 英文 A1：`0f9cf466fe`，8 段使用相同视觉起点；实际长度为 93 / 183 / 285 / 294 / 208 / 203 / 140 / 133 帧，全部留在各自镜头窗口内。
+- 两版旁白均为 `+6 dB`，每段 0.04 秒淡入、0.08 秒淡出。中文 CTA 初次生成 5.208 秒超过 5 秒窗口，改为 `speedRatio=1.1` 后 4.752 秒；英文第 5–8 段也根据真实时长压缩文案并重新生成，不以剪断句尾强行塞入画面。
+
+#### 最终英文生成文案
+
+1. `You know the shot. The model can only guess.`
+2. `Nomi keeps the story, storyboard, and generation context connected from the first line.`
+3. `Lock characters, locations, props, and style first, so every shot inherits the same world instead of restarting from another prompt.`
+4. `Build on a visual canvas. Let the assistant draft prompts, place media, and call generation tools while you keep the whole sequence in view.`
+5. `Found the right reference? Capture it, reverse the prompt, and reuse it without changing tools.`
+6. `Connect your models, ComfyUI, and AI coding assistants without locking into one provider.`
+7. `From intent to timeline, directing becomes one continuous workflow.`
+8. `Download Nomi. For custom or white-label builds, talk to us.`
+
+### 音乐与音效
+
+- 原创配乐 Asset：`326ea1db74`，从 169.456 秒成品中截取最后 60 秒，使影片落在已解决的音乐终止点，不用硬切尾音。
+- 中文 A2：`70b06c9d4d` / Item `890d0ff24e`，`-9 dB`，旁白闪避 `-6 dB`；英文 A2：`02b407abb3` / Item `7c15a082c8`，`-9 dB`，旁白闪避 `-7 dB`。两版均 1.2 秒淡入、2 秒淡出。
+- A3 只保留三处有叙事作用的声音：35 秒采集快门、43 秒轻盈转场、55 秒 CTA 深层转场。中文 Items：`59d9d42575` / `b4a30df786` / `47c9181364`；英文 Items：`7298179969` / `91cd03ef01` / `840ae9e636`。没有为每次鼠标移动堆叠装饰音效。
+
+### 字幕
+
+- 中文 Caption Singleton：`b7a3c6c6…`，显式绑定中文 A1；`Noto Sans SC` 48 px、600、暖白字、深色半透明底、最多两行、每行约 24 字符，安全区为 left 240 / bottom 140 / width 1440。
+- 英文 Caption Singleton：`ce332ced…`，显式绑定英文 A1；`DM Sans` 46 px，最多两行、每行约 38 字符，位置与中文一致。
+- 两版都关闭逐字高亮，使用语义短句推进。中文纠正了繁体字与标点；英文清除了 ASR 幻觉 `M.`，修正 `assistants`、`Nomi.` 与 `white-label` 的显示，但没有篡改实际配音音频。
+- 代表帧检查覆盖 40 / 190 / 840 / 1150 / 1360 / 1580 / 1730；字幕均未与产品底部时间线或 CTA 主文案碰撞。
+
+### 双语动效适配与回归
+
+- 英文时间线复用同一组 Motion Graphic 资产，只通过实例属性替换英文文案；Hook、集成桥与 CTA 没有复制出一套不可维护的平行动效实现。
+- 英文 Hook 使用 `You know the shot. / The model can only / guess`；集成桥使用 `Connect your workflow / Your models / ComfyUI / AI assistants`；CTA 使用 `Download Nomi / For Teams / Custom builds · Integrations · White-label · Ongoing iteration`。
+- 英文适配后重新检查中文 60 / 108 / 1320 / 1332 / 1710 / 1780 帧：中文字号、换行、安全区和导演框均未回归；英文导出接触表同时检查了片头、产品证据、集成桥、时间线与 CTA。
+
+### 导出与成片 QA
+
+| 版本 | Render ID | 本地文件 | 媒体事实 | 音频事实 | 结论 |
+|---|---|---|---|---|---|
+| 中文 v1 | `fe8fc95347` | `/Users/aoqimin/Downloads/Nomi-Launch-Film-CN-Master-v1.mp4` | 1920×1080，30 fps，60.096 s，17,197,190 bytes | -20.1 LUFS，true peak -6.5 dBTP | 未作为母版：接触表发现 Hook 中间态有局部字形，整体响度偏低 |
+| 中文 v2 | `76bae80284` | `/Users/aoqimin/Downloads/Nomi-Launch-Film-CN-Master-v2.mp4` | 1920×1080，30 fps，60.096 s，17,225,589 bytes | -18.1 LUFS，LRA 6.9 LU，true peak -4.5 dBTP | **当前中文母版**；修正全文透明度揭示并提升旁白后通过接触表检查 |
+| 英文 v1 | `f6ad67d359` | `/Users/aoqimin/Downloads/Nomi-Launch-Film-EN-Master-v1.mp4` | 1920×1080，30 fps，60.096 s，17,395,771 bytes | -17.5 LUFS，LRA 5.5 LU，true peak -2.1 dBTP | **当前英文母版**；英文排版、字幕、桥段与 CTA 全部在安全区 |
+
+成片 QA 不是只看导出任务成功：中文 v2 与英文 v1 都从最终 MP4 抽取接触表并亲眼检查像素；中文又从当前时间线重新渲染关键帧，验证英文属性适配没有误伤中文。两版当前均无黑帧、破字、字幕溢出、CTA 裁切或可见供应商报错。
