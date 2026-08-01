@@ -75,7 +75,7 @@ export default function TimelineMiniPreview(): JSX.Element | null {
       className={cn(
         'workbench-timeline-minipreview',
         'absolute bottom-3 right-3 z-[8] w-[248px] overflow-hidden',
-        'rounded-[var(--nomi-radius-md)] border border-[var(--workbench-border)]',
+        'rounded-nomi border border-[var(--workbench-border)]',
         'bg-nomi-paper shadow-workbench-pop',
       )}
       aria-label={t('timelineEditor.miniPreview.title')}
