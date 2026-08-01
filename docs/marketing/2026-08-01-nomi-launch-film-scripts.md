@@ -13,9 +13,9 @@
 | 12–24s | 先固定人物、场景、道具和风格，让每个镜头继承同一个世界。 | 先固定世界，再生成镜头 | 视觉锚点和镜头连接关系承担跨镜一致性的组织工作。 |
 | 24–35s | 在画布上直接组织镜头，让助手写提示词、放素材、调用生成。 | 导演画布 | 创作者能看到镜头关系，同时让助手执行具体动作。 |
 | 35–43s | 看到合适的参考，直接采集、反推并复用，不用来回搬运。 | 采集 · 反推 · 复用 | 浏览器素材进入项目，画面可被反推为提示词并回到画布。 |
-| 43–50s | 接入自己的模型、ComfyUI 工作流和 AI 助手，不被单一供应商锁住。 | Bring your own stack | 稳定展示模型列表、ComfyUI 与 Claude Code / Codex / Cursor 入口。 |
-| 50–55s | 从意图到时间线，终于是一条连续的导演流程。 | 从意图，到时间线 | 生成结果最终回到可预览、可收束的时间线。 |
-| 55–60s | 现在下载开源版 Nomi。需要定制、集成或贴牌，就把真实流程带来。 | 下载开源版 / For Teams | 个人用户立即下载；团队进入定制、集成、贴牌与持续演进合作。 |
+| 43–50s | 接入自有模型、ComfyUI 和 AI 助手，不被单一供应商锁住。 | Bring your own stack | 稳定展示模型列表、ComfyUI 与 Claude Code / Codex / Cursor 入口。 |
+| 50–55s | 从意图到时间线，成为一条连续的导演流程。 | 从意图，到时间线 | 生成结果最终回到可预览、可收束的时间线。 |
+| 55–60s | 下载开源版 Nomi。定制、集成、贴牌，联系团队。 | 下载开源版 / For Teams | 个人用户立即下载；团队进入定制、集成、贴牌与持续演进合作。 |
 
 ### 中文旁白纯文本
 
@@ -29,28 +29,28 @@
 >
 > 看到合适的参考，直接采集、反推并复用，不用来回搬运。
 >
-> 接入自己的模型、ComfyUI 工作流和 AI 助手，不被单一供应商锁住。
+> 接入自有模型、ComfyUI 和 AI 助手，不被单一供应商锁住。
 >
-> 从意图到时间线，终于是一条连续的导演流程。
+> 从意图到时间线，成为一条连续的导演流程。
 >
-> 现在下载开源版 Nomi。需要定制、集成或贴牌，就把真实流程带来。
+> 下载开源版 Nomi。定制、集成、贴牌，联系团队。
 
 ## English 60-second adaptation
 
 | Time | Voice-over | On-screen line | Proof on screen |
 |---|---|---|---|
-| 00–04s | You know exactly how the shot should feel. The model can only guess. | Direct the shot. | The problem is lost directing intent, not a missing prompt trick. |
+| 00–04s | You know the shot. The model can only guess. | Direct the shot. | The problem is lost directing intent, not a missing prompt trick. |
 | 04–12s | Nomi keeps the story, storyboard, and generation context connected from the first line. | Story → storyboard → generation | Writing, shot breakdown, and generation live in one creative path. |
 | 12–24s | Lock characters, locations, props, and style first, so every shot inherits the same world instead of restarting from another prompt. | Build the world first. | Visual anchors and shot relationships carry context across the sequence. |
 | 24–35s | Build on a visual canvas. Let the assistant draft prompts, place media, and call generation tools while you keep the whole sequence in view. | The directing canvas | The assistant acts inside a visible, editable shot system. |
 | 35–43s | Found the right reference? Capture it, reverse-engineer the prompt, and reuse it without moving between tools. | Capture · reverse · reuse | Browser research becomes reusable project media and prompt context. |
 | 43–50s | Connect your own models, ComfyUI workflows, and AI coding assistants without tying the process to one provider. | Bring your own stack. | The product shows the real integration surfaces, not a conceptual logo wall. |
 | 50–55s | From intent to timeline, directing finally becomes one continuous workflow. | Intent → timeline | Generated material resolves into a timeline the creator can finish. |
-| 55–60s | Download the open-source Nomi. Need it tailored, integrated, or white-labeled? Bring us your real workflow. | Download / For Teams | Self-serve download remains primary; team services are an honest secondary path. |
+| 55–60s | Download open-source Nomi. For tailored, integrated, or white-label builds, talk to us. | Download / For Teams | Self-serve download remains primary; team services are an honest secondary path. |
 
 ### English voice-over copy
 
-> You know exactly how the shot should feel. The model can only guess.
+> You know the shot. The model can only guess.
 >
 > Nomi keeps the story, storyboard, and generation context connected from the first line.
 >
@@ -64,7 +64,7 @@
 >
 > From intent to timeline, directing finally becomes one continuous workflow.
 >
-> Download the open-source Nomi. Need it tailored, integrated, or white-labeled? Bring us your real workflow.
+> Download open-source Nomi. For tailored, integrated, or white-label builds, talk to us.
 
 ## 逐镜素材来源图
 
