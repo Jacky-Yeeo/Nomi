@@ -12,6 +12,21 @@ const expectBefore = (document, token, boundary, message) => {
   const boundaryIndex = document.indexOf(boundary)
   expect(tokenIndex >= 0 && boundaryIndex >= 0 && tokenIndex < boundaryIndex, message)
 }
+const expectMobileSafeConversion = (document, heading, boundary, language) => {
+  const startIndex = document.indexOf(heading)
+  const boundaryIndex = document.indexOf(boundary)
+  expect(startIndex >= 0 && boundaryIndex > startIndex, `${language} conversion block is bounded`)
+  const conversion = document.slice(startIndex, boundaryIndex)
+  const groupImage = conversion.match(/<img src="docs\/media\/nomi-canvas-group-wechat\.png"[^>]*>/)?.[0]
+  expect(groupImage && /width="2\d{2}"/.test(groupImage), `${language} group QR remains prominent on mobile`)
+  expect(!conversion.includes('|:---'), `${language} conversion avoids a shrinking Markdown table`)
+  expectBefore(
+    conversion,
+    'docs/media/nomi-canvas-group-wechat.png',
+    'docs/media/qingyang-wechat.jpg',
+    `${language} puts the user-group QR before maintainer contact`,
+  )
+}
 
 const zh = read('marketing/index.html')
 const en = read('marketing/en/index.html')
@@ -104,4 +119,6 @@ for (const [token, label] of [
   expectBefore(readmeEn, token, readmeHero, `English default README keeps ${label} before hero`)
   expectBefore(readmeZh, token, readmeZhHero, `Chinese README keeps ${label} before hero`)
 }
+expectMobileSafeConversion(readmeEn, '## WeChat / 微信联系', readmeHero, 'English default README')
+expectMobileSafeConversion(readmeZh, '## 微信联系', readmeZhHero, 'Chinese README')
 console.log('MARKETING HOME STATIC PASS')
