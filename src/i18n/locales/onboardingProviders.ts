@@ -412,6 +412,9 @@ export const zhOnboardingProviders = {
     noLastFrame: '无（不给尾帧）',
     save: '保存',
     saving: '保存中…',
+    reconcileOffline: 'ComfyUI 未连接——已跳过缺节点/缺模型检查（导入仍可继续，运行前先启动 ComfyUI）',
+    missingNodes: '本机 ComfyUI 缺 {{count}} 个节点：{{list}}——先装齐（如用 ComfyUI-Manager），否则运行必失败',
+    missingFiles: '{{count}} 个输入引用了本机没有的文件/选项：{{list}}——在 ComfyUI 里改成本机存在的值后重新导出，或把该输入暴露成参数、生成时改填',
   },
   comfyLocal: {
     unsupportedProbe: '当前版本不支持探测',
@@ -902,6 +905,9 @@ export const enOnboardingProviders = {
     noLastFrame: 'None (no last frame)',
     save: 'Save',
     saving: 'Saving…',
+    reconcileOffline: 'ComfyUI is offline — skipped missing-node/model checks (you can still import; start ComfyUI before running)',
+    missingNodes: 'Your ComfyUI is missing {{count}} node type(s): {{list}} — install them first (e.g. via ComfyUI-Manager), or every run will fail',
+    missingFiles: '{{count}} input(s) reference files/options not on this machine: {{list}} — switch to values that exist in your ComfyUI and re-export, or expose the input as a parameter and set it at generation time',
   },
   comfyLocal: {
     unsupportedProbe: 'Connection checks are unavailable in this version',

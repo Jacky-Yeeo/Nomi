@@ -233,6 +233,13 @@ export type HttpOperation = {
    */
   response_transform?: string;
   /**
+   * **命名请求变换**（与 response_transform 对称）。模板渲染完、发 HTTP 前对 body 应用一次，
+   * 用于「按目标后端实况补全请求」（如 ComfyUI 内置文生图 ckpt_name 留空 → 从本机 /object_info
+   * derive 第一个 checkpoint）。变换住各自 vendor 模块、注册进 electron/tasks/requestTransforms.ts；
+   * 与响应变换的刻意差异：变换抛错会冒泡（fail fast 拦下必失败的提交并给人话），见该文件头。
+   */
+  request_transform?: string;
+  /**
    * **wire 必填参数的兜底默认值**（headless/MCP 路专用）。UI 路由 NodeGenerationComposer 会按档案
    * (src/config/modelArchetypes) 把用户选的 size/voice/model 等填进 request.params；但 MCP/CLI 的
    * `generate` 不经 UI、调用方也无从知道每家 vendor 的必填参数（nomi_generate 根本不暴露 params）。

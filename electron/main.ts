@@ -22,7 +22,6 @@ import {
   upsertModelCatalogVendor,
   upsertModelCatalogVendorApiKey,
 } from "./catalog/catalogStore";
-import { analyzeComfyWorkflowText, importComfyWorkflowToCatalog, updateComfyWorkflowInCatalog } from "./catalog/comfyuiWorkflowImportStore";
 import { runTaskWithIdempotency } from "./submissionLedger";
 import { runTaskIpcGuard } from "./tasks/taskIpcGuard";
 import { mintSpendGrant } from "./spendGrant";
@@ -456,15 +455,9 @@ function registerIpc(): void {
   registerSyncIpc("nomi:model-catalog:mapping:delete", deleteModelCatalogMapping);
   registerSyncIpc("nomi:model-catalog:export", exportModelCatalogPackage);
   registerSyncIpc("nomi:model-catalog:import", importModelCatalogPackage);
-  // 本地 ComfyUI 健康探测（接入卡启用/重检调用；async，直连 localhost /system_stats）。
-  ipcMain.handle("nomi:model-catalog:comfyui:probe", (_event, baseUrl: unknown) => {
-    const { probeComfyuiSystemStats } = require("./comfyuiProbe") as typeof import("./comfyuiProbe");
-    return probeComfyuiSystemStats(String(baseUrl || ""));
-  });
-  // 本地 ComfyUI 自定义 workflow 导入（S3）：analyze 识别可绑定节点、import 落库为用户自有 model+mapping。
-  registerSyncIpc("nomi:model-catalog:comfyui:analyze-workflow", (text: unknown) => analyzeComfyWorkflowText(text));
-  registerSyncIpc("nomi:model-catalog:comfyui:import-workflow", (payload: unknown) => importComfyWorkflowToCatalog(payload));
-  registerSyncIpc("nomi:model-catalog:comfyui:update-workflow", (payload: unknown) => updateComfyWorkflowInCatalog(payload));
+  // ComfyUI 域 IPC（探测/导入/缺件对账）全住 electron/comfyuiIpc.ts（main.ts 800 行门腾空间）。
+  const { registerComfyuiIpc } = require("./comfyuiIpc") as typeof import("./comfyuiIpc");
+  registerComfyuiIpc(registerSyncIpc);
   // Skill / Playbook 域（业务函数在 electron/skills/*，这里只接同步 IPC 管道）。
   registerSyncIpc("nomi:skill:list", () => {
     const { listSkillsForRenderer } = require("./skills/skillIpc") as typeof import("./skills/skillIpc");

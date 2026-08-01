@@ -30,6 +30,7 @@ import {
 } from "./tasks/responseParsing";
 import { extractAssetUrl } from "./tasks/assetUrlExtract";
 import { applyResponseTransform } from "./tasks/responseTransforms";
+import { applyRequestTransform } from "./tasks/requestTransforms";
 import { TtlLruCache } from "./tasks/taskCache";
 import { markTaskAdmitted } from "./tasks/taskAdmission";
 import { readCachedTaskResult, recipeFingerprint, rememberTaskResult } from "./vendor/fingerprintCache";
@@ -295,19 +296,11 @@ export async function executeProfileOperation(input: {
       ? { ...input, request: { ...input.request, extras: localized.value as TaskRequest["extras"] } }
       : input;
   const built = buildProfileHttpRequest(effectiveInput);
-  const response = await requestJson(
-    effectiveInput.vendor,
-    effectiveInput.apiKey,
-    built.method,
-    built.url,
-    built.headers,
-    built.query,
-    built.body,
-  );
-  return {
-    response,
-    request: built.preview,
-  };
+  // 命名请求变换（P4，与 response_transform 对称）：发送前按后端实况补全 body；未声明 → 原样。
+  const body = await applyRequestTransform(input.operation.request_transform, built.body, { baseUrl: String(input.vendor.baseUrlHint || "") });
+  const { vendor, apiKey } = effectiveInput;
+  const response = await requestJson(vendor, apiKey, built.method, built.url, built.headers, built.query, body);
+  return { response, request: built.preview };
 }
 
 /** 归一上游响应成 TaskResult：命名响应变换（可选）→ 点路径 mapping（kie 等返 JSON 字符串已透明 parse）。 */

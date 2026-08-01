@@ -408,6 +408,7 @@ contextBridge.exposeInMainWorld("nomiDesktop", {
     fetchDocs: (payload: unknown) => ipcRenderer.invoke("nomi:model-catalog:docs:fetch", payload),
     probeComfyui: (baseUrl?: string) => ipcRenderer.invoke("nomi:model-catalog:comfyui:probe", baseUrl),
     analyzeComfyWorkflow: (text: string) => invokeSync("nomi:model-catalog:comfyui:analyze-workflow", text),
+    reconcileComfyWorkflow: (text: string) => ipcRenderer.invoke("nomi:model-catalog:comfyui:reconcile-workflow", text),
     importComfyWorkflow: (payload: { text: string; binding: unknown; labelZh: string }) =>
       invokeSync("nomi:model-catalog:comfyui:import-workflow", payload),
     updateComfyWorkflow: (payload: { modelKey: string; text: string; binding: unknown; labelZh: string }) =>
