@@ -68,3 +68,11 @@ Nomi 反馈往外部 agent 界面送，按宿主能力路由（都由同一 MCP 
 - 不碰阿泽的 EP/S 目录约定、DeepSeek 省 token 规则、手动生成工作流——那些是他的工作流不是 Nomi 的。
 - 不逐字打包阿泽 SKILL.md 原文（授权虽有，但 Nomi 结构不同、且要挂脊柱）——按方法论重整为 Nomi 原生。
 - P1 是单文件内容改动，回滚 = 还原 SKILL.md。
+
+## 剩余执行计划（2026-08-01·自主推进·不停下拍板）
+
+核心机制已 R16 端到端验证（外部 agent 经 MCP 真出图 + 规划方法论真生效）。剩余：
+- **Phase A · 应用内完整闭环**：走查驱动生成侧 agent「剧本→拆镜头→落画布→逐镜出图→排时间轴」，截图眼见链验+修全问题。主体验。
+- **Phase B · 确认门 surfacing**：rendererBridge 从「只确认花钱」推广到 方案/参考图/生成 三门（应用内卡），走查验。
+- **Phase C · MCP Apps 活生成 widget**：GUI 宿主内嵌 Nomi 面板。⚠️需支持该扩展的宿主才能真验（本机无）→建好+验能验的(HTML独立渲染+协议层serving单测)，渲染在 Claude/WorkBuddy 侧诚实标注待宿主验，不假报完成。
+- **Phase D · 落 main**：13+commit 正经合并（main 已并行分叉）→五门→push。
