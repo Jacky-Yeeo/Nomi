@@ -19,6 +19,13 @@ type SpendConfirmPayload = {
   prompt?: string
 }
 
+// 方案门（Phase B）：外部 agent 批量落节点前的确认。projectId 由主进程网关带上（可能非当前项目）。
+type PlanConfirmPayload = {
+  projectId?: string
+  nodeCount?: number
+  titles?: string[]
+}
+
 function describeIntent(intent: string | undefined): string {
   const normalized = String(intent || '')
   if (normalized === 'image' || normalized === 'video' || normalized === 'audio' || normalized === 'text') {
@@ -36,10 +43,15 @@ async function confirmSpendForAgent(info: SpendConfirmPayload): Promise<{ confir
     (typeof node?.prompt === 'string' && node.prompt.trim()
       ? node.prompt.trim().slice(0, 24)
       : i18n.t('runtime.capability.newNode'))
+  // 参考图门 vs 生成门（Phase B）：定妆/场景卡（meta.referenceSheet）= 参考图门（相机图标+措辞），否则生成门。
+  const isReference = Boolean(node?.meta && (node.meta as Record<string, unknown>).referenceSheet === true)
   const promptPreview = typeof info.prompt === 'string' && info.prompt.trim() ? info.prompt.trim().slice(0, 60) : ''
   const projectName = typeof info.projectName === 'string' ? info.projectName.trim() : ''
   const ok = await useSpendConfirmStore.getState().requestConfirm({
-    title: i18n.t('runtime.capability.spendTitle', { intent: describeIntent(info.intent) }),
+    kind: isReference ? 'reference' : 'generation',
+    title: isReference
+      ? i18n.t('runtime.capability.referenceTitle')
+      : i18n.t('runtime.capability.spendTitle', { intent: describeIntent(info.intent) }),
     message: promptPreview
       ? i18n.t('runtime.capability.spendMessageWithPrompt', {
           prompt: `${promptPreview}${info.prompt && info.prompt.length > 60 ? '…' : ''}`,
@@ -62,15 +74,41 @@ async function confirmSpendForAgent(info: SpendConfirmPayload): Promise<{ confir
   return { confirmed: Boolean(ok) }
 }
 
+/** 外部 MCP 方案门（Phase B）：agent 要往画布落一套节点（≥2）前弹确认卡（免费可撤），复用同一漏斗（P1）。 */
+async function confirmPlanForAgent(info: PlanConfirmPayload): Promise<{ confirmed: boolean }> {
+  const count = typeof info.nodeCount === 'number' ? info.nodeCount : 0
+  const titles = Array.isArray(info.titles) ? info.titles.filter((t) => typeof t === 'string' && t.trim()) : []
+  const preview = titles.slice(0, 5).join('、') + (titles.length > 5 ? '…' : '')
+  const projectName = (() => {
+    if (!info.projectId) return ''
+    const active = getActiveWorkbenchProjectId()
+    return info.projectId === active ? '' : info.projectId // 非当前项目才显 id 提示（当前项目无需重复）
+  })()
+  const ok = await useSpendConfirmStore.getState().requestConfirm({
+    kind: 'plan',
+    title: i18n.t('runtime.capability.planTitle'),
+    message: i18n.t('runtime.capability.planMessage', { count }),
+    confirmLabel: i18n.t('runtime.capability.planConfirm'),
+    source: 'agent',
+    countdownMs: 60_000,
+    details: [
+      ...(projectName ? [{ label: i18n.t('runtime.capability.project'), value: projectName }] : []),
+      { label: i18n.t('runtime.capability.planNodeCount'), value: i18n.t('runtime.capability.planNodeCountValue', { count }) },
+      ...(preview ? [{ label: i18n.t('runtime.capability.planIncludes'), value: preview }] : []),
+    ],
+  })
+  return { confirmed: Boolean(ok) }
+}
+
 /** 处理一条主进程转发来的能力操作。未知操作抛错（主进程会把错误透传给 agent）。 */
 export async function handleCapabilityApply(op: string, payload: unknown): Promise<unknown> {
   const data = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>
   const projectId = typeof data.projectId === 'string' ? data.projectId : ''
   const activeId = getActiveWorkbenchProjectId()
   // 画布读写**只能**作用于当前打开的项目（动 store → 必须是活动项目，否则串台）；目标≠活动 → 拒。
-  // 付费确认（spend.confirm）不在此限：用户拍板 A——AI 想在「非当前项目」生成时也弹全局卡，
+  // 确认门（spend.confirm / plan.confirm）不在此限：AI 想在「非当前项目」生成/落方案时也弹全局卡，
   // 卡里标明项目名，确认后走盘落地（不动非活动 store）。这正是治静默黑洞的关键放开。
-  if (op !== 'spend.confirm' && projectId && activeId && projectId !== activeId) {
+  if (op !== 'spend.confirm' && op !== 'plan.confirm' && projectId && activeId && projectId !== activeId) {
     throw new Error(i18n.t('runtime.capability.projectChanged'))
   }
 
@@ -82,6 +120,8 @@ export async function handleCapabilityApply(op: string, payload: unknown): Promi
       return { ok: true }
     case 'spend.confirm':
       return confirmSpendForAgent(data as SpendConfirmPayload)
+    case 'plan.confirm':
+      return confirmPlanForAgent(data as PlanConfirmPayload)
     default:
       throw new Error(i18n.t('runtime.capability.unknownOperation', { operation: op }))
   }

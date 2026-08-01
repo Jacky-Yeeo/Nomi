@@ -56,7 +56,7 @@ export async function dispatch(method: string, params: Record<string, unknown>, 
     case 'canvas.read':
       return readProjectCanvas(ctx.makeGateway(projectIdOf(params)))
     case 'canvas.addNodes':
-      return addProjectNodes(ctx.makeGateway(projectIdOf(params)), Array.isArray(params.nodes) ? (params.nodes as never[]) : [])
+      return addProjectNodes(ctx.makeGateway(projectIdOf(params)), Array.isArray(params.nodes) ? (params.nodes as never[]) : [], projectIdOf(params))
     case 'canvas.connect':
       return connectProjectNodes(ctx.makeGateway(projectIdOf(params)), Array.isArray(params.connections) ? (params.connections as never[]) : [])
     case 'canvas.setPrompt':

@@ -189,7 +189,17 @@ export async function readProjectCanvas(gateway: ProjectGateway): Promise<Return
   return readCanvas(await gateway.readDoc())
 }
 
-export async function addProjectNodes(gateway: ProjectGateway, specs: NodeSpec[]): Promise<{ ids: string[] }> {
+export async function addProjectNodes(gateway: ProjectGateway, specs: NodeSpec[], projectId = ''): Promise<{ ids: string[]; cancelled?: boolean }> {
+  // 方案门（Phase B）：≥2 节点 = 一套「方案」→ 落画布前弹应用内确认卡（app 开着时；headless 直放行）。
+  // 让用户看到外部 agent 要在自己画布上建什么、可否决。单节点不弹（免费可撤、不加摩擦）。拒绝→不落、回 cancelled。
+  if (specs.length >= 2) {
+    const approved = await gateway.confirmPlan({
+      projectId,
+      nodeCount: specs.length,
+      titles: specs.map((spec) => (typeof spec.title === 'string' ? spec.title.trim() : '')).filter(Boolean).slice(0, 8),
+    })
+    if (!approved) return { ids: [], cancelled: true }
+  }
   const { snapshot, ids } = addNodes(await gateway.readDoc(), specs)
   await gateway.apply(snapshot)
   return { ids }

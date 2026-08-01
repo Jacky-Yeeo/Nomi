@@ -14,7 +14,7 @@ import {
   referencesFromEdges,
   setProjectNodePrompt,
 } from './core'
-import { createDiskGateway } from './gateway'
+import { createDiskGateway, type PlanConfirmInfo, type ProjectGateway } from './gateway'
 
 describe('referencesFromEdges（连参考边=喂参考图，headless 兜底）', () => {
   const snap = {
@@ -101,6 +101,43 @@ describe('capabilityCore/core (磁盘网关：直写 project.json)', () => {
     expect(canvas.edges).toHaveLength(1)
     const shot = canvas.nodes.find((node) => node.id === ids[1])
     expect(shot?.prompt).toBe('电影感写实，黄昏光线')
+  })
+
+  it('方案门（Phase B）：≥2 节点弹门确认，批准落画布 / 拒绝不落回 cancelled / 单节点不弹', async () => {
+    function mockGateway(planApproved: boolean) {
+      const planCalls: PlanConfirmInfo[] = []
+      let applyCount = 0
+      const gateway: ProjectGateway = {
+        readDoc: async () => ({ nodes: [], edges: [] }),
+        apply: async () => { applyCount += 1 },
+        confirmSpend: async () => null,
+        confirmPlan: async (info) => { planCalls.push(info); return planApproved },
+      }
+      return { gateway, planCalls, getApplyCount: () => applyCount }
+    }
+
+    // 批准 → 落画布，方案门带对齐的 nodeCount/titles/projectId。
+    const approved = mockGateway(true)
+    const okRes = await addProjectNodes(approved.gateway, [{ kind: 'image', title: '镜 1' }, { kind: 'image', title: '镜 2' }], 'proj-1')
+    expect(approved.planCalls).toHaveLength(1)
+    expect(approved.planCalls[0]).toMatchObject({ nodeCount: 2, projectId: 'proj-1', titles: ['镜 1', '镜 2'] })
+    expect(okRes.ids).toHaveLength(2)
+    expect(okRes.cancelled).toBeUndefined()
+    expect(approved.getApplyCount()).toBe(1)
+
+    // 拒绝 → 不落画布（apply 零调用）、回 cancelled。
+    const rejected = mockGateway(false)
+    const noRes = await addProjectNodes(rejected.gateway, [{ kind: 'image' }, { kind: 'video' }], 'proj-1')
+    expect(rejected.planCalls).toHaveLength(1)
+    expect(noRes.cancelled).toBe(true)
+    expect(noRes.ids).toEqual([])
+    expect(rejected.getApplyCount()).toBe(0)
+
+    // 单节点不算「方案」→ 不弹门，直落。
+    const single = mockGateway(true)
+    const oneRes = await addProjectNodes(single.gateway, [{ kind: 'image', title: '一张图' }], 'proj-1')
+    expect(single.planCalls).toHaveLength(0)
+    expect(oneRes.ids).toHaveLength(1)
   })
 
   it('删节点连带清边，落盘后边为空', async () => {

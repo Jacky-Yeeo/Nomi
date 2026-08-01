@@ -15,6 +15,13 @@ export type SpendConfirmRequest = {
   light?: boolean
   /** 来源：'agent' = 外部 AI 助手（MCP）驱动，换机器人图标 + 副标。缺省按用户直发（金币图标）。 */
   source?: 'user' | 'agent'
+  /**
+   * 确认门类别（Phase B·分步确认门 surfacing）——决定图标/语气，UI 单一收口不另造并行卡（P1，见 §3.5）：
+   * - 'generation'（缺省）= 生成门：要花额度出镜头，金币/机器人图标。
+   * - 'reference'         = 参考图门：要花额度出参考图（定妆/场景卡），相机图标。
+   * - 'plan'              = 方案门：AI 要往画布落一套节点方案（免费、可撤），分镜图标。
+   */
+  kind?: 'generation' | 'reference' | 'plan'
   /** 明细行（节点 / 模型 / 预估），让用户一眼看懂谁要花钱、花在哪。 */
   details?: Array<{ label: string; value: string }>
   /**

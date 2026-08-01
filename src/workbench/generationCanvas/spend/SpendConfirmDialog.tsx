@@ -1,7 +1,7 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../../utils/cn'
-import { IconCoin, IconRobot } from '@tabler/icons-react'
+import { IconCoin, IconRobot, IconMovie, IconPhoto } from '@tabler/icons-react'
 import { WorkbenchButton } from '../../../design'
 import { useSpendConfirmStore } from './spendConfirm'
 
@@ -45,7 +45,8 @@ export function SpendConfirmDialog() {
   if (!pending) return null
 
   const isAgent = pending.source === 'agent'
-  const Icon = isAgent ? IconRobot : IconCoin
+  // 图标按门类派生（Phase B）：方案门=分镜、参考图门=相机、生成门=机器人(agent)/金币(用户直发)。
+  const Icon = pending.kind === 'plan' ? IconMovie : pending.kind === 'reference' ? IconPhoto : isAgent ? IconRobot : IconCoin
   const countdownTotal = pending.countdownMs || 0
   const remainingSec = countdownTotal ? Math.ceil(remainingMs / 1000) : 0
   const remainingPct = countdownTotal ? Math.max(0, Math.min(100, (remainingMs / countdownTotal) * 100)) : 0
@@ -74,7 +75,10 @@ export function SpendConfirmDialog() {
           <div className={cn('min-w-0')}>
             <p className={cn('text-title font-medium text-nomi-ink truncate')}>{pending.title}</p>
             {isAgent ? (
-              <p className={cn('text-micro text-nomi-ink-60')}>{t('generationCommon.spend.agentNotice')}</p>
+              <p className={cn('text-micro text-nomi-ink-60')}>
+                {/* 方案门免费 → 副标不提「花费」（否则与「不花额度」正文自相矛盾，2026-08-02 走查抓出）。 */}
+                {t(pending.kind === 'plan' ? 'generationCommon.spend.agentNoticePlan' : 'generationCommon.spend.agentNotice')}
+              </p>
             ) : null}
           </div>
         </div>

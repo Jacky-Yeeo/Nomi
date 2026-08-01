@@ -29,6 +29,7 @@ function makeConfirmedGateway(projectId: string): ProjectGateway {
     readDoc: disk.readDoc,
     apply: disk.apply,
     confirmSpend: async (info: SpendConfirmInfo) => mintSpendGrant({ nodeIds: [info.nodeId] }),
+    confirmPlan: disk.confirmPlan, // 方案门免费可撤，headless 直放行（与 disk 一致）
   }
 }
 
