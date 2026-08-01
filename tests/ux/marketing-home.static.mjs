@@ -12,6 +12,8 @@ const zh = read('marketing/index.html')
 const en = read('marketing/en/index.html')
 const sitemap = read('marketing/sitemap.xml')
 const headers = read('marketing/_headers')
+const readmeEn = read('README.md')
+const readmeZh = read('README.zh-CN.md')
 const files = [
   'marketing/assets/video/hero-loop.mp4',
   'marketing/assets/demo.mp4',
@@ -22,6 +24,10 @@ const files = [
   'marketing/assets/social-preview-zh.jpg',
   'marketing/assets/social-preview-en.jpg',
   'marketing/assets/screen-agentic.jpg',
+  'marketing/assets/group-wechat.png',
+  'marketing/assets/qingyang-wechat.jpg',
+  'docs/media/nomi-canvas-group-wechat.png',
+  'docs/media/qingyang-wechat.jpg',
   '.github/ISSUE_TEMPLATE/business_inquiry.yml',
   'README.zh-CN.md',
 ]
@@ -31,6 +37,20 @@ expect(/<html lang="en">/.test(en), 'English lang is static')
 expect(zh.includes('把镜头讲清楚'), 'Chinese Hero claim exists')
 expect(en.includes('Direct the shot. Not just the prompt.'), 'English Hero claim exists')
 expect(zh.includes('定制开发') && en.includes('Custom builds'), 'paid services are localized')
+expect(zh.includes('id="community"'), 'Chinese community section exists')
+expect(en.includes('id="community"'), 'English community section exists')
+expect(zh.includes('href="#community"') && zh.includes('>社群<'), 'Chinese community nav exists')
+expect(en.includes('href="#community"') && en.includes('>Community<'), 'English community nav exists')
+expect(zh.includes('/assets/group-wechat.png'), 'Chinese group QR destination exists')
+expect(zh.includes('/assets/qingyang-wechat.jpg'), 'Chinese maintainer QR destination exists')
+expect(zh.includes('TZ857886159'), 'Chinese direct WeChat ID exists')
+expect(en.includes('github.com/aqm857886159/Nomi/discussions'), 'English community uses Discussions')
+for (const service of ['定制开发', '系统与模型集成', '贴牌交付与商业授权', '持续优化、维护与迭代']) {
+  expect(zh.includes(service), `Chinese service survives: ${service}`)
+}
+for (const service of ['Custom builds', 'System and model integrations', 'White-label and commercial license', 'Ongoing optimization and iteration']) {
+  expect(en.includes(service), `English service survives: ${service}`)
+}
 expect(zh.includes('Nomi MCP') && zh.includes('可编辑初稿'), 'Chinese agentic workflow is explicit')
 expect(en.includes('One sentence to an editable first cut') && en.includes('Nomi over MCP'), 'English agentic workflow is explicit')
 expect(zh.includes('/assets/nomi-logo.svg') && en.includes('/assets/nomi-logo.svg'), 'official Nomi mark is used')
@@ -58,4 +78,15 @@ expect(read('README.md').includes('historical releases'), 'English historical-li
 expect(read('README.zh-CN.md').includes('历史版本'), 'Chinese historical-license context')
 expect(headers.includes('/en/index.html'), 'English HTML cache rule')
 expect(headers.includes('/assets/video/*') && headers.includes('max-age=3600, must-revalidate'), 'stable media filenames revalidate')
+for (const label of ['加入用户群', '团队合作', '夸克网盘镜像', 'TZ857886159']) {
+  expect(readmeZh.includes(label), `Chinese README conversion survives: ${label}`)
+}
+expect(readmeZh.includes('docs/media/nomi-canvas-group-wechat.png'), 'Chinese README keeps group QR')
+expect(readmeZh.includes('docs/media/qingyang-wechat.jpg'), 'Chinese README keeps maintainer QR')
+expect(readmeZh.includes('business_inquiry.yml'), 'Chinese README keeps business inquiry')
+for (const label of ['Community', 'For Teams', 'Custom builds', 'Integrations', 'White-label / commercial licenses', 'Ongoing iteration']) {
+  expect(readmeEn.includes(label), `English README conversion survives: ${label}`)
+}
+expect(readmeEn.includes('github.com/aqm857886159/Nomi/discussions'), 'English README keeps Discussions')
+expect(readmeEn.includes('business_inquiry.yml'), 'English README keeps business inquiry')
 console.log('MARKETING HOME STATIC PASS')
