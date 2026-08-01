@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '../../utils/cn'
 import { NomiImage } from '../../design/media'
 import { useWorkbenchStore } from '../workbenchStore'
-import { frameToPixel, pixelToFrame, clampGroupDelta, type ClipOrigin } from './timelineEdit'
+import { frameToPixel, pixelToFrame, clampGroupDelta, clipVisibleFrames, type ClipOrigin } from './timelineEdit'
 import { buildSnapPoints, resolveSnap, pixelThresholdToFrames, type SnapResult } from './snapping'
 import type { TimelineClip as TimelineClipData } from './timelineTypes'
 import { resolveTimelineClipPreviewMedia } from './timelineClipPreview'
@@ -232,7 +232,7 @@ function TimelineClip({ clip }: TimelineClipProps): JSX.Element {
     [applySnapGuide, clip.endFrame, clip.id, clip.startFrame],
   )
 
-  const clipWidth = Math.max(36, frameToPixel(clip.frameCount, scale))
+  const clipWidth = Math.max(36, frameToPixel(clipVisibleFrames(clip), scale))
 
   const thumbContent =
     previewMedia.kind === 'video' ? (
@@ -349,7 +349,7 @@ function TimelineClip({ clip }: TimelineClipProps): JSX.Element {
               const px = event.clientX - rect.left
               // 只在可切范围（离两端 >3 帧）才显切点线
               const frameInto = pixelToFrame(px, scale)
-              setCutPx(frameInto > 3 && frameInto < clip.frameCount - 3 ? px : null)
+              setCutPx(frameInto > 3 && frameInto < clipVisibleFrames(clip) - 3 ? px : null)
             }
           : undefined
       }
