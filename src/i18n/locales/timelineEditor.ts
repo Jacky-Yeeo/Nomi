@@ -2,6 +2,10 @@ export const zhTimelineEditor = {
   arranged: '已把 {{count}} 个镜头按镜序排进时间轴',
   noShots: '生成区还没有镜头——先去生成区生成几个镜头再拼片',
   alreadyArranged: '镜头都已在时间轴上了',
+  arrangeCta: {
+    message: '有 {{count}} 个镜头可拼成初稿',
+    action: '一键拼成初稿',
+  },
   selectedClipActions: '选中片段操作',
   regenerate: '重新生成这个镜头',
   regenerateHint: '重新生成这个镜头（就地重出、贴回原位；改 prompt/参数请去画布节点）',
@@ -83,6 +87,10 @@ export const enTimelineEditor = {
   arranged: 'Arranged {{count}} shots on the timeline in shot order',
   noShots: 'There are no shots in Generation yet. Generate a few shots before arranging.',
   alreadyArranged: 'All shots are already on the timeline',
+  arrangeCta: {
+    message: '{{count}} shots ready to assemble into a draft',
+    action: 'Assemble draft',
+  },
   selectedClipActions: 'Selected clip actions',
   regenerate: 'Regenerate this shot',
   regenerateHint:
