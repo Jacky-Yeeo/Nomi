@@ -64,7 +64,7 @@ h2 em { color: var(--coral-deep); font-style: italic; }
 .chapter { align-self: stretch; display: flex; flex-direction: column; justify-content: space-between; color: var(--muted); font: 9px var(--mono); }
 .chapter strong { color: var(--coral-deep); font-weight: 500; }
 .proof-media { position: relative; margin: 0; border: 1px solid var(--ink); background: var(--paper-2); padding: 13px; box-shadow: 18px 18px 0 var(--paper-2); }
-.proof-media img { aspect-ratio: 16/9; width: 100%; object-fit: cover; border: 1px solid var(--rule); }
+.proof-media img { aspect-ratio: 16/9; width: 100%; height: auto; object-fit: cover; border: 1px solid var(--rule); }
 .proof-media::before { content: "REC"; position: absolute; top: 24px; left: 25px; z-index: 1; padding: 5px 7px; background: var(--coral); color: var(--ink); font: 8px var(--mono); }
 .proof-copy h3 { margin: 0 0 24px; font: 400 clamp(42px, 4.2vw, 68px)/.95 var(--display); letter-spacing: -.02em; }
 .proof-copy p { max-width: 470px; margin: 0; color: var(--ink-2); font-size: 15px; line-height: 1.8; }

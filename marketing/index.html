@@ -91,7 +91,7 @@ h2 em { color: var(--coral-deep); font-style: italic; }
 .chapter { align-self: stretch; display: flex; flex-direction: column; justify-content: space-between; color: var(--muted); font: 9px var(--mono); }
 .chapter strong { color: var(--coral-deep); font-weight: 500; }
 .proof-media { position: relative; margin: 0; border: 1px solid var(--ink); background: var(--paper-2); padding: 13px; box-shadow: 18px 18px 0 var(--paper-2); }
-.proof-media img { aspect-ratio: 16/9; width: 100%; object-fit: cover; border: 1px solid var(--rule); }
+.proof-media img { aspect-ratio: 16/9; width: 100%; height: auto; object-fit: cover; border: 1px solid var(--rule); }
 .proof-media::before { content: "REC"; position: absolute; top: 24px; left: 25px; z-index: 1; padding: 5px 7px; background: var(--coral); color: var(--ink); font: 8px var(--mono); }
 .proof-copy h3 { margin: 0 0 24px; font: 400 clamp(42px, 4.2vw, 68px)/.95 var(--display); letter-spacing: -.02em; }
 .proof-copy p { max-width: 470px; margin: 0; color: var(--ink-2); font-size: 15px; line-height: 1.8; }
@@ -227,22 +227,22 @@ html[data-enhanced="true"] .no-js-fallback { display: none; }
 </section>
 <div class="shell"><article class="proof" id="proof-context" data-proof="context">
   <div class="chapter"><strong>01</strong><span>CONTEXT<br />CONNECTED</span></div>
-  <figure class="proof-media"><img src="/assets/screen-script.png" alt="Nomi 故事和分镜工作区" width="1600" height="900" loading="lazy" /></figure>
+  <figure class="proof-media"><img src="/assets/screen-script.png" alt="Nomi 故事和分镜工作区" width="1600" height="900" /></figure>
   <div class="proof-copy"><h3>上下文持续连接</h3><p>故事、角色、分镜和生成证据不再散落在不同工具里；每一步都知道前面发生过什么。</p><div class="proof-tags"><span class="tag">STORY</span><span class="tag">STORYBOARD</span><span class="tag">MEMORY</span></div></div>
 </article>
 <article class="proof" id="proof-world" data-proof="world">
   <div class="chapter"><strong>02</strong><span>LOCK<br />THE<br />WORLD<br />FIRST</span></div>
-  <figure class="proof-media"><img src="/assets/screen-3d.png" alt="Nomi 3D 导演台中的人物与镜头调度" width="1600" height="900" loading="lazy" /></figure>
+  <figure class="proof-media"><img src="/assets/screen-3d.png" alt="Nomi 3D 导演台中的人物与镜头调度" width="1600" height="900" /></figure>
   <div class="proof-copy"><h3>先锁定世界</h3><p>先固定人物、场景、道具、构图和风格，让后续镜头继承同一组视觉锚点，减少身份与空间漂移。</p><div class="proof-tags"><span class="tag">CHARACTER</span><span class="tag">LOCATION</span><span class="tag">CAMERA</span></div></div>
 </article>
 <article class="proof" id="proof-canvas" data-proof="canvas">
   <div class="chapter"><strong>03</strong><span>DIRECT<br />ON<br />CANVAS</span></div>
-  <figure class="proof-media"><img src="/assets/screen-canvas.png" alt="Nomi 生成画布中的连续镜头和视觉参考" width="1600" height="900" loading="lazy" /></figure>
+  <figure class="proof-media"><img src="/assets/screen-canvas.png" alt="Nomi 生成画布中的连续镜头和视觉参考" width="1600" height="900" /></figure>
   <div class="proof-copy"><h3>在画布上导演</h3><p>在全局序列中摆素材、写提示词、调用生成，把参考、结果和下一镜头放在同一张导演桌上。</p><div class="proof-tags"><span class="tag">PROMPTS</span><span class="tag">MEDIA</span><span class="tag">GENERATE</span></div></div>
 </article>
 <article class="proof" id="proof-agentic" data-proof="agentic">
   <div class="chapter"><strong>04</strong><span>ONE<br />SENTENCE<br />TO<br />A<br />FIRST<br />CUT</span></div>
-  <figure class="proof-media"><img src="/assets/screen-agentic.jpg" alt="Nomi 一键接入 Claude Code、Codex 和 Cursor 的真实界面" width="1600" height="900" loading="lazy" /></figure>
+  <figure class="proof-media"><img src="/assets/screen-agentic.jpg" alt="Nomi 一键接入 Claude Code、Codex 和 Cursor 的真实界面" width="1600" height="900" /></figure>
   <div class="proof-copy"><h3>一句话，推进到可编辑初稿</h3><p>让 Claude Code 等 AI 助手通过 Nomi MCP 调用 Skills：建立项目、生成分镜、连接参考并推进初稿；最终画面和成片仍由你决定。</p><div class="proof-tags"><span class="tag">CLAUDE CODE</span><span class="tag">NOMI MCP</span><span class="tag">SKILLS</span></div></div>
 </article></div>
 <section id="teams" class="paths-section">

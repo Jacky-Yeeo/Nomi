@@ -93,7 +93,7 @@ function renderProofs(content) {
     const tags = proof.tags.map((tag) => `<span class="tag">${escapeText(tag)}</span>`).join('')
     return `<article class="proof" id="proof-${escapeAttr(proof.id)}" data-proof="${escapeAttr(proof.id)}">
   <div class="chapter"><strong>${escapeText(proof.number)}</strong><span>${chapter}</span></div>
-  <figure class="proof-media"><img src="${escapeAttr(proof.image)}" alt="${escapeAttr(proof.imageAlt)}" width="1600" height="900" loading="lazy" /></figure>
+  <figure class="proof-media"><img src="${escapeAttr(proof.image)}" alt="${escapeAttr(proof.imageAlt)}" width="1600" height="900" /></figure>
   <div class="proof-copy"><h3>${escapeText(proof.title)}</h3><p>${escapeText(proof.description)}</p><div class="proof-tags">${tags}</div></div>
 </article>`
   }).join('\n')

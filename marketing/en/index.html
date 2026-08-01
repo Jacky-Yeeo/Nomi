@@ -91,7 +91,7 @@ h2 em { color: var(--coral-deep); font-style: italic; }
 .chapter { align-self: stretch; display: flex; flex-direction: column; justify-content: space-between; color: var(--muted); font: 9px var(--mono); }
 .chapter strong { color: var(--coral-deep); font-weight: 500; }
 .proof-media { position: relative; margin: 0; border: 1px solid var(--ink); background: var(--paper-2); padding: 13px; box-shadow: 18px 18px 0 var(--paper-2); }
-.proof-media img { aspect-ratio: 16/9; width: 100%; object-fit: cover; border: 1px solid var(--rule); }
+.proof-media img { aspect-ratio: 16/9; width: 100%; height: auto; object-fit: cover; border: 1px solid var(--rule); }
 .proof-media::before { content: "REC"; position: absolute; top: 24px; left: 25px; z-index: 1; padding: 5px 7px; background: var(--coral); color: var(--ink); font: 8px var(--mono); }
 .proof-copy h3 { margin: 0 0 24px; font: 400 clamp(42px, 4.2vw, 68px)/.95 var(--display); letter-spacing: -.02em; }
 .proof-copy p { max-width: 470px; margin: 0; color: var(--ink-2); font-size: 15px; line-height: 1.8; }
@@ -227,22 +227,22 @@ html[data-enhanced="true"] .no-js-fallback { display: none; }
 </section>
 <div class="shell"><article class="proof" id="proof-context" data-proof="context">
   <div class="chapter"><strong>01</strong><span>CONTEXT<br />CONNECTED</span></div>
-  <figure class="proof-media"><img src="/assets/screen-script.png" alt="Nomi story and storyboard workspace" width="1600" height="900" loading="lazy" /></figure>
+  <figure class="proof-media"><img src="/assets/screen-script.png" alt="Nomi story and storyboard workspace" width="1600" height="900" /></figure>
   <div class="proof-copy"><h3>Connected context</h3><p>Story, characters, storyboard, and generation evidence stay together. Every step knows what came before.</p><div class="proof-tags"><span class="tag">STORY</span><span class="tag">STORYBOARD</span><span class="tag">MEMORY</span></div></div>
 </article>
 <article class="proof" id="proof-world" data-proof="world">
   <div class="chapter"><strong>02</strong><span>LOCK<br />THE<br />WORLD<br />FIRST</span></div>
-  <figure class="proof-media"><img src="/assets/screen-3d.png" alt="Character and camera staging in the Nomi 3D director stage" width="1600" height="900" loading="lazy" /></figure>
+  <figure class="proof-media"><img src="/assets/screen-3d.png" alt="Character and camera staging in the Nomi 3D director stage" width="1600" height="900" /></figure>
   <div class="proof-copy"><h3>Lock the world first</h3><p>Fix characters, locations, props, composition, and style first, so later shots inherit the same visual anchors.</p><div class="proof-tags"><span class="tag">CHARACTER</span><span class="tag">LOCATION</span><span class="tag">CAMERA</span></div></div>
 </article>
 <article class="proof" id="proof-canvas" data-proof="canvas">
   <div class="chapter"><strong>03</strong><span>DIRECT<br />ON<br />CANVAS</span></div>
-  <figure class="proof-media"><img src="/assets/screen-canvas.png" alt="Connected shots and visual references on the Nomi generation canvas" width="1600" height="900" loading="lazy" /></figure>
+  <figure class="proof-media"><img src="/assets/screen-canvas.png" alt="Connected shots and visual references on the Nomi generation canvas" width="1600" height="900" /></figure>
   <div class="proof-copy"><h3>Direct on canvas</h3><p>Place media, draft prompts, and call generation tools while the full sequence remains in view.</p><div class="proof-tags"><span class="tag">PROMPTS</span><span class="tag">MEDIA</span><span class="tag">GENERATE</span></div></div>
 </article>
 <article class="proof" id="proof-agentic" data-proof="agentic">
   <div class="chapter"><strong>04</strong><span>ONE<br />SENTENCE<br />TO<br />A<br />FIRST<br />CUT</span></div>
-  <figure class="proof-media"><img src="/assets/screen-agentic.jpg" alt="Real Nomi interface for connecting Claude Code, Codex, and Cursor" width="1600" height="900" loading="lazy" /></figure>
+  <figure class="proof-media"><img src="/assets/screen-agentic.jpg" alt="Real Nomi interface for connecting Claude Code, Codex, and Cursor" width="1600" height="900" /></figure>
   <div class="proof-copy"><h3>One sentence to an editable first cut</h3><p>Let Claude Code or another AI assistant call Nomi over MCP and use Skills to build the project, storyboard the shot, connect references, and advance a first cut. You keep final control.</p><div class="proof-tags"><span class="tag">CLAUDE CODE</span><span class="tag">NOMI MCP</span><span class="tag">SKILLS</span></div></div>
 </article></div>
 <section id="teams" class="paths-section">
