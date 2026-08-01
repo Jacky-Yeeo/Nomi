@@ -89,6 +89,6 @@ Bug reports, feature proposals, documentation, and code contributions are welcom
 
 ## License
 
-Current releases are licensed under AGPL-3.0-only. Historical releases published under Apache-2.0 keep their original license.
+Current releases are licensed under AGPL-3.0-only; historical releases published under Apache-2.0 keep their original license.
 
 See [LICENSE](LICENSE). Contact the maintainer through the [Business inquiry](https://github.com/aqm857886159/Nomi/issues/new?template=business_inquiry.yml) for a commercial license covering closed-source integration or white-label distribution.

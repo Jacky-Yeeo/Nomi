@@ -10,6 +10,8 @@ const expect = (value, message) => {
 
 const zh = read('marketing/index.html')
 const en = read('marketing/en/index.html')
+const sitemap = read('marketing/sitemap.xml')
+const headers = read('marketing/_headers')
 const files = [
   'marketing/assets/video/hero-loop.mp4',
   'marketing/assets/demo.mp4',
@@ -47,4 +49,13 @@ for (const rel of files) expect(fs.existsSync(path.join(root, rel)), `${rel} exi
 expect(!fs.existsSync(path.join(root, 'marketing/assets/demo.gif')), 'legacy demo GIF removed')
 expect(!fs.existsSync(path.join(root, 'marketing/assets/vendor/gsap.min.js')), 'GSAP removed')
 expect(!fs.existsSync(path.join(root, 'marketing/assets/vendor/ScrollTrigger.min.js')), 'ScrollTrigger removed')
+expect(sitemap.includes('<loc>https://nomiaqm.com/en/</loc>'), 'English route in sitemap')
+expect((zh.match(/<meta property="og:locale"/g) || []).length === 1, 'one Chinese OG locale')
+expect((en.match(/<meta property="og:locale"/g) || []).length === 1, 'one English OG locale')
+expect(zh.includes('social-preview-zh.jpg'), 'Chinese social card')
+expect(en.includes('social-preview-en.jpg'), 'English social card')
+expect(read('README.md').includes('historical releases'), 'English historical-license context')
+expect(read('README.zh-CN.md').includes('历史版本'), 'Chinese historical-license context')
+expect(headers.includes('/en/index.html'), 'English HTML cache rule')
+expect(headers.includes('/assets/video/*') && headers.includes('max-age=3600, must-revalidate'), 'stable media filenames revalidate')
 console.log('MARKETING HOME STATIC PASS')
