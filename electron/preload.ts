@@ -60,6 +60,11 @@ contextBridge.exposeInMainWorld("nomiDesktop", {
     select: (id: unknown) => ipcRenderer.send("browser:chrome-menu:select", id),
     cancel: () => ipcRenderer.send("browser:chrome-menu:cancel"),
   },
+  proxy: {
+    get: () => ipcRenderer.invoke("nomi:proxy:get"),
+    set: (payload: unknown) => ipcRenderer.invoke("nomi:proxy:set", payload),
+    test: () => ipcRenderer.invoke("nomi:proxy:test"),
+  },
   workspace: {
     selectFolder: () => ipcRenderer.invoke("nomi:workspace:select-folder"),
     openFolder: (payload: unknown) => ipcRenderer.invoke("nomi:workspace:open-folder", payload),

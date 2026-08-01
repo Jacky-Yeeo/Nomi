@@ -1,12 +1,16 @@
 import { afterEach, describe, expect, it } from "vitest";
-import type { Dispatcher } from "undici";
+import { getGlobalDispatcher, setGlobalDispatcher, type Dispatcher } from "undici";
 // 从纯模块导入，避免触发 electron 运行时（CI 纯 Node 会失败）。Session 仅类型引用，已被擦除。
+// ⚠️ 本模块**刻意不引 proxySettings**（那条链 → runtimePaths → electron），偏好由调用方注入。
 import {
+  applySystemProxy,
   describeNetworkError,
+  getProxyStatus,
   parseEnvProxy,
   parseResolveProxyString,
   rememberProxyStateForTests,
   resetProxyStateForTests,
+  resolveProxy,
   SelectiveProxyDispatcher,
 } from "./systemProxy";
 
@@ -156,5 +160,121 @@ describe("describeNetworkError（把 fetch failed 翻成人话）", () => {
   it("生效 HTTP 代理后 → 诊断带出代理标签（回归既有行为）", () => {
     rememberProxyStateForTests({ kind: "http", url: "http://127.0.0.1:7897", source: "system" });
     expect(describeNetworkError(withCause("ETIMEDOUT"))).toMatch(/当前代理/);
+  });
+});
+
+// ── 应用内三态设置（2026-08-01，见 docs/plan/2026-08-01-in-app-proxy-setting.md）──────────
+// 用户偏好必须**先于**探测：这正是「给 Nomi 单独设代理」这个需求成立的地方。
+describe("resolveProxy — 用户偏好先于系统探测", () => {
+  const askedSession = (answer: string, calls: string[]) =>
+    ({
+      resolveProxy: async (url: string) => {
+        calls.push(url);
+        return answer;
+      },
+    }) as never;
+
+  it("不用代理 → 直连，且**根本不问系统**（问了就说明偏好没生效）", async () => {
+    const calls: string[] = [];
+    const r = await resolveProxy(askedSession("PROXY 127.0.0.1:7897", calls), { mode: "off", customUrl: "" });
+    expect(r).toEqual({ kind: "none" });
+    expect(calls).toEqual([]);
+  });
+
+  it("自定义 → 用用户填的，不回落系统（回落会让「我明明关了系统代理」变得不可预期）", async () => {
+    const calls: string[] = [];
+    const r = await resolveProxy(askedSession("PROXY 10.0.0.1:1080", calls), {
+      mode: "custom",
+      customUrl: "127.0.0.1:7897",
+    });
+    expect(r).toEqual({ kind: "http", url: "http://127.0.0.1:7897", source: "custom" });
+    expect(calls).toEqual([]);
+  });
+
+  it("自定义填了 SOCKS → unsupported（本版只支持 HTTP），来源标 custom", async () => {
+    const r = await resolveProxy(askedSession("DIRECT", []), { mode: "custom", customUrl: "socks5://127.0.0.1:7897" });
+    expect(r.kind).toBe("unsupported");
+    expect(r.kind === "unsupported" && r.source).toBe("custom");
+  });
+
+  // ⚠️ resolveProxy 直读 process.env，而开发机/CI 上很可能真的导出着 HTTPS_PROXY。
+  // 不清场的话这条会随环境变绿变红（我第一版就被自己机器上的 Clash 变量弄挂了）。
+  const PROXY_ENV_KEYS = ["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"];
+  function withoutProxyEnv<T>(run: () => T): T {
+    const saved = new Map(PROXY_ENV_KEYS.map((k) => [k, process.env[k]] as const));
+    for (const k of PROXY_ENV_KEYS) delete process.env[k];
+    try {
+      return run();
+    } finally {
+      for (const [k, v] of saved) if (v !== undefined) process.env[k] = v;
+    }
+  }
+
+  it("跟随系统 · env 为空 → 问 session", async () => {
+    const calls: string[] = [];
+    const r = await withoutProxyEnv(() =>
+      resolveProxy(askedSession("PROXY 127.0.0.1:7897", calls), { mode: "system", customUrl: "" }),
+    );
+    expect(r).toEqual({ kind: "http", url: "http://127.0.0.1:7897", source: "system" });
+    expect(calls).toEqual(["https://api.openai.com"]);
+  });
+
+  it("跟随系统 · env 有值 → env 优先，不再问 session（用户显式设置压过系统）", async () => {
+    const calls: string[] = [];
+    const saved = process.env.HTTPS_PROXY;
+    process.env.HTTPS_PROXY = "http://10.1.1.1:8080";
+    try {
+      const r = await resolveProxy(askedSession("PROXY 127.0.0.1:7897", calls), { mode: "system", customUrl: "" });
+      expect(r).toEqual({ kind: "http", url: "http://10.1.1.1:8080", source: "env" });
+      expect(calls).toEqual([]);
+    } finally {
+      if (saved === undefined) delete process.env.HTTPS_PROXY;
+      else process.env.HTTPS_PROXY = saved;
+    }
+  });
+});
+
+describe("getProxyStatus — 选了什么 × 实际生效什么", () => {
+  it("探到 SOCKS 时说「未生效」而不是「直连」——用户其实开着代理，说直连是误导", () => {
+    rememberProxyStateForTests({ kind: "unsupported", detail: "系统代理是 SOCKS（SOCKS5 127.0.0.1:7897）", source: "system" });
+    const s = getProxyStatus({ mode: "system", customUrl: "" });
+    expect(s.unsupported).toMatch(/SOCKS/);
+    expect(s.activeUrl).toBe("");
+  });
+
+  it("生效时带出实际地址与来源", () => {
+    rememberProxyStateForTests({ kind: "http", url: "http://127.0.0.1:7897", source: "custom" });
+    const s = getProxyStatus({ mode: "custom", customUrl: "http://127.0.0.1:7897" });
+    expect(s).toMatchObject({ mode: "custom", activeUrl: "http://127.0.0.1:7897", source: "custom", unsupported: "" });
+  });
+});
+
+describe("applySystemProxy 可重复调用（热切换是本设置的前提）", () => {
+  const fakeSession = { resolveProxy: async () => "DIRECT", setProxy: async () => {} } as never;
+
+  it("二次调用不套娃：第二次的「直连档」仍是原始 dispatcher，不是上一次装的 Selective", async () => {
+    const original = getGlobalDispatcher();
+    try {
+      await applySystemProxy(fakeSession, { mode: "custom", customUrl: "http://127.0.0.1:7897" });
+      const first = getGlobalDispatcher() as unknown as { direct: unknown };
+      await applySystemProxy(fakeSession, { mode: "custom", customUrl: "http://127.0.0.1:7898" });
+      const second = getGlobalDispatcher() as unknown as { direct: unknown };
+      expect(second.direct).toBe(first.direct);
+      expect(second.direct).not.toBeInstanceOf(SelectiveProxyDispatcher);
+    } finally {
+      setGlobalDispatcher(original);
+    }
+  });
+
+  it("切到「不用代理」必须把 dispatcher 还原——否则界面说直连、实际还在走代理（比不给设置更糟）", async () => {
+    const original = getGlobalDispatcher();
+    try {
+      await applySystemProxy(fakeSession, { mode: "custom", customUrl: "http://127.0.0.1:7897" });
+      expect(getGlobalDispatcher()).toBeInstanceOf(SelectiveProxyDispatcher);
+      await applySystemProxy(fakeSession, { mode: "off", customUrl: "http://127.0.0.1:7897" });
+      expect(getGlobalDispatcher()).not.toBeInstanceOf(SelectiveProxyDispatcher);
+    } finally {
+      setGlobalDispatcher(original);
+    }
   });
 });

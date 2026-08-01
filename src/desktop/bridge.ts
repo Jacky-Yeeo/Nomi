@@ -25,6 +25,30 @@ export type PersistedConversationsV2 = {
   committedProposal?: unknown
 }
 
+/** 代理三态：跟随系统探测 / 只对 Nomi 生效的自定义地址 / 强制直连。 */
+export type DesktopProxyMode = 'system' | 'custom' | 'off'
+
+/** 用户选了什么 × 实际生效什么。两者不一致时正是用户最需要看见的（如探到 SOCKS 但用不了）。 */
+export type DesktopProxyStatus = {
+  mode: DesktopProxyMode
+  customUrl: string
+  /** 实际生效的代理地址；直连时空串。 */
+  activeUrl: string
+  /** 探到但本版用不了（SOCKS 等）的人话详情；否则空串。 */
+  unsupported: string
+  source: 'env' | 'system' | 'custom' | ''
+}
+
+export type DesktopProxyProbeAttempt = { target: string; ok: boolean; ms: number; error: string }
+/** ok = 上传链里**任一** host 可达（那就送得出图）；tried 逐项留痕，用来看「是不是已经断了一半」。 */
+export type DesktopProxyProbe = {
+  ok: boolean
+  ms: number
+  target: string
+  error: string
+  tried: DesktopProxyProbeAttempt[]
+}
+
 export type DesktopAssetDto = {
   id: string
   name: string
@@ -604,6 +628,15 @@ export type DesktopBridge = {
     /** 手动更新兜底：开浏览器到 GitHub 最新 release（未签名 mac 无法就地装时用）。 */
     openRelease: () => Promise<{ ok: boolean }>
     onEvent: (callback: (event: DesktopUpdateEvent) => void) => () => void
+  }
+  /**
+   * 应用内代理设置（见 docs/plan/2026-08-01-in-app-proxy-setting.md）。
+   * set 会**即时重装 dispatcher**并返回新状态，调用方直接用返回值刷 UI，不必重新 get。
+   */
+  proxy?: {
+    get: () => Promise<{ ok: boolean; status: DesktopProxyStatus }>
+    set: (payload: { mode: DesktopProxyMode; customUrl: string }) => Promise<{ ok: boolean; status: DesktopProxyStatus }>
+    test: () => Promise<{ ok: boolean; result: DesktopProxyProbe; status: DesktopProxyStatus }>
   }
   modelCatalog: {
     listVendors: () => unknown[]

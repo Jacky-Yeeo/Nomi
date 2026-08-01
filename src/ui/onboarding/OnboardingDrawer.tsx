@@ -27,6 +27,7 @@ import { confirmAndDeleteVendor } from './vendorDeleteAction'
 import { ConnectAssistantCard, type McpInfo } from './ConnectAssistantCard'
 import { DreaminaMemberCard, type DreaminaStatus } from './DreaminaMemberCard'
 import { ComfyuiLocalCard, COMFYUI_VENDOR_KEY } from './ComfyuiLocalCard'
+import { NetworkSection } from './NetworkSection'
 import { CODEX_LOCAL_VENDOR_KEY } from './codexLocalProvider'
 import { KNOWN_VENDORS, isKnownVendor } from '../../config/knownVendors'
 import { getDesktopBridge } from '../../desktop/bridge'
@@ -333,6 +334,10 @@ export function OnboardingDrawer(): JSX.Element {
           })}
         </div>
       </div>
+
+      {/* 网络（代理）行：能力条之下、「已接入」之上。位置理由见 NetworkSection 头注释——
+          面板已顶到视口高度上限，放底部就等于「用户最急的时候要滚过十几张卡才找得到」。 */}
+      <NetworkSection />
 
       {bridgeMissing ? (
         <div className="px-4 py-6 flex flex-col items-start gap-2">

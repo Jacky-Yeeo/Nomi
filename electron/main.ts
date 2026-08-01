@@ -39,6 +39,7 @@ import { registerMemoryIpc } from "./memory/memoryIpc";
 import { registerPromptLibraryIpc } from "./promptLibrary/promptLibraryIpc";
 import { registerBrowserViewIpc } from "./browser/core/browserViews";
 import { registerBrowserPromptExtractionSettingsIpc } from "./browser/settings/browserPromptExtractionSettings";
+import { registerProxyIpc } from "./proxyIpc";
 import { catalogSecretsProvider } from "./events/secretsProvider";
 import { registerOnboardingIpc } from "./ai/onboarding/onboardingIpc";
 import { registerUpdaterIpc } from "./update/autoUpdater";
@@ -649,6 +650,7 @@ function registerIpc(): void {
   registerMemoryIpc();
   registerPromptLibraryIpc();
   registerBrowserPromptExtractionSettingsIpc();
+  registerProxyIpc();
   registerBrowserViewIpc(getRendererUrl);
   registerOnboardingIpc();
   registerUpdaterIpc();
@@ -754,11 +756,9 @@ if (hasSingleInstanceLock)
       await createWindow();
       setTimeout(
         () => {
-          void import("./systemProxy")
-            .then(({ applySystemProxy }) => applySystemProxy(session.defaultSession))
-            .catch((error) => {
-              console.error("[nomi:desktop] applySystemProxy failed:", error);
-            })
+          void import("./proxyIpc")
+            .then(({ applyProxyAtBoot }) => applyProxyAtBoot())
+            .catch((error) => console.error("[nomi:desktop] proxy boot failed:", error))
             // 代理定型后装 vendor 候选域自愈（apimart 被墙自动切官方备用域；回切探测走最终 dispatcher）。
             .then(() => import("./vendor/vendorBaseFallbackBoot"))
             .then((m) => m.configureVendorBaseFallbackAtBoot())
