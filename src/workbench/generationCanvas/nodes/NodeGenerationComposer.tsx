@@ -9,7 +9,8 @@ import { cn } from '../../../utils/cn'
 import { fetchUserPrompts, type PromptMediaType, type PromptReferenceImage } from '../../api/promptLibraryApi'
 import PromptEditor from '../../assets/PromptEditor'
 import { promptToContent } from '../../assets/promptEditorContent'
-import { resolveReferenceSlots } from '../runner/referenceSlots'
+import { useAllProjectAssets } from '../../assets/useAllProjectAssets'
+import { useNodeMentionSource } from './useNodeMentionSource'
 import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import { canRunGenerationNode, confirmAndRunNode, confirmAndRunNodeVariants, regenerateNodeInPlace } from '../runner/generationRunController'
@@ -287,12 +288,17 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
   const { acceptsDrop, isDragOver, isUploading, dropHandlers } = useNodeAssetDrop(node)
   // @ 候选 = 当前模式 image_ref 槽的有序填充（连线在前+上传，option 2 单源），与面板编号①②③、
   // 发送的 reference_image 数组同一口径——连线进来的参考图也在候选里、能被 @（此前只读 meta 漏掉边）。
-  const mentionNodes = useGenerationCanvasStore((state) => state.nodes)
-  const mentionEdges = useGenerationCanvasStore((state) => state.edges)
-  const mentionCandidates = React.useMemo(() => {
-    const imageSlot = resolveReferenceSlots(node, mentionNodes, mentionEdges).find((s) => s.slotKind === 'image_ref')
-    return imageSlot ? imageSlot.fills.flatMap((f) => (f.url ? [f.url] : [])) : []
-  }, [node, mentionNodes, mentionEdges])
+  // 候选已扩到三组：当前参考 / 画布已出图节点 / 素材库。后两组选中会**先真的建立引用**再插 chip
+  // （建边或落上传槽，都过能力校验闸），见 useNodeMentionSource。
+  const { assets: projectAssets } = useAllProjectAssets()
+  const mentionLibraryAssets = React.useMemo(
+    () => projectAssets
+      .filter((asset) => asset.kind === 'image' && asset.renderUrl)
+      .map((asset) => ({ id: asset.id, name: asset.name, url: asset.renderUrl })),
+    [projectAssets],
+  )
+  const { orderedReferenceUrls: mentionCandidates, mentionSearch, onMentionSelect } =
+    useNodeMentionSource(node, mentionLibraryAssets)
   const insertMention = React.useCallback((url: string) => {
     if (!promptEditor || promptEditor.isDestroyed) return
     const index = mentionCandidates.indexOf(url)
@@ -692,6 +698,8 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
             onBlur={() => { void persistActiveWorkbenchProjectNow().catch(() => {}) }}
             onReady={setPromptEditor}
             mentionCandidates={mentionCandidates}
+            mentionSearch={mentionSearch}
+            onMentionSelect={onMentionSelect}
           />
         </div>
       )}
