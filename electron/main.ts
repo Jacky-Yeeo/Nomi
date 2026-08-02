@@ -25,6 +25,7 @@ import {
 import { runTaskWithIdempotency } from "./submissionLedger";
 import { runTaskIpcGuard } from "./tasks/taskIpcGuard";
 import { mintSpendGrant } from "./spendGrant";
+import { registerNotificationIpc } from "./notificationIpc";
 import { openWorkspaceFolder, selectWorkspaceFolder } from "./workspace/workspaceIpc";
 import { listWorkspaceFiles, resolveWorkspaceFilePath } from "./workspace/workspaceFileIndex";
 import { registerWorkspaceFileDeleteIpc } from "./workspace/workspaceFileDelete";
@@ -458,6 +459,9 @@ function registerIpc(): void {
   // ComfyUI 域 IPC（探测/导入/缺件对账）全住 electron/comfyuiIpc.ts（main.ts 800 行门腾空间）。
   const { registerComfyuiIpc } = require("./comfyuiIpc") as typeof import("./comfyuiIpc");
   registerComfyuiIpc(registerSyncIpc);
+  // 系统通知（任务跑完且窗口失焦时）住 electron/notificationIpc.ts，同样为 800 行门腾空间。
+  // 静态 import 而非惰性 require：该文件只依赖 electron 本身，载入零成本，且不吃 no-require-imports 警告配额。
+  registerNotificationIpc();
   // Skill / Playbook 域（业务函数在 electron/skills/*，这里只接同步 IPC 管道）。
   registerSyncIpc("nomi:skill:list", () => {
     const { listSkillsForRenderer } = require("./skills/skillIpc") as typeof import("./skills/skillIpc");

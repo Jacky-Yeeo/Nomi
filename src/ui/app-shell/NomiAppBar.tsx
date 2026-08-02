@@ -4,6 +4,8 @@ import { IconBrowser, IconDownload, IconPlugConnected, IconSettings } from '@tab
 import type { WorkspaceMode } from '../../workbench/workbenchStore'
 import { NomiBrand, NomiStepper, WorkbenchButton } from '../../design'
 import { OnboardingChecklist } from '../../workbench/onboarding/OnboardingChecklist'
+import { TaskCenterButton } from '../../workbench/taskCenter/TaskCenterButton'
+import { useGenerationCanvasStore } from '../../workbench/generationCanvas/store/generationCanvasStore'
 import { AboutNomiPopover } from './AboutNomiPopover'
 import { LanguageMenuButton } from './LanguageMenuButton'
 import { cn } from '../../utils/cn'
@@ -203,6 +205,13 @@ export default function NomiAppBar({
         role="toolbar"
         aria-label={t('appBar.globalActions')}
       >
+        {/* 任务中心：跨三个工作区常驻的生成进度入口（闲着且没跑过时自己隐藏，不占位）。 */}
+        <TaskCenterButton
+          onRevealNode={(nodeId) => {
+            onWorkspaceModeChange('generation')
+            useGenerationCanvasStore.getState().selectNodes([nodeId])
+          }}
+        />
         {/* 语言切换（文/A）：全平台常驻，从「关于」弹窗移出为唯一独立入口（PR#50）。 */}
         <LanguageMenuButton className="size-[30px]" />
         {/* 上手 4 步引导入口：非 win32 住这里（始终高/不遮画布，4/4 自动消失）。

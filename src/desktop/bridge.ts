@@ -317,6 +317,10 @@ export type DesktopBridge = {
     }) => Promise<{ ok: boolean; deletedCount: number; failedCount: number }>
     revealProjectFolder: (payload: { projectId: string }) => Promise<{ ok: boolean }>
   }
+  /** 系统通知（任务中心：跑完且窗口失焦才发）。可选 —— 老 preload / 测试环境没有时调用端降级到自制提示音。 */
+  notifications?: {
+    show: (payload: { title: string; body?: string; silent?: boolean }) => Promise<{ ok: boolean; reason?: string }>
+  }
   projects: {
     list: () => unknown[]
     listAsync?: () => Promise<unknown[]>

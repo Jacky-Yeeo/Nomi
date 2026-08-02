@@ -435,3 +435,272 @@ describe("combo 真实选项烤入（collectGraphEnumOptions + buildImportedWork
     expect(online.parameters.find((p) => p.key === "comfy_seed")?.type).toBe("number");
   });
 });
+
+describe("识别缺口三根因（259 张真实官方模板语料实测逼出来的）", () => {
+  it("根因A：云端 API 节点把 prompt 直接写在自己节点上（无独立 CLIPTextEncode）也要认", () => {
+    // ByteDance/Grok/Gemini/Kling/Runway 等云端节点形态：语料里 112/154 张失败都是这个
+    const graph: ComfyGraph = {
+      "1": { class_type: "ByteDanceImageNode", inputs: { model: "seedream-4", prompt: "一只在雨中奔跑的橘猫，电影感", size: "2K" } },
+      "2": { class_type: "SaveImage", inputs: { filename_prefix: "x", images: ["1", 0] } },
+    };
+    const a = analyzeComfyWorkflow(graph);
+    expect(a.suggested.promptNodeId).toBe("1");
+    expect(a.suggested.promptInputKey).toBe("prompt");
+  });
+
+  it("根因A 边界：文件名/路径样的字符串不能被当成提示词", () => {
+    const graph: ComfyGraph = {
+      "1": { class_type: "SomeLoader", inputs: { prompt: "model_v2.safetensors" } },
+      "2": { class_type: "SomeSaver", inputs: { text: "video/ComfyUI" } },
+      "9": { class_type: "SaveImage", inputs: { filename_prefix: "x" } },
+    };
+    expect(analyzeComfyWorkflow(graph).suggested.promptNodeId).toBeUndefined();
+  });
+
+  it("根因A 排序：多个 prompt 时取最长的（云端节点里正向通常比负向长）", () => {
+    const graph: ComfyGraph = {
+      "1": { class_type: "ApiNode", inputs: { prompt: "短的" } },
+      "2": { class_type: "ApiNode", inputs: { prompt: "很长很长的正向提示词，描述了完整的画面内容与镜头语言" } },
+      "9": { class_type: "SaveImage", inputs: { filename_prefix: "x" } },
+    };
+    expect(analyzeComfyWorkflow(graph).suggested.promptNodeId).toBe("2");
+  });
+
+  it("根因B：PreviewImage/MaskPreview 也是输出（纯图工作流此前被判「无输出」整张不可导入）", () => {
+    const graph: ComfyGraph = {
+      "1": { class_type: "CLIPTextEncode", inputs: { text: "a cat" } },
+      "2": { class_type: "PreviewImage", inputs: { images: ["1", 0] } },
+    };
+    const a = analyzeComfyWorkflow(graph);
+    expect(a.suggested.outputNodeId).toBe("2");
+    expect(a.suggested.outputKind).toBe("image");
+  });
+
+  it("根因B 诚实边界：真存不下的（音频）标 unsupported，绝不硬塞成图", () => {
+    const graph: ComfyGraph = {
+      "1": { class_type: "CLIPTextEncode", inputs: { text: "a chair" } },
+      "3": { class_type: "SaveAudioMP3", inputs: { audio: ["1", 0] } },
+    };
+    const a = analyzeComfyWorkflow(graph);
+    expect(a.outputNodes.map((o) => o.kind)).toEqual(["unsupported"]);
+    // 不进建议绑定 → UI 侧据此提示「产出类型 Nomi 暂不支持」，而不是导入个存不下的东西
+    expect(a.suggested.outputNodeId).toBeUndefined();
+    expect(a.suggested.outputKind).toBeUndefined();
+  });
+
+  it("根因C：LoadVideo 也是媒体输入 —— 但键是 file 不是 image（旧 fixture 是我编的，真机 object_info 才是准的）", () => {
+    const graph: ComfyGraph = {
+      "1": { class_type: "LoadVideo", inputs: { file: "input.mp4" } },
+      "2": { class_type: "SaveVideo", inputs: { video: ["1", 0] } },
+    };
+    const a = analyzeComfyWorkflow(graph);
+    expect(a.imageInputs.map((i) => i.nodeId)).toContain("1");
+    // 收视频 → 进源视频槽，不是首帧图槽
+    expect(a.suggested.sourceVideoNodeId).toBe("1");
+    expect(a.suggested.firstFrameNodeId).toBeUndefined();
+  });
+
+  it("根因D：text-encode 变体多文本键（Flux clip_l/t5xxl、音频 tags/lyrics）", () => {
+    const graph: ComfyGraph = {
+      "1": { class_type: "CLIPTextEncodeFlux", inputs: { clip_l: "a fox", t5xxl: "a fox in snow, cinematic" } },
+      "9": { class_type: "SaveImage", inputs: { filename_prefix: "x", images: ["1", 0] } },
+    };
+    expect(analyzeComfyWorkflow(graph).textInputs.map((t) => t.inputKey).sort()).toEqual(["clip_l", "t5xxl"]);
+  });
+
+  it("根因E：独立字符串节点直接摆提示词（没连去 text-encode）", () => {
+    const graph: ComfyGraph = {
+      "1": { class_type: "PrimitiveStringMultiline", inputs: { value: "赛博朋克街景，霓虹灯" } },
+      "9": { class_type: "SaveImage", inputs: { filename_prefix: "x" } },
+    };
+    expect(analyzeComfyWorkflow(graph).suggested.promptNodeId).toBe("1");
+  });
+
+  it("不回归：标准 SD 图仍走 positive 连线追溯（语义最准的那条路优先）", () => {
+    const a = analyzeComfyWorkflow(SD_T2I);
+    expect(a.suggested.promptNodeId).toBe("6");
+    expect(a.suggested.outputNodeId).toBe("9");
+  });
+});
+
+describe("提示词键名按规则派生（不再用追不完的白名单）", () => {
+  it("认得出真实存在的各种变体（实测本机 ComfyUI 全量 object_info 扫出来的）", async () => {
+    const { isPromptLikeKey } = await import("./comfyuiWorkflowImport");
+    for (const k of ["prompt", "text", "description", "prompt_text", "user_prompt", "structured_prompt",
+      "text_prompt", "texture_prompt", "text_style_prompt", "positive_prompt", "PROMPT"]) {
+      expect(isPromptLikeKey(k), k).toBe(true);
+    }
+  });
+
+  it("排除明确不是正向的（负向 30 个节点类 / 系统提示词 9 个）", async () => {
+    const { isPromptLikeKey } = await import("./comfyuiWorkflowImport");
+    for (const k of ["negative_prompt", "system_prompt", "negative", "negative_text"]) {
+      expect(isPromptLikeKey(k), k).toBe(false);
+    }
+  });
+
+  it("不误伤无关键名", async () => {
+    const { isPromptLikeKey } = await import("./comfyuiWorkflowImport");
+    for (const k of ["ckpt_name", "filename_prefix", "seed", "sampler_name", "image"]) {
+      expect(isPromptLikeKey(k), k).toBe(false);
+    }
+  });
+
+  it("端到端：Minimax 文生视频（prompt_text）现在能识别出提示词", () => {
+    const graph: ComfyGraph = {
+      "1": { class_type: "MinimaxTextToVideoNode", inputs: { prompt_text: "A stunning young woman in a golden wheat field", model: "T2V-01" } },
+      "2": { class_type: "SaveVideo", inputs: { video: ["1", 0], filename_prefix: "video/ComfyUI" } },
+    };
+    const a = analyzeComfyWorkflow(graph);
+    expect(a.suggested.promptNodeId).toBe("1");
+    expect(a.suggested.promptInputKey).toBe("prompt_text");
+  });
+});
+
+describe("3D 产物打通（此前是我自己凭记忆挡的门 —— Nomi 本就有 model3d 一等公民）", () => {
+  it("SaveGLB → 认成 3D 产物，taskKind=text_to_3d", () => {
+    const graph: ComfyGraph = {
+      "1": { class_type: "CLIPTextEncode", inputs: { text: "a wooden chair" } },
+      "2": { class_type: "SaveGLB", inputs: { model_file: ["1", 0] } },
+    };
+    const a = analyzeComfyWorkflow(graph);
+    expect(a.outputNodes.map((o) => o.kind)).toEqual(["model3d"]);
+    expect(a.suggested.outputNodeId).toBe("2");
+    expect(a.suggested.outputKind).toBe("model3d");
+    const built = buildImportedWorkflow(graph, a.suggested);
+    expect(built.kind).toBe("model3d");
+    expect(built.taskKind).toBe("text_to_3d");
+    const { model, mapping } = buildComfyImportModelMapping(built, { modelKey: "comfy-3d", labelZh: "文生 3D" });
+    expect((model as { kind: string }).kind).toBe("model3d");
+    expect((mapping as { taskKind: string }).taskKind).toBe("text_to_3d");
+    // runtime 的 mappedAssetValues 认 model_url —— 读错键 = 生成完了拿不到东西
+    expect((mapping as { query: { response_mapping: Record<string, string> } }).query.response_mapping.model_url).toBe("model_url");
+  });
+
+  it("图生 3D（单图转模型是最常见那种）→ image_to_3d，首帧槽还在", () => {
+    const graph: ComfyGraph = {
+      "1": { class_type: "LoadImage", inputs: { image: "chair.png" } },
+      "2": { class_type: "Hunyuan3Dv2", inputs: { image: ["1", 0] } },
+      "3": { class_type: "Preview3D", inputs: { model_file: ["2", 0] } },
+    };
+    const a = analyzeComfyWorkflow(graph);
+    expect(a.suggested.outputKind).toBe("model3d");
+    const built = buildImportedWorkflow(graph, a.suggested);
+    expect(built.taskKind).toBe("image_to_3d");
+    expect(built.kind).toBe("model3d");
+    // 首帧槽真被占位替换了（不是只在 taskKind 上写了个名字）
+    expect(JSON.stringify(built.templatedGraph)).toContain("{{request.params.first_frame_url}}");
+  });
+
+  it("3D 工作流常同时挂 SaveImage 预览 → 优先认 3D（不退化成一张图）", () => {
+    const graph: ComfyGraph = {
+      "1": { class_type: "LoadImage", inputs: { image: "x.png" } },
+      "8": { class_type: "SaveImage", inputs: { images: ["1", 0] } },
+      "9": { class_type: "SaveGLB", inputs: { model_file: ["1", 0] } },
+    };
+    expect(analyzeComfyWorkflow(graph).suggested.outputKind).toBe("model3d");
+  });
+});
+
+describe("SaveWEBM 是视频（取回侧一直当视频，识别侧却挡着 —— 同一类自设的门）", () => {
+  it("透明背景视频（Bria 那张官方模板）→ 认成 video 而非 unsupported", () => {
+    const graph: ComfyGraph = {
+      "1": { class_type: "LoadVideo", inputs: { video: "in.mp4" } },
+      "2": { class_type: "BriaTransparentVideoBackground", inputs: { video: ["1", 0] } },
+      "3": { class_type: "SaveWEBM", inputs: { images: ["2", 0] } },
+    };
+    const a = analyzeComfyWorkflow(graph);
+    expect(a.suggested.outputKind).toBe("video");
+    expect(a.outputNodes.find((o) => o.classType === "SaveWEBM")?.kind).toBe("video");
+  });
+});
+
+describe("正向/负向不能搞反（搞反 = 用户打的字全进反向槽，生成的正好是他不想要的）", () => {
+  // WAN/LTX/Flux 通用链形：KSampler.positive → 中间条件节点 → CLIPTextEncode
+  const CHAINED_POSITIVE: ComfyGraph = {
+    "107": { class_type: "CLIPTextEncode", _meta: { title: "Positive Prompt" }, inputs: { text: "一只小鹰", clip: ["105", 0] } },
+    "125": { class_type: "CLIPTextEncode", _meta: { title: "Negative Prompt" }, inputs: { text: "色调艳丽，过曝，静态，细节模糊不清，字幕，最差质量，低质量，丑陋的，残缺的", clip: ["105", 0] } },
+    "128": { class_type: "WanImageToVideo", inputs: { positive: ["107", 0], negative: ["125", 0], start_image: ["97", 0] } },
+    "110": { class_type: "KSamplerAdvanced", inputs: { positive: ["128", 0], negative: ["128", 1] } },
+    "97": { class_type: "LoadImage", inputs: { image: "start.png" } },
+    "108": { class_type: "SaveVideo", inputs: { video: ["110", 0] } },
+  };
+
+  it("多跳追 positive 链：穿过 WanImageToVideo 落到 107，不是停在中间节点", () => {
+    expect(analyzeComfyWorkflow(CHAINED_POSITIVE).suggested.promptNodeId).toBe("107");
+  });
+
+  it("退到启发式时也不选负向：负向更长，但标题写着 Negative → 仍选正向", () => {
+    // 去掉 positive 连线（云端 API 节点形态），只剩两个并列文本节点
+    const noLink: ComfyGraph = {
+      "107": CHAINED_POSITIVE["107"],
+      "125": CHAINED_POSITIVE["125"],
+      "108": { class_type: "SaveImage", inputs: { filename_prefix: "x" } },
+    };
+    const a = analyzeComfyWorkflow(noLink);
+    expect(String(a.textInputs.find((t) => t.nodeId === "125")?.value).length)
+      .toBeGreaterThan(String(a.textInputs.find((t) => t.nodeId === "107")?.value).length); // 负向确实更长
+    expect(a.suggested.promptNodeId).toBe("107");
+  });
+
+  it("负向键名同样排除（negative_prompt 摆在节点上的云端形态）", () => {
+    const graph: ComfyGraph = {
+      "1": { class_type: "KlingTextToVideoNode", inputs: { prompt: "猫", negative_prompt: "模糊，低质量，扭曲的手，多余的手指，水印，字幕" } },
+      "2": { class_type: "SaveVideo", inputs: { video: ["1", 0] } },
+    };
+    expect(analyzeComfyWorkflow(graph).suggested.promptInputKey).toBe("prompt");
+  });
+});
+
+describe("视频输入通道（补帧/视频超分/视频去背景 —— 语料 29 张，此前一张都绑不上）", () => {
+  // 真机 /object_info 实测：核心 LoadVideo 的输入键叫 file（不是 image）。
+  const FRAME_INTERP: ComfyGraph = {
+    "1": { class_type: "LoadVideo", inputs: { file: "clip.mp4" } },
+    "2": { class_type: "FrameInterpolationModelLoader", inputs: { ckpt_name: "rife47.pth" } },
+    "3": { class_type: "FrameInterpolate", inputs: { video: ["1", 0], model: ["2", 0], multiplier: 2 } },
+    "4": { class_type: "SaveVideo", inputs: { video: ["3", 0], filename_prefix: "interp" } },
+  };
+
+  it("LoadVideo.file 认得出来（写死 inputKey==='image' 时它整个隐形）", () => {
+    const a = analyzeComfyWorkflow(FRAME_INTERP);
+    expect(a.imageInputs.map((i) => `${i.nodeId}.${i.inputKey}`)).toContain("1.file");
+    expect(a.imageInputs.find((i) => i.nodeId === "1")?.mediaKind).toBe("video");
+  });
+
+  it("视频输入进**源视频**槽，不冒充首帧图（当首帧发 = 把 mp4 当图片上传，必失败）", () => {
+    const a = analyzeComfyWorkflow(FRAME_INTERP);
+    expect(a.suggested.sourceVideoNodeId).toBe("1");
+    expect(a.suggested.sourceVideoInputKey).toBe("file");
+    expect(a.suggested.firstFrameNodeId).toBeUndefined();
+  });
+
+  it("建图时注入 source_video_url 占位（上传后是 ComfyUI 自己的文件名）", () => {
+    const built = buildImportedWorkflow(FRAME_INTERP, analyzeComfyWorkflow(FRAME_INTERP).suggested);
+    expect(built.templatedGraph["1"]?.inputs?.file).toBe("{{request.params.source_video_url}}");
+    expect(built.kind).toBe("video");
+    // 无图输入 → text_to_video，与画布 resolveTaskKind 算出来的一致（对不上就选不到 mapping）
+    expect(built.taskKind).toBe("text_to_video");
+  });
+
+  it("不回归：LoadImage.image 仍走首帧槽、不被误判成视频", () => {
+    const graph: ComfyGraph = {
+      "1": { class_type: "LoadImage", inputs: { image: "start.png" } },
+      "9": { class_type: "SaveImage", inputs: { images: ["1", 0], filename_prefix: "x" } },
+    };
+    const a = analyzeComfyWorkflow(graph);
+    expect(a.suggested.firstFrameNodeId).toBe("1");
+    expect(a.suggested.sourceVideoNodeId).toBeUndefined();
+    expect(a.imageInputs[0]?.mediaKind).toBe("image");
+  });
+
+  it("图和视频都有（视频超分带参考图那种）→ 各进各的槽", () => {
+    const graph: ComfyGraph = {
+      "1": { class_type: "LoadVideo", inputs: { file: "in.mp4" } },
+      "2": { class_type: "LoadImage", inputs: { image: "ref.png" } },
+      "9": { class_type: "SaveVideo", inputs: { video: ["1", 0] } },
+    };
+    const a = analyzeComfyWorkflow(graph);
+    expect(a.suggested.sourceVideoNodeId).toBe("1");
+    expect(a.suggested.firstFrameNodeId).toBe("2");
+  });
+});

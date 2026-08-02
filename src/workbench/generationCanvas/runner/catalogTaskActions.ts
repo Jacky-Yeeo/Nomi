@@ -26,6 +26,7 @@ import {
   selectedVendor,
   uniqueStrings,
 } from './catalogTaskResolve'
+import { promptRequiredForNode } from './promptRequirement'
 import { normalizeCatalogTaskResult } from './catalogTaskResultParse'
 import { localizeRemoteResultUrl } from './resultAssetLocalization'
 import {
@@ -198,8 +199,13 @@ function buildReferenceExtras(
 
   const firstFrameUrl = asTrimmedString(references.firstFrameUrl) || asTrimmedString(meta.firstFrameUrl)
   const lastFrameUrl = asTrimmedString(references.lastFrameUrl) || asTrimmedString(meta.lastFrameUrl)
+  // 连线进来的视频参考：档案分支喂进 video_ref 槽，**无档案分支此前整个丢掉** ——
+  // ComfyUI 导入的工作流正是无档案，于是「补帧 / 视频超分 / 视频去背景」这类图
+  // 连了视频也永远收不到（electron 侧 referenceInputParams 据此派生 source_video_url）。
+  const referenceVideoUrls = uniqueStrings(references.referenceVideos || [])
   return {
     ...(referenceImages.length ? { referenceImages } : {}),
+    ...(referenceVideoUrls.length ? { referenceVideoUrls } : {}),
     ...(firstFrameUrl ? { firstFrameUrl } : {}),
     ...(lastFrameUrl ? { lastFrameUrl } : {}),
     ...(styleReferenceImages.length ? { styleReferenceImages } : {}),
@@ -217,7 +223,9 @@ export function buildCatalogTaskRequest(
   const modelKey = selectedModelKey(node)
   if (!modelKey) throw new Error('请先选择模型')
   const rawPrompt = asTrimmedString(node.prompt)
-  if (!rawPrompt) throw new Error('prompt is required')
+  // 需不需要提示词按模型派生（promptRequirement 单源）：处理类 ComfyUI 工作流（去背景/超分/补帧）
+  // 本就没有提示词槽，此前这里无条件抛一句英文 'prompt is required' 把整类工作流堵死。
+  if (!rawPrompt && promptRequiredForNode(node, vendor)) throw new Error('请先写点提示词再生成。')
 
   const references = options.references || {}
   const kind = resolveTaskKind(node, references)

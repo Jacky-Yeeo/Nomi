@@ -17,6 +17,7 @@ import {
 } from '../model/generationNodeKinds'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import { importWorkbenchLocalAssetFile } from '../../api/assetUploadApi'
+import { comfyWorkflowTakesPrompt } from '../runner/promptRequirement'
 import {
   type DynamicCatalogControl,
   type ImageUrlSlot,
@@ -642,12 +643,18 @@ export default function NodeParameterControls({
 
   // 模式分段切换要常驻（即便当前模式无参考槽，如纯文生）——有 modeBar / 数组槽 / 源视频槽都不空返回。
   // 变体（型号）已从这里挪到底栏 InlineParameterBar 的小下拉（用户拍板：和模型并排在最下面），不再占顶部一排。
+  // 处理类 ComfyUI 工作流（去背景/超分/补帧）图里没有提示词槽——诚实说一句，
+  // 否则用户在下面的提示词框里打了字却毫无作用，只会以为是我们坏了（D4 缺口明着标）。
+  const comfyTakesPrompt = comfyWorkflowTakesPrompt(selectedModelOption?.meta)
+  const showNoPromptNote = section === 'references' && comfyTakesPrompt === false
+
   if (
     section === 'references' &&
     imageUrlSlots.length === 0 &&
     arraySlots.length === 0 &&
     !sourceVideoSlot &&
-    !showModeBar
+    !showModeBar &&
+    !showNoPromptNote
   )
     return null
 
@@ -679,6 +686,12 @@ export default function NodeParameterControls({
           onReorder={handleReorder}
           onBrowseAll={handleBrowseAll}
         />
+      ) : null}
+
+      {showNoPromptNote ? (
+        <div className={cn('text-ink-40 text-micro leading-tight')}>
+          {t('generationCommon.parameters.comfyNoPrompt')}
+        </div>
       ) : null}
 
       {showReferences && uploadError ? (

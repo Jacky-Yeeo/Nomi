@@ -14,18 +14,26 @@ import { NomiSelect } from '../../design'
 import { getDesktopBridge } from '../../desktop/bridge'
 import { toast } from '../toast'
 
-type Candidate = { nodeId: string; inputKey: string; classType: string; title?: string; value: string | number | boolean }
+type Candidate = {
+  nodeId: string; inputKey: string; classType: string; title?: string; value: string | number | boolean
+  /** 媒体输入才有：收图还是收视频（LoadVideo.file 收视频）。 */
+  mediaKind?: 'image' | 'video'
+}
 type OutputCand = { nodeId: string; classType: string; kind: 'image' | 'video' }
 type NumericParam = { nodeId: string; inputKey: string; paramKey: string; label: string; default: number }
 type WorkflowParamType = 'number' | 'text' | 'boolean'
 type WorkflowParam = { nodeId: string; inputKey: string; paramKey: string; label: string; type: WorkflowParamType; default: string | number | boolean }
 type ParamPresetKey = 'width' | 'height' | 'seconds' | 'fps'
 type ParamPreset = { key: ParamPresetKey; labelKey: string; paramKey: string; match: (candidate: Candidate) => boolean }
+// ⚠️ 这是 electron/catalog/comfyuiWorkflowImport.ts 里 WorkflowBinding / NodeInputCandidate 的
+// **渲染层镜像**（IPC 边界两侧各一份，改一侧必须同步另一侧——3D 产物那次就是只改了后端，
+// 这里的 outputKind 还停在 image|video）。
 type Binding = {
   promptNodeId?: string; promptInputKey?: string
   firstFrameNodeId?: string; firstFrameInputKey?: string
   lastFrameNodeId?: string; lastFrameInputKey?: string
-  outputNodeId?: string; outputKind?: 'image' | 'video'
+  sourceVideoNodeId?: string; sourceVideoInputKey?: string
+  outputNodeId?: string; outputKind?: 'image' | 'video' | 'model3d'
   numeric?: NumericParam[]
   params?: WorkflowParam[]
 }
@@ -268,23 +276,28 @@ export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel, vend
     )
   }
 
-  const setRole = (role: 'prompt' | 'firstFrame' | 'lastFrame', raw: string) => {
+  const setRole = (role: 'prompt' | 'firstFrame' | 'lastFrame' | 'sourceVideo', raw: string) => {
     setBinding((b) => {
       if (!b) return b
       if (raw === NONE) {
         if (role === 'firstFrame') return { ...b, firstFrameNodeId: undefined, firstFrameInputKey: undefined }
         if (role === 'lastFrame') return { ...b, lastFrameNodeId: undefined, lastFrameInputKey: undefined }
+        if (role === 'sourceVideo') return { ...b, sourceVideoNodeId: undefined, sourceVideoInputKey: undefined }
         return { ...b, promptNodeId: undefined, promptInputKey: undefined }
       }
       const parsed = parseNodeValue(raw)
       if (!parsed) return b
       const { nodeId, inputKey } = parsed
       if (role === 'prompt') return { ...b, promptNodeId: nodeId, promptInputKey: inputKey }
+      if (role === 'sourceVideo') return { ...b, sourceVideoNodeId: nodeId, sourceVideoInputKey: inputKey }
       return role === 'firstFrame'
         ? { ...b, firstFrameNodeId: nodeId, firstFrameInputKey: inputKey }
         : { ...b, lastFrameNodeId: nodeId, lastFrameInputKey: inputKey }
     })
   }
+  // 媒体输入分流：LoadVideo.file 收的是**视频**，和首帧图不是一回事（当首帧发 = 把 mp4 当图传，必失败）。
+  const videoInputs = (analysis?.imageInputs ?? []).filter((i) => i.mediaKind === 'video')
+  const stillInputs = (analysis?.imageInputs ?? []).filter((i) => i.mediaKind !== 'video')
   const setOutput = (nodeId: string) => {
     setBinding((b) => {
       if (!b || !analysis) return b
@@ -463,24 +476,36 @@ export function ComfyuiWorkflowImportPanel({ onImported, initial, onCancel, vend
               className="w-full max-w-full justify-between"
             />
           </BindRow>
-          {analysis.imageInputs.length > 0 ? (
+          {videoInputs.length > 0 ? (
+            <BindRow label={t('onboardingProviders.comfyWorkflow.sourceVideoNode')}>
+              <NomiSelect
+                ariaLabel={t('onboardingProviders.comfyWorkflow.sourceVideoNodeAria')} size="sm"
+                value={binding.sourceVideoNodeId && binding.sourceVideoInputKey ? nodeValue(binding.sourceVideoNodeId, binding.sourceVideoInputKey) : NONE}
+                options={[{ value: NONE, label: t('onboardingProviders.comfyWorkflow.noSourceVideo') }, ...nodeSelectOptions(videoInputs)]}
+                onChange={(v) => setRole('sourceVideo', v)}
+                triggerMaxWidth={160}
+                className="w-full max-w-full justify-between"
+              />
+            </BindRow>
+          ) : null}
+          {stillInputs.length > 0 ? (
             <BindRow label={t('onboardingProviders.comfyWorkflow.firstFrameNode')}>
               <NomiSelect
                 ariaLabel={t('onboardingProviders.comfyWorkflow.firstFrameNodeAria')} size="sm"
                 value={binding.firstFrameNodeId && binding.firstFrameInputKey ? nodeValue(binding.firstFrameNodeId, binding.firstFrameInputKey) : NONE}
-                options={[{ value: NONE, label: t('onboardingProviders.comfyWorkflow.noFirstFrame') }, ...nodeSelectOptions(analysis.imageInputs)]}
+                options={[{ value: NONE, label: t('onboardingProviders.comfyWorkflow.noFirstFrame') }, ...nodeSelectOptions(stillInputs)]}
                 onChange={(v) => setRole('firstFrame', v)}
                 triggerMaxWidth={160}
                 className="w-full max-w-full justify-between"
               />
             </BindRow>
           ) : null}
-          {analysis.imageInputs.length > 1 ? (
+          {stillInputs.length > 1 ? (
             <BindRow label={t('onboardingProviders.comfyWorkflow.lastFrameNode')}>
               <NomiSelect
                 ariaLabel={t('onboardingProviders.comfyWorkflow.lastFrameNodeAria')} size="sm"
                 value={binding.lastFrameNodeId && binding.lastFrameInputKey ? nodeValue(binding.lastFrameNodeId, binding.lastFrameInputKey) : NONE}
-                options={[{ value: NONE, label: t('onboardingProviders.comfyWorkflow.noLastFrame') }, ...nodeSelectOptions(analysis.imageInputs)]}
+                options={[{ value: NONE, label: t('onboardingProviders.comfyWorkflow.noLastFrame') }, ...nodeSelectOptions(stillInputs)]}
                 onChange={(v) => setRole('lastFrame', v)}
                 triggerMaxWidth={160}
                 className="w-full max-w-full justify-between"
