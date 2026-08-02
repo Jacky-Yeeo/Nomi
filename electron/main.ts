@@ -46,6 +46,7 @@ import { registerOnboardingIpc } from "./ai/onboarding/onboardingIpc";
 import { registerUpdaterIpc } from "./update/autoUpdater";
 import { setRendererTarget } from "./capabilityCore/rendererBridge";
 import { readMcpInfo, installMcp, uninstallMcp } from "./capabilityCore/mcpConfig";
+import { verifyMcp } from "./capabilityCore/mcpVerify";
 import { registerLocalProtocol } from "./protocol/localProtocol";
 import { installMainWindowInteractions } from "./mainWindowInteractions";
 import { getMainWindow, setMainWindow } from "./mainWindowRegistry";
@@ -628,6 +629,8 @@ function registerIpc(): void {
   registerSyncIpc("nomi:capability:mcp-info", () => readMcpInfo(getActiveCapabilityPort()));
   registerSyncIpc("nomi:capability:mcp-install", installMcp);
   registerSyncIpc("nomi:capability:mcp-uninstall", uninstallMcp);
+  // 实连验证（异步：真起一次配置里那条命令握手）。「配置里有这行字」≠「还连得上」，见 mcpVerify 头注释。
+  ipcMain.handle("nomi:capability:mcp-verify", (_event, client: unknown) => verifyMcp(typeof client === "string" ? client : undefined));
   registerAgentChatV2Ipc();
   registerTextStreamIpc();
   registerConversationsIpc();

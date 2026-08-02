@@ -479,6 +479,8 @@ contextBridge.exposeInMainWorld("nomiDesktop", {
     mcpInfo: () => invokeSync("nomi:capability:mcp-info"),
     installMcp: (client?: string) => invokeSync("nomi:capability:mcp-install", client),
     uninstallMcp: (client?: string) => invokeSync("nomi:capability:mcp-uninstall", client),
+    // 实连验证（异步）：真起一次配置里那条命令握手，用来分辨「配置里有这行字」和「还真连得上」。
+    verifyMcp: (client?: string) => ipcRenderer.invoke("nomi:capability:mcp-verify", client),
     // A 模式实时桥：主进程把外部 MCP 的画布读/写/付费确认转发到这里，渲染层处理后回结果（按 id 配对）。
     onApply: (handler: (op: string, payload: unknown) => unknown | Promise<unknown>) => {
       const listener = (_event: unknown, message: { id?: number; op?: string; payload?: unknown }) => {

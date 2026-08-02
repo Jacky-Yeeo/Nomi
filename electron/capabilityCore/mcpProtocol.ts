@@ -150,6 +150,14 @@ const TOOLS = [
 type ToolDef = (typeof TOOLS)[number]
 const TOOL_BY_NAME = new Map<string, ToolDef>(TOOLS.map((tool) => [tool.name, tool]))
 
+/**
+ * 只读工具（annotations.readOnlyHint）——**只查不改不花钱**的那几个。
+ * 为什么必须标：宿主按它决定要不要每次弹确认（Codex 的 `default_tools_approval_mode = "writes"`
+ * 就是「没标 read-only 的才问」）。不标 → 连「列一下项目」都要用户点一次同意，助手基本没法用；
+ * 标错（把 nomi_generate 也标上）→ 花钱的生成被静默放行。故只列这三个查询类，其余一律按会改/会花钱对待。
+ */
+const READ_ONLY_TOOLS = new Set(['nomi_list_projects', 'nomi_list_models', 'nomi_read_canvas'])
+
 const INTENT_LABEL: Record<string, string> = { image: '一张画面', video: '一段视频', audio: '一段音频', text: '一段文本' }
 
 /** 人话花费提示（给确认对话框看）：产物类型 + 模型 + 提示词截断。不显金额（守卫不依赖金额）。 */
@@ -276,9 +284,11 @@ export function createMcpProtocol(transport: McpTransport) {
           // 挂活 widget 的工具：预声明 _meta.ui.resourceUri（MCP Apps 标准）+ openai/outputTemplate（ChatGPT 别名）
           // + 调用状态文案。always 广告（宿主不支持则忽略 _meta，spec 设计）→ 跨 Claude/ChatGPT 通用（P4）。
           const uiUri = TOOL_UI_RESOURCE[name]
+          // 只读标注对所有宿主 always 广告（不支持的按 spec 忽略未知字段）→ Claude/Codex/Cursor 通用（P4）。
+          const annotations = READ_ONLY_TOOLS.has(name) ? { annotations: { readOnlyHint: true } } : {}
           return uiUri
             ? {
-                name, description, inputSchema,
+                name, description, inputSchema, ...annotations,
                 _meta: {
                   ui: { resourceUri: uiUri },
                   'openai/outputTemplate': uiUri,
@@ -286,7 +296,7 @@ export function createMcpProtocol(transport: McpTransport) {
                   'openai/toolInvocation/invoked': '已出图',
                 },
               }
-            : { name, description, inputSchema }
+            : { name, description, inputSchema, ...annotations }
         }),
       })
       return

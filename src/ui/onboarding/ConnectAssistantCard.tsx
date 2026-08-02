@@ -7,13 +7,17 @@
  */
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import { IconTerminal2, IconPlugConnected, IconCopy, IconCheck, IconCircleCheck, IconExternalLink } from '@tabler/icons-react'
+import {
+  IconTerminal2, IconPlugConnected, IconCopy, IconCheck, IconCircleCheck, IconExternalLink,
+  IconAlertTriangle, IconRefresh,
+} from '@tabler/icons-react'
 import { cn } from '../../utils/cn'
 import { getDesktopBridge } from '../../desktop/bridge'
 import { toast } from '../toast'
 import { FoldableModelCard } from './FoldableModelCard'
 import { DesignSegmentedControl } from '../../design'
 import { CODEX_IMAGE_MODEL_LABEL, CODEX_LOCAL_VENDOR_KEY } from './codexLocalProvider'
+import type { McpInfo, McpVerifyReason } from '../../desktop/mcpBridgeTypes'
 
 const GUIDE_URL = 'https://github.com/aqm857886159/Nomi/blob/main/docs/guide/capability-core-cli-mcp.md'
 type ClientKey = 'claude' | 'codex' | 'cursor'
@@ -28,13 +32,28 @@ function syncCodexLocalVendor(enabled: boolean): void {
   }
 }
 
-type McpClientInfo = { installed: boolean; configPath: string; snippet: string }
-export type McpInfo = {
-  tokenReady: boolean
-  rpcRunning: boolean
-  server: { command: string; args: string[]; env?: Record<string, string> }
-  clients: Record<ClientKey, McpClientInfo>
+/**
+ * 实连验证状态。**「配置里有 nomi 这行字」≠「还连得上」**——老版本写的 `node …/scripts/nomi-mcp.mjs`
+ * 早已随仓库删除、从 dev 构建点的接入会把路径钉在随时会消失的 worktree 上，两者在旧口径下都显示
+ * 「已接入」，用户却在助手里发消息石沉大海。故打开面板即真起一次配置里那条命令握手（见 mcpVerify）。
+ */
+type VerifyState = {
+  phase: 'checking' | 'ok' | 'broken'
+  toolCount: number | null
+  reason: McpVerifyReason
+  /** 「已接入 · 0.5s」里那截——把「真的连上了」变成用户看得见的证据，而不是一句空话。 */
+  latencyLabel: string
 }
+
+const REASON_I18N: Partial<Record<McpVerifyReason, string>> = {
+  'command-missing': 'commandMissing',
+  'spawn-failed': 'spawnFailed',
+  timeout: 'timeout',
+  'handshake-failed': 'handshakeFailed',
+}
+
+// 桥类型单一真相源在 desktop/mcpBridgeTypes（此前这里手抄过一份，两处会各自漂移）。
+export type { McpInfo }
 
 type ConnectAssistantCardProps = {
   /** MCP 接入状态由父组件统一 fetch 后下传（单一来源，见 plan §4.1）；null = 不显（加载中/老 preload）。 */
@@ -50,6 +69,8 @@ export function ConnectAssistantCard({ info, onChanged }: ConnectAssistantCardPr
   const [busy, setBusy] = React.useState(false)
   const [copied, setCopied] = React.useState(false)
   const [error, setError] = React.useState('')
+  const [verify, setVerify] = React.useState<VerifyState | null>(null)
+  const [checkNonce, setCheckNonce] = React.useState(0)
 
   const capability = getDesktopBridge()?.capability
 
@@ -60,6 +81,36 @@ export function ConnectAssistantCard({ info, onChanged }: ConnectAssistantCardPr
     const installed = CLIENT_ORDER.find((key) => info.clients[key]?.installed)
     if (installed) setTarget(installed)
   }, [info])
+
+  // 打开面板即实连一次（只对「配置里有这条」的客户端跑，没接入的不 spawn）。
+  // checkNonce：接入/重连后配置没变成「未接入」，靠布尔值触发不了重验，故显式打点。
+  const verifyBridge = capability?.verifyMcp
+  const targetInstalled = info?.clients[target]?.installed === true
+  React.useEffect(() => {
+    if (!verifyBridge || !targetInstalled) {
+      setVerify(null)
+      return
+    }
+    let alive = true
+    setVerify({ phase: 'checking', toolCount: null, reason: 'ok', latencyLabel: '' })
+    void verifyBridge(target)
+      .then((res) => {
+        if (!alive) return
+        setVerify({
+          phase: res.ok ? 'ok' : 'broken',
+          toolCount: res.toolCount,
+          reason: res.reason,
+          latencyLabel: typeof res.latencyMs === 'number' ? `${(res.latencyMs / 1000).toFixed(1)}s` : '',
+        })
+      })
+      .catch(() => {
+        // 老 preload / 桥异常：退回「只读配置」的老口径，不误报失效。
+        if (alive) setVerify(null)
+      })
+    return () => {
+      alive = false
+    }
+  }, [verifyBridge, target, targetInstalled, checkNonce])
 
   // 加载中 / 老 preload（无 capability.mcpInfo）：整卡不显，避免坏入口。
   if (!capability?.mcpInfo || !info) return null
@@ -76,6 +127,7 @@ export function ConnectAssistantCard({ info, onChanged }: ConnectAssistantCardPr
       capability.installMcp(target)
       if (target === 'codex') syncCodexLocalVendor(true)
       onChanged()
+      setCheckNonce((n) => n + 1) // 重连后立刻复验，别让刚修好的还挂着「已失效」。
       toast(t('onboardingProviders.assistant.connectedToast', { client: label }), 'success')
     } catch (e) {
       setError(t('onboardingProviders.assistant.connectFailed', { message: e instanceof Error ? e.message : String(e) }))
@@ -108,11 +160,19 @@ export function ConnectAssistantCard({ info, onChanged }: ConnectAssistantCardPr
     })
   }
 
-  const statusLabel = client.installed
-    ? t('onboardingProviders.assistant.status.connected')
-    : info.tokenReady
+  // 状态以**实连结果**为准；没验证能力（老 preload）才退回「配置里有这行字」的老口径。
+  const broken = client.installed && verify?.phase === 'broken'
+  const statusLabel = !client.installed
+    ? info.tokenReady
       ? t('onboardingProviders.assistant.status.ready')
       : t('onboardingProviders.assistant.status.notReady')
+    : verify?.phase === 'checking'
+      ? t('onboardingProviders.assistant.status.checking')
+      : broken
+        ? t('onboardingProviders.assistant.status.broken')
+        : verify?.phase === 'ok' && verify.latencyLabel
+          ? `${t('onboardingProviders.assistant.status.connected')} · ${verify.latencyLabel}`
+          : t('onboardingProviders.assistant.status.connected')
 
   return (
     <FoldableModelCard
@@ -138,13 +198,55 @@ export function ConnectAssistantCard({ info, onChanged }: ConnectAssistantCardPr
             data={CLIENT_ORDER.map((key) => ({ label: CLIENT_LABEL[key], value: key }))}
           />
 
-          {client.installed ? (
+          {client.installed && broken ? (
+            <>
+              {/* 实连失败：不再显示绿色「已写入配置」，如实说坏在哪 + 给唯一出路（重写成当前启动方式）。 */}
+              <div className="flex items-start gap-2 rounded-nomi-sm bg-[var(--workbench-danger-soft)] px-3 py-2.5">
+                <IconAlertTriangle size={17} className="shrink-0 mt-0.5 text-workbench-danger" />
+                <div className="min-w-0">
+                  <div className="text-body-sm font-semibold text-nomi-ink">{t('onboardingProviders.assistant.brokenTitle')}</div>
+                  <div className="text-caption text-nomi-ink-60 mt-0.5 leading-relaxed">
+                    {t(`onboardingProviders.assistant.reason.${REASON_I18N[verify!.reason] || 'handshakeFailed'}`, { client: label })}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleInstall}
+                disabled={busy}
+                className={cn(
+                  'w-full h-9 rounded-nomi-sm bg-nomi-ink text-nomi-paper',
+                  'text-body-sm font-semibold inline-flex items-center justify-center gap-1.5',
+                  'hover:bg-nomi-accent disabled:opacity-50 disabled:cursor-not-allowed',
+                )}
+              >
+                <IconRefresh size={15} stroke={1.8} />{t('onboardingProviders.assistant.reconnect', { client: label })}
+              </button>
+              <button
+                type="button"
+                onClick={handleUninstall}
+                disabled={busy}
+                className="self-start text-caption text-nomi-ink-40 hover:text-workbench-danger disabled:opacity-50"
+              >
+                {t('onboardingProviders.assistant.disconnect')}
+              </button>
+            </>
+          ) : client.installed ? (
             <>
               <div className="flex items-start gap-2 rounded-nomi-sm bg-[var(--workbench-success-soft)] px-3 py-2.5">
                 <IconCircleCheck size={17} className="shrink-0 mt-0.5 text-workbench-success" />
                 <div className="min-w-0">
-                  <div className="text-body-sm font-semibold text-nomi-ink">{t('onboardingProviders.assistant.configWritten', { client: label })}</div>
-                  <div className="text-caption text-nomi-ink-60 mt-0.5">{t('onboardingProviders.assistant.restartClient', { client: label })}</div>
+                  {/* 验证通过就报「已连通」并给出证据（几个工具可用）；没验证能力时退回「已写入配置」。 */}
+                  <div className="text-body-sm font-semibold text-nomi-ink">
+                    {verify?.phase === 'ok'
+                      ? t('onboardingProviders.assistant.verified', { client: label })
+                      : t('onboardingProviders.assistant.configWritten', { client: label })}
+                  </div>
+                  <div className="text-caption text-nomi-ink-60 mt-0.5">
+                    {verify?.phase === 'ok' && typeof verify.toolCount === 'number'
+                      ? t('onboardingProviders.assistant.verifiedBody', { count: verify.toolCount })
+                      : t('onboardingProviders.assistant.restartClient', { client: label })}
+                  </div>
                 </div>
               </div>
               <div className="text-caption text-nomi-ink-40">{t('onboardingProviders.assistant.sayNow')}</div>

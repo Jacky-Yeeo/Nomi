@@ -38,14 +38,14 @@ function resolveClient(client?: string): McpClientKey {
 }
 
 /** MCP server 启动条目（command/args/env），三客户端共用。 */
-type McpServerEntry = { command: string; args: string[]; env?: Record<string, string> }
+export type McpServerEntry = { command: string; args: string[]; env?: Record<string, string> }
 
 /**
  * nomi MCP server 条目：让 Nomi 用**自身可执行文件**以 NOMI_MCP_STDIO 模式启动 = 进程内 stdio MCP server。
  * 打包版 process.execPath = `/Applications/Nomi.app/Contents/MacOS/Nomi`（包内永远存在、无 node 依赖）。
  * dev 下 execPath = node_modules 的 electron，需 args 指明 app 路径（repo 根）让它找到 main。三客户端共用。
  */
-function mcpServerEntry(): McpServerEntry {
+export function mcpServerEntry(): McpServerEntry {
   return {
     command: process.execPath,
     args: app.isPackaged ? [] : [app.getAppPath()],
@@ -122,9 +122,27 @@ function tomlEscape(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
 
+/**
+ * Codex 的三个默认值对 Nomi 全都不成立，不显式写就是三种「看着接上了其实用不了」（官方文档核实：
+ * developers.openai.com/codex/mcp）：
+ * ① startup_timeout_sec 默认 **10s**，而我们的 MCP server 是**整个 Electron app**（实测打包版 0.5s、
+ *    dev 并发 6.5–7.6s，冷启更久）。超时 Codex 会**静默丢掉这个 server** → 工具直接不存在 = 用户看到的
+ *    「Codex 说不能用」。对照：Codex 自家 node_repl（一个 node 二进制）写的是 120。
+ * ② tool_timeout_sec 默认 **60s**，而 nomi_generate 是真出图/出视频，视频动辄几分钟 → 必然中途断
+ *    = 用户看到的「发消息之后没反应」。
+ * ③ default_tools_approval_mode 不写 = 每个工具调用都要人点一次同意，连「列一下项目」都要点。
+ *    设 "writes" = 只对**没标 readOnlyHint** 的工具弹确认（标注在 mcpProtocol 的 READ_ONLY_TOOLS）：
+ *    查询类静默通过，**花钱的 nomi_generate 仍然每次问**——不拿用户的钱换顺滑。
+ */
+const CODEX_STARTUP_TIMEOUT_SEC = 60
+const CODEX_TOOL_TIMEOUT_SEC = 600
+
 function codexBlock(server: McpServerEntry): string {
   const args = server.args.map((arg) => `"${tomlEscape(arg)}"`).join(', ')
   let block = `[mcp_servers.${SERVER_NAME}]\ncommand = "${tomlEscape(server.command)}"\nargs = [${args}]\n`
+  block += `startup_timeout_sec = ${CODEX_STARTUP_TIMEOUT_SEC}\n`
+  block += `tool_timeout_sec = ${CODEX_TOOL_TIMEOUT_SEC}\n`
+  block += `default_tools_approval_mode = "writes"\n`
   const envKeys = server.env ? Object.keys(server.env) : []
   if (envKeys.length) {
     const env = envKeys.map((key) => `${key} = "${tomlEscape(server.env![key])}"`).join(', ')
@@ -208,6 +226,59 @@ export function readMcpInfo(rpcPort: number | null): McpInfo {
       cursor: clientInfo('cursor', server),
     },
   }
+}
+
+function tomlUnescape(value: string): string {
+  return value.replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+}
+
+/** 取 [mcp_servers.nomi] 块的正文（到下一个 [表头] 或 EOF）；没这块回 null。 */
+function codexBlockBody(text: string): string | null {
+  const lines = text.split('\n')
+  const start = lines.findIndex((line) => CODEX_HEADER_RE.test(line))
+  if (start < 0) return null
+  const rest = lines.slice(start + 1)
+  const end = rest.findIndex((line) => /^\s*\[/.test(line))
+  return (end < 0 ? rest : rest.slice(0, end)).join('\n')
+}
+
+function codexConfiguredEntry(target: string): McpServerEntry | null {
+  const body = codexBlockBody(readText(target))
+  if (body === null) return null
+  const command = body.match(/^\s*command\s*=\s*"((?:[^"\\]|\\.)*)"\s*$/m)?.[1]
+  if (!command) return null
+  const argsRaw = body.match(/^\s*args\s*=\s*\[(.*)\]\s*$/m)?.[1] ?? ''
+  const args = [...argsRaw.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => tomlUnescape(m[1]))
+  const env: Record<string, string> = {}
+  // 只认我们写的行内表；用户手改成 [mcp_servers.nomi.env] 子表时 env 留空（不影响 command 可执行性判断）。
+  const envRaw = body.match(/^\s*env\s*=\s*\{(.*)\}\s*$/m)?.[1] ?? ''
+  for (const m of envRaw.matchAll(/([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"((?:[^"\\]|\\.)*)"/g)) env[m[1]] = tomlUnescape(m[2])
+  return { command: tomlUnescape(command), args, env }
+}
+
+/**
+ * 读回该客户端**实际会启动的那条命令**——注意不是 mcpServerEntry()（那是「我们现在会写什么」）。
+ * 两者可能天差地别：老版本 Nomi 写过 `node <repo>/scripts/nomi-mcp.mjs`（该脚本已随 5a40acbc 删除）、
+ * 从 dev 构建点接入会把 args 钉在一条随时会消失的 git worktree 上。「已接入」若只看配置里有没有这行字，
+ * 这些全都显示绿灯而实际早断了——验证必须拿这条读回来的命令去真跑（见 mcpVerify）。
+ */
+export function configuredMcpEntry(client?: string): McpServerEntry | null {
+  const key = resolveClient(client)
+  const spec = CLIENTS[key]
+  const target = spec.configPath()
+  if (spec.format === 'toml') return codexConfiguredEntry(target)
+  const servers = readJsonConfig(target).mcpServers as Record<string, unknown> | undefined
+  const entry = servers && typeof servers === 'object' ? servers[SERVER_NAME] : undefined
+  if (!entry || typeof entry !== 'object') return null
+  const record = entry as Record<string, unknown>
+  const command = typeof record.command === 'string' ? record.command : ''
+  if (!command) return null
+  const args = Array.isArray(record.args) ? record.args.filter((a): a is string => typeof a === 'string') : []
+  const env: Record<string, string> = {}
+  if (record.env && typeof record.env === 'object') {
+    for (const [k, v] of Object.entries(record.env as Record<string, unknown>)) if (typeof v === 'string') env[k] = v
+  }
+  return { command, args, env }
 }
 
 /** 一键写入指定客户端：备份 → 合并 nomi 条目（保留其它）→ 原子写回。默认 Claude Code。 */

@@ -97,6 +97,19 @@ describe('capabilityCore/mcpConfig', () => {
     expect(readMcpInfo(0).clients.codex.installed).toBe(false)
   })
 
+  // Codex 的三个默认值对 Nomi 都不成立，漏写任何一个 = 一种「看着接上了其实用不了」：
+  // startup 10s 兜不住 Electron 冷启（server 被静默丢弃）｜tool 60s 兜不住真出视频（发消息没反应）｜
+  // approval 不写则连「列一下项目」都要人点一次同意。删掉其中任何一行这条测试必红。
+  it('codex：必须写足 startup/tool 超时与审批模式（缺任一都会让接入形同虚设）', () => {
+    const codexPath = path.join(homeDir, '.codex', 'config.toml')
+    installMcp('codex')
+    const text = fs.readFileSync(codexPath, 'utf8')
+    expect(Number(text.match(/^startup_timeout_sec = (\d+)$/m)![1])).toBeGreaterThan(10)
+    expect(Number(text.match(/^tool_timeout_sec = (\d+)$/m)![1])).toBeGreaterThan(60)
+    // "writes" = 只对没标 readOnlyHint 的工具弹确认 → 花钱的 nomi_generate 仍每次问，不可改成 "auto"。
+    expect(text).toContain('default_tools_approval_mode = "writes"')
+  })
+
   it('cursor：install 写 ~/.cursor/mcp.json 的 mcpServers.nomi（目录/文件自动建），互不影响 claude', () => {
     const cursorPath = path.join(homeDir, '.cursor', 'mcp.json')
     expect(fs.existsSync(cursorPath)).toBe(false)

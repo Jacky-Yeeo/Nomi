@@ -87,6 +87,20 @@ describe('nomi-mcp · MCP Apps 活生成 widget serving', () => {
     expect(listProjects?._meta).toBeUndefined()
   })
 
+  // 宿主按 readOnlyHint 决定要不要每次弹确认（Codex 的 default_tools_approval_mode="writes" 即
+  // 「没标 read-only 的才问」）。标漏 → 连「列一下项目」都要用户点一次同意；标多（把 nomi_generate
+  // 也标上）→ 花钱的生成被静默放行。两个方向都要钉住。
+  it('只读工具标 readOnlyHint，会改/会花钱的一律不标（决定宿主要不要每次问）', async () => {
+    h = new AppsHarness()
+    await h.initPlain()
+    const res = await h.call(2, 'tools/list')
+    const tools = (res.result as { tools: Array<{ name: string; annotations?: { readOnlyHint?: boolean } }> }).tools
+    const readOnly = tools.filter((t) => t.annotations?.readOnlyHint === true).map((t) => t.name).sort()
+    expect(readOnly).toEqual(['nomi_list_models', 'nomi_list_projects', 'nomi_read_canvas'])
+    // 花钱的那个绝不能被标成只读。
+    expect(tools.find((t) => t.name === 'nomi_generate')?.annotations?.readOnlyHint).toBeUndefined()
+  })
+
   it('声明 UI 扩展的宿主：resources/list 含 ui:// widget 资源（正确 mimeType）', async () => {
     h = new AppsHarness()
     await h.initUi()

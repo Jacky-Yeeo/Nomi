@@ -2,6 +2,7 @@ import type { ExportJobEvent, ExportJobSnapshot } from '../../electron/export/ex
 import type { WorkspaceFileListResult } from '../../electron/workspace/workspaceFileIndex'
 import type { ProviderKind } from './providerKind'
 import type { DesktopMediaBridge } from './bridgeMedia'
+import type { McpInfo, McpVerifyResult } from './mcpBridgeTypes'
 
 export type { ProviderKind }
 export type { ScreenshotHotkeyStatus } from './bridgeMedia'
@@ -735,17 +736,17 @@ export type DesktopBridge = DesktopMediaBridge & {
   /** 能力核：上报当前打开项目，供外部调用的 A/B 守卫（可选——老 preload 无此口）。 */
   capability?: {
     setActiveProject: (projectId: string) => void
-    /** 「接入 AI 编程助手」卡：读接入状态 + 各客户端配置片段。 */
-    mcpInfo: () => {
-      tokenReady: boolean
-      rpcRunning: boolean
-      server: { command: string; args: string[]; env?: Record<string, string> }
-      clients: Record<'claude' | 'codex' | 'cursor', { installed: boolean; configPath: string; snippet: string }>
-    }
+    /** 「接入 AI 编程助手」卡：读接入状态 + 各客户端配置片段（类型见 mcpBridgeTypes）。 */
+    mcpInfo: () => McpInfo
     /** 一键写入指定客户端配置的 nomi 条目（合并 + 备份）。默认 Claude Code。 */
     installMcp: (client?: string) => { ok: boolean; client: string; configPath: string; backupPath: string | null }
     /** 撤销接入指定客户端：删 nomi 条目。默认 Claude Code。 */
     uninstallMcp: (client?: string) => { ok: boolean; client: string }
+    /**
+     * 实连验证：真起一次**配置里那条**命令握手。可选（老 preload 无此口 → 卡片退回只读配置的老口径）。
+     * 「配置里有 nomi 这行字」≠「还连得上」：老版本写的脚本已被删、dev 构建钉的 worktree 被删都会失效。
+     */
+    verifyMcp?: (client?: string) => Promise<McpVerifyResult>
     /** A 模式实时桥：注册处理器，接主进程转发来的外部 MCP 画布读/写/付费确认。返回反注册函数。 */
     onApply?: (handler: (op: string, payload: unknown) => unknown | Promise<unknown>) => () => void
   }
