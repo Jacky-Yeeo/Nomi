@@ -21,8 +21,8 @@ import { isImageLikeGenerationNodeKind } from '../model/generationNodeKinds'
 import { getGenerationNodeComponent } from '../nodes/renderRegistry'
 import { completeNodeConnection } from '../nodes/completeNodeConnection'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
-import { buildDependencyWaves } from '../runner/dependencyWaves'
-import { confirmAndRunPlan, useBatchPlanPreviewStore } from './batchPlanPreview'
+import { useBatchPlanPreviewStore } from './batchPlanPreview'
+import { useCanvasGroupActions } from './useCanvasGroupActions'
 import { useWorkbenchStore } from '../../workbenchStore'
 import { GroupFrameList } from './GroupFrame'
 import { useAutoFitOnLoad } from './useAutoFitOnLoad'
@@ -110,8 +110,6 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
   const pasteNodes = useGenerationCanvasStore((state) => state.pasteNodes)
   const selectNode = useGenerationCanvasStore((state) => state.selectNode)
   const selectNodes = useGenerationCanvasStore((state) => state.selectNodes)
-  const groupSelectedNodes = useGenerationCanvasStore((state) => state.groupSelectedNodes)
-  const ungroupGroups = useGenerationCanvasStore((state) => state.ungroupGroups)
   const moveSelectedNodes = useGenerationCanvasStore((state) => state.moveSelectedNodes)
   const moveGroupNodes = useGenerationCanvasStore((state) => state.moveGroupNodes)
   const captureHistory = useGenerationCanvasStore((state) => state.captureHistory)
@@ -314,6 +312,15 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
     setConnectionCreateMenu(null)
   }, [connectionCreateMenu, pendingConnectionSourceId])
 
+  // 「跑什么」这一族动作（编组/解组/生成选中/整组运行/连到组）抽到 useCanvasGroupActions（本壳顶着 800 行上限 R9）。
+  const {
+    handleGroupSelectedNodes,
+    handleUngroupSelectedNodes,
+    handleBatchGenerate,
+    handleRunGroup,
+    handleConnectToGroup,
+  } = useCanvasGroupActions({ activeCategoryId, selectedGroupIds, selectedNodeIds })
+
   // 拖拽连线跟踪（含 rAF 节流预览线）抽到 useDragToConnect（R9/B3）
   const { pendingCursorPos } = useDragToConnect({
     readOnly,
@@ -323,6 +330,7 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
     offsetRef,
     zoomRef,
     cancelConnection,
+    onDropOnGroup: handleConnectToGroup,
     onDropOnEmpty: ({ sourceNodeId, sourceSide, stagePoint, canvasPoint }) => {
       const sourceNode = allNodesRef.current.find((node) => node.id === sourceNodeId)
       const sourceCanCreateMedia =
@@ -348,29 +356,6 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
       })
     },
   })
-
-  const handleGroupSelectedNodes = React.useCallback(() => {
-    const group = groupSelectedNodes(activeCategoryId)
-    if (!group) return
-    // 编组结果即时显示为画布上的组框 → 成功 toast 是噪音（弹窗审计 R2）。
-  }, [activeCategoryId, groupSelectedNodes])
-
-  // 批量生成（「生成选中」唯一入口）。不傻批量：先算依赖波次（参考先生成→镜头后生成）。
-  // 用户拍板「不弹窗+缺啥提示啥」：点了就直接跑能跑的（不再弹模态确认条）；上游参考没生成
-  // 而被拦下的，由 runPlanWithToasts 用人话 toast 告诉你「哪些没跑、为什么」(describeBlockedNotice)。
-  const handleBatchGenerate = React.useCallback(() => {
-    const ids = [...selectedNodeIds]
-    if (ids.length === 0) return
-    const state = useGenerationCanvasStore.getState()
-    const plan = buildDependencyWaves(ids, { nodes: state.nodes, edges: state.edges })
-    void confirmAndRunPlan(plan)
-  }, [selectedNodeIds])
-
-  const handleUngroupSelectedNodes = React.useCallback(() => {
-    if (!selectedGroupIds.length) return
-    ungroupGroups(selectedGroupIds)
-    // 解组结果画布即时可见 → 成功 toast 是噪音（弹窗审计 R2）。
-  }, [selectedGroupIds, ungroupGroups])
 
   const lastPastePositionRef = React.useRef<{ x: number; y: number } | null>(null)
 
@@ -685,7 +670,13 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
             />
             <div className={cn('generation-canvas-v2__nodes', 'absolute top-0 left-0 w-full h-full')} data-tidying={isTidying ? 'true' : undefined}>
               {/* E.2C-30: GroupFrame 抽离为独立组件 */}
-              <GroupFrameList boxes={groupBoxes} onPointerDown={handleGroupFramePointerDown} />
+              <GroupFrameList
+                boxes={groupBoxes}
+                onPointerDown={handleGroupFramePointerDown}
+                onRunGroup={readOnly ? undefined : handleRunGroup}
+                pendingConnection={!readOnly && Boolean(pendingConnectionSourceId)}
+                onConnectToGroup={handleConnectToGroup}
+              />
               <React.Suspense fallback={null}>
                 {visibleNodesForRender.map((node) => {
                   const selected = selectedSet.has(node.id)

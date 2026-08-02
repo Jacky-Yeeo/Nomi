@@ -2,6 +2,7 @@ import { connectNodes, disconnectEdge, removeNodes } from '../model/graphOps'
 import { archetypeForNode, resolveTargetModeForEdge, selectConnectionEdgeMode, validateReferenceEdge } from '../agent/referenceEdgeCapability'
 import { applyArchetypeModeSwitch } from '../nodes/controls/archetypeMeta'
 import type { GenerationCanvasEdge, GenerationCanvasEdgeMode, GenerationCanvasNode, NodeGroup } from '../model/generationCanvasTypes'
+import { groupMemberNodes, planGroupLinkEdges, removeGroupLinkEdgesForMember, upsertGroupInputLink } from '../model/groupInputLinks'
 import { createGroupId } from './canvasIds'
 import { bumpPersistRevision, isCategoryId, shouldEmitCanvasMutation, shouldPersistCanvasMutation } from './canvasGuards'
 import { getHistoryFlags, pushUndoSnapshot } from '../events/canvasUndoJournal'
@@ -33,6 +34,37 @@ function autoPromoteTargetModeForEdge(
   const archetype = archetypeForNode(target)
   if (!archetype) return
   store.updateNode(targetNodeId, { meta: applyArchetypeModeSwitch((target.meta || {}) as Record<string, unknown>, archetype, nextModeId) })
+}
+
+/**
+ * 把一条组入参物化成真边（组内每个成员一根）。**唯一物化点**——`connectToGroup`（新建入参）和
+ * `moveNodeToGroup`（新成员进组补边）都走它，杜绝两处各写一遍再慢慢漂。
+ * 返回计数供调用方出人话 toast（跳过的必须说，不许静默丢）。
+ */
+type GroupLinkStore = {
+  nodes: GenerationCanvasNode[]
+  edges: GenerationCanvasEdge[]
+  groups: NodeGroup[]
+}
+function materializeGroupLink(
+  pre: GroupLinkStore,
+  groupId: string,
+  sourceNodeId: string,
+  targets: GenerationCanvasNode[],
+): { edges: GenerationCanvasEdge[]; connected: { targetNodeId: string; mode: GenerationCanvasEdgeMode }[]; skipped: number; alreadyConnected: number } {
+  const plan = planGroupLinkEdges({ link: { sourceNodeId }, targets, nodes: pre.nodes, edges: pre.edges })
+  let edges = pre.edges
+  const connected: { targetNodeId: string; mode: GenerationCanvasEdgeMode }[] = []
+  for (const item of plan.connect) {
+    const next = connectNodes(edges, item.sourceNodeId, item.targetNodeId, item.mode)
+    if (next === edges) continue
+    // connectNodes 是 append；给刚加的那条盖上溯源章（成员移出组时据此精确撤边、不误伤手工边）。
+    const added = next[next.length - 1]
+    if (added) next[next.length - 1] = { ...added, viaGroupId: groupId }
+    edges = next
+    connected.push({ targetNodeId: item.targetNodeId, mode: item.mode ?? 'reference' })
+  }
+  return { edges, connected, skipped: plan.skipped.length, alreadyConnected: plan.alreadyConnected.length }
 }
 
 export const createCanvasGraphActions: CanvasSliceCreator<CanvasGraphActions> = (set, get) => ({
@@ -84,6 +116,56 @@ export const createCanvasGraphActions: CanvasSliceCreator<CanvasGraphActions> = 
       autoPromoteTargetModeForEdge(get(), sourceNodeId, targetNodeId, mode)
     }
     return { ok: true }
+  },
+  connectToGroup: (groupId) => {
+    const sourceNodeId = get().pendingConnectionSourceId
+    if (!sourceNodeId) return { ok: false, reason: 'dangling', connected: 0, skipped: 0, alreadyConnected: 0 }
+    const pre = get()
+    const group = pre.groups.find((candidate) => candidate.id === groupId)
+    const clearPending = (state: { pendingConnectionSourceId: string; pendingConnectionSourceSide: 'left' | 'right' }) => {
+      state.pendingConnectionSourceId = ''
+      state.pendingConnectionSourceSide = 'right'
+    }
+    if (!group) {
+      set(clearPending)
+      return { ok: false, reason: 'group_missing', connected: 0, skipped: 0, alreadyConnected: 0 }
+    }
+    const targets = groupMemberNodes(group, pre.nodes).filter((node) => node.id !== sourceNodeId)
+    if (!targets.length) {
+      set(clearPending)
+      return { ok: false, reason: 'group_empty', connected: 0, skipped: 0, alreadyConnected: 0 }
+    }
+    const outcome = materializeGroupLink(pre, groupId, sourceNodeId, targets)
+    // 一个都连不上（全被能力校验拦下）→ 不记入参：记了也只会让后来进组的成员继续白试。
+    if (!outcome.connected.length && !outcome.alreadyConnected) {
+      set(clearPending)
+      return { ok: false, reason: 'all_skipped', connected: 0, skipped: outcome.skipped, alreadyConnected: 0 }
+    }
+    pushUndoSnapshot(pre)
+    set((state) => {
+      state.edges = outcome.edges
+      const target = state.groups.find((candidate) => candidate.id === groupId)
+      if (target) {
+        target.inputLinks = upsertGroupInputLink(target.inputLinks, { sourceNodeId })
+        target.updatedAt = Date.now()
+      }
+      clearPending(state)
+      bumpPersistRevision(state)
+      Object.assign(state, getHistoryFlags())
+    })
+    const post = get()
+    emitCanvasGesture([
+      ...outcome.connected.map((item) => ({
+        type: 'canvas.edge.connected' as const,
+        payload: { sourceNodeId, targetNodeId: item.targetNodeId, mode: item.mode },
+      })),
+      ...post.groups.filter((g) => g.id === groupId).map((g) => ({ type: 'canvas.group.updated' as const, payload: { group: g } })),
+    ])
+    // 边建上了才切模式（与 connectToNode 同一后置时机，幂等）。
+    for (const item of outcome.connected) {
+      autoPromoteTargetModeForEdge(get(), sourceNodeId, item.targetNodeId, item.mode)
+    }
+    return { ok: true, connected: outcome.connected.length, skipped: outcome.skipped, alreadyConnected: outcome.alreadyConnected }
   },
   connectNodes: (sourceNodeId, targetNodeId, mode) => {
     const beforeEdges = get().edges
@@ -339,7 +421,20 @@ export const createCanvasGraphActions: CanvasSliceCreator<CanvasGraphActions> = 
     const sourceNode = current.nodes.find((candidate) => candidate.id === nodeId)
     const targetGroup = current.groups.find((candidate) => candidate.id === id)
     if (!sourceNode || !targetGroup || sourceNode.categoryId !== targetGroup.categoryId) return
-    const touchedGroupIds = new Set([id, ...current.groups.filter((g) => g.nodeIds.includes(nodeId)).map((g) => g.id)])
+    const leavingGroupIds = current.groups.filter((g) => g.id !== id && g.nodeIds.includes(nodeId)).map((g) => g.id)
+    const touchedGroupIds = new Set([id, ...leavingGroupIds])
+    // 「动态组端口」的另一半：新成员进组 → 按组入参自动补上同款边；离开原组 → 撤掉原组给它连的边。
+    // 后者不撤会让改投别组的镜头**同时挂着两组的参考**、悄悄出错图（见 model/groupInputLinks.ts）。
+    let nextEdges = current.edges
+    for (const leavingGroupId of leavingGroupIds) {
+      nextEdges = removeGroupLinkEdgesForMember(nextEdges, leavingGroupId, nodeId)
+    }
+    const joinedEdges: { sourceNodeId: string; mode: GenerationCanvasEdgeMode }[] = []
+    for (const link of targetGroup.inputLinks ?? []) {
+      const outcome = materializeGroupLink({ ...current, edges: nextEdges }, id, link.sourceNodeId, [sourceNode])
+      nextEdges = outcome.edges
+      for (const item of outcome.connected) joinedEdges.push({ sourceNodeId: link.sourceNodeId, mode: item.mode })
+    }
     pushUndoSnapshot(current)
     set((state) => {
       const node = state.nodes.find((candidate) => candidate.id === nodeId)
@@ -351,9 +446,13 @@ export const createCanvasGraphActions: CanvasSliceCreator<CanvasGraphActions> = 
       node.groupId = group.id
       if (!group.nodeIds.includes(nodeId)) group.nodeIds.push(nodeId)
       group.updatedAt = Date.now()
+      if (nextEdges !== state.edges) state.edges = nextEdges
       bumpPersistRevision(state)
       Object.assign(state, getHistoryFlags())
     })
+    for (const item of joinedEdges) {
+      autoPromoteTargetModeForEdge(get(), item.sourceNodeId, nodeId, item.mode)
+    }
     const post = get()
     emitCanvasGesture([
       { type: 'canvas.node.updated', payload: { nodeId, patch: { groupId: id } } },
@@ -364,6 +463,11 @@ export const createCanvasGraphActions: CanvasSliceCreator<CanvasGraphActions> = 
     const pre = get()
     const hadGroup = Boolean(pre.nodes.find((candidate) => candidate.id === nodeId)?.groupId)
     const touchedGroupIds = pre.groups.filter((g) => g.nodeIds.includes(nodeId)).map((g) => g.id)
+    // 退出组 → 撤掉这些组的组入参给它连的边（只认 viaGroupId，手工边不动）。
+    let nextEdges = pre.edges
+    for (const groupId of touchedGroupIds) {
+      nextEdges = removeGroupLinkEdgesForMember(nextEdges, groupId, nodeId)
+    }
     pushUndoSnapshot(pre)
     set((state) => {
       const node = state.nodes.find((candidate) => candidate.id === nodeId)
@@ -372,6 +476,7 @@ export const createCanvasGraphActions: CanvasSliceCreator<CanvasGraphActions> = 
         group.nodeIds = group.nodeIds.filter((candidateNodeId) => candidateNodeId !== nodeId)
       }
       delete node.groupId
+      if (nextEdges !== state.edges) state.edges = nextEdges
       bumpPersistRevision(state)
       Object.assign(state, getHistoryFlags())
     })
