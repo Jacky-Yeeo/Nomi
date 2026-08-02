@@ -134,7 +134,6 @@ export const zhGenerationCommon = {
     group: {
       dragNamed: '拖动分组「{{name}}」',
       drag: '拖动分组',
-      runAll: '生成这一组（{{count}} 个）',
       connectHere: '连到「{{name}}」· 组内 {{count}} 个各连一根',
       connectedWithSkips: '已连 {{connected}} 个；{{skipped}} 个跳过——这些模型收不下这类参考',
       connectAllSkipped: '{{count}} 个成员都收不下这类参考，没连上',
@@ -1071,7 +1070,6 @@ export const enGenerationCommon = {
     group: {
       dragNamed: 'Drag group “{{name}}”',
       drag: 'Drag group',
-      runAll: 'Generate this group ({{count}})',
       connectHere: 'Connect to “{{name}}” · one edge to each of {{count}}',
       connectedWithSkips: 'Connected {{connected}}; skipped {{skipped}} — those models can’t take this kind of reference',
       connectAllSkipped: 'None of the {{count}} members can take this kind of reference — nothing connected',

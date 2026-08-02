@@ -318,7 +318,6 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
     handleGroupSelectedNodes,
     handleUngroupSelectedNodes,
     handleBatchGenerate,
-    handleRunGroup,
     handleConnectToGroup,
     contactSheetCount,
     handleBuildContactSheet,
@@ -678,7 +677,6 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
               <GroupFrameList
                 boxes={groupBoxes}
                 onPointerDown={handleGroupFramePointerDown}
-                onRunGroup={readOnly ? undefined : handleRunGroup}
                 pendingConnection={!readOnly && Boolean(pendingConnectionSourceId)}
                 onConnectToGroup={handleConnectToGroup}
               />

@@ -6,7 +6,6 @@
  * 不依赖 store；所有数据由调用方传入，便于将来虚拟化或换 dnd 后端。
  */
 import React from 'react'
-import { IconPlayerPlay } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../../utils/cn'
 import type { NodeGroup } from '../model/generationCanvasTypes'
@@ -23,8 +22,6 @@ export type CanvasGroupBox = {
 export type GroupFrameProps = {
   box: CanvasGroupBox
   onPointerDown: (event: React.PointerEvent<HTMLDivElement>, groupId: string) => void
-  /** 整组运行：把组内成员喂给现成的依赖波次批量链路（进任务面板，进度/排队/取消白捡）。 */
-  onRunGroup?: (groupId: string) => void
   /**
    * 有线待连时，组框变成可落点：落下 = 给组内每个成员各连一根（见 store.connectToGroup）。
    * 此时**不能**再走拖动 handle，否则一拖就把组挪走了。
@@ -32,6 +29,11 @@ export type GroupFrameProps = {
   pendingConnection?: boolean
   onConnectToGroup?: (groupId: string) => void
 }
+
+// 这里**刻意不放「整组运行」按钮**（2026-08-02 加过又删）：点组框本来就会选中全部成员
+// （useCanvasSelectionDrag.handleGroupFramePointerDown），选择浮条随即显示「生成 N 个」——
+// 整组运行早就有了。在标签上再放一个 ▶ 等于同屏两个一模一样的动作（实测两者相距约 600px 同时可见），
+// 是并行版（违 P1）。要改整组运行的行为，改选择浮条那一条路径。
 
 function getHexAlphaColor(color: string | undefined, alphaHex: string): string | undefined {
   const normalized = color?.trim()
@@ -47,7 +49,6 @@ function getHexAlphaColor(color: string | undefined, alphaHex: string): string |
 export default function GroupFrame({
   box,
   onPointerDown,
-  onRunGroup,
   pendingConnection,
   onConnectToGroup,
 }: GroupFrameProps): JSX.Element {
@@ -116,29 +117,6 @@ export default function GroupFrame({
         <span className="inline-grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[var(--workbench-veil-chip)] px-[5px] text-micro">
           {box.memberCount}
         </span>
-        {onRunGroup && box.memberCount > 0 && !connectable ? (
-          <>
-            <span className="h-3 w-px bg-[var(--workbench-veil-chip)]" aria-hidden />
-            <button
-              type="button"
-              data-group-run={box.group.id}
-              className={cn(
-                'inline-grid size-[18px] place-items-center rounded-full border-0 p-0',
-                'cursor-pointer bg-transparent text-nomi-paper',
-                'transition-colors duration-[var(--nomi-transition-fast)] hover:bg-[var(--workbench-veil-chip)]',
-              )}
-              aria-label={t('generationCommon.canvas.group.runAll', { count: box.memberCount })}
-              title={t('generationCommon.canvas.group.runAll', { count: box.memberCount })}
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation()
-                onRunGroup(box.group.id)
-              }}
-            >
-              <IconPlayerPlay size={11} stroke={2} aria-hidden />
-            </button>
-          </>
-        ) : null}
       </div>
     </div>
   )
@@ -147,7 +125,6 @@ export default function GroupFrame({
 export type GroupFrameListProps = {
   boxes: readonly CanvasGroupBox[]
   onPointerDown: (event: React.PointerEvent<HTMLDivElement>, groupId: string) => void
-  onRunGroup?: (groupId: string) => void
   pendingConnection?: boolean
   onConnectToGroup?: (groupId: string) => void
 }
@@ -155,7 +132,6 @@ export type GroupFrameListProps = {
 export function GroupFrameList({
   boxes,
   onPointerDown,
-  onRunGroup,
   pendingConnection,
   onConnectToGroup,
 }: GroupFrameListProps): JSX.Element {
@@ -166,7 +142,6 @@ export function GroupFrameList({
           key={box.group.id}
           box={box}
           onPointerDown={onPointerDown}
-          onRunGroup={onRunGroup}
           pendingConnection={pendingConnection}
           onConnectToGroup={onConnectToGroup}
         />

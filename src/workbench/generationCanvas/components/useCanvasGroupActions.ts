@@ -1,5 +1,8 @@
 /**
- * 「跑什么」这一族画布动作：编组 / 解组 / 生成选中 / 整组运行 / 连到组。
+ * 「跑什么」这一族画布动作：编组 / 解组 / 生成选中 / 连到组 / 拼联系表。
+ *
+ * 注意**没有**独立的「整组运行」：点组框本来就会选中全部成员，选择浮条随即显示「生成 N 个」——
+ * 整组运行走的就是 handleBatchGenerate 这一条，不该有第二条（2026-08-02 加过一个又删，见 GroupFrame 注释）。
  *
  * 从 GenerationCanvas.tsx 抽出来：那个壳已经顶到 800 行上限（R9）。这几个动作共用同一条批量链路
  * （buildDependencyWaves + confirmAndRunPlan）、只吃 store 数据、都不碰视口/拖拽/连线几何，抽在一起最自然。
@@ -20,7 +23,6 @@ export function useCanvasGroupActions(params: {
   handleGroupSelectedNodes: () => void
   handleUngroupSelectedNodes: () => void
   handleBatchGenerate: () => void
-  handleRunGroup: (groupId: string) => void
   handleConnectToGroup: (groupId: string) => void
   /** 选中里已出图的张数（<2 就没有联系表可拼，浮条上那个钮不出现）。 */
   contactSheetCount: number
@@ -51,20 +53,6 @@ export function useCanvasGroupActions(params: {
     const state = useGenerationCanvasStore.getState()
     void confirmAndRunPlan(buildDependencyWaves(ids, { nodes: state.nodes, edges: state.edges }))
   }, [selectedNodeIds])
-
-  // 整组运行：和「生成选中」同一条批量链路（buildDependencyWaves + confirmAndRunPlan），
-  // 所以进度/排队/取消/连续失败刹车全部白捡（P1：不另起第二条调度）。
-  const handleRunGroup = React.useCallback((groupId: string) => {
-    const state = useGenerationCanvasStore.getState()
-    const group = state.groups.find((candidate) => candidate.id === groupId)
-    if (!group) return
-    const memberIds = new Set(group.nodeIds)
-    const ids = state.nodes
-      .filter((node) => memberIds.has(node.id) && (node.categoryId || 'shots') === group.categoryId)
-      .map((node) => node.id)
-    if (!ids.length) return
-    void confirmAndRunPlan(buildDependencyWaves(ids, { nodes: state.nodes, edges: state.edges }))
-  }, [])
 
   // 连到组：给组内每个成员各连一根真边（图结构不变）。被能力校验跳过的必须说清，不许静默丢。
   const handleConnectToGroup = React.useCallback((groupId: string) => {
@@ -99,7 +87,6 @@ export function useCanvasGroupActions(params: {
     handleGroupSelectedNodes,
     handleUngroupSelectedNodes,
     handleBatchGenerate,
-    handleRunGroup,
     handleConnectToGroup,
     contactSheetCount,
     handleBuildContactSheet,

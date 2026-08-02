@@ -87,32 +87,51 @@ await win.keyboard.press('Escape')
 await win.waitForTimeout(400)
 await snap(win, 'grouped')
 
-// ① 组标签：运行钮在不在、标签有没有被挤爆
-const label = win.locator('.generation-canvas-v2__group-box-label').first()
-await snapNear(win, 'group-label-with-run', label, 14)
-const runBtn = win.locator('[data-group-run]').first()
-check('组标签上有运行钮', await runBtn.count() > 0)
-const geo = await win.evaluate(() => {
-  const el = document.querySelector('.generation-canvas-v2__group-box-label')
-  const btn = document.querySelector('[data-group-run]')
-  if (!el || !btn) return null
-  const lb = el.getBoundingClientRect(); const bb = btn.getBoundingClientRect()
-  const nameEl = el.querySelector('span')
-  return {
-    labelW: Math.round(lb.width), labelH: Math.round(lb.height),
-    btnW: Math.round(bb.width), btnH: Math.round(bb.height),
-    btnInside: bb.right <= lb.right + 0.5 && bb.left >= lb.left - 0.5 && bb.top >= lb.top - 0.5 && bb.bottom <= lb.bottom + 0.5,
-    nameTruncated: nameEl ? nameEl.scrollWidth > nameEl.clientWidth + 1 : null,
-  }
-})
-console.log('  → 标签几何:', JSON.stringify(geo))
-check('运行钮在标签框内（没溢出）', Boolean(geo?.btnInside), JSON.stringify(geo))
-check('运行钮点得到（≥14px）', (geo?.btnW ?? 0) >= 14 && (geo?.btnH ?? 0) >= 14)
-check('组名没被运行钮挤到截断', geo?.nameTruncated === false)
+// 组框内找一个不压节点的空白点（点组框 = 选中全部成员；压着节点就变成选那一个了）
+async function emptyPointInGroup() {
+  const gb = await win.locator('.generation-canvas-v2__group-box').first().boundingBox()
+  if (!gb) return null
+  return win.evaluate((box) => {
+    const hit = (x, y) => {
+      const stack = document.elementsFromPoint(x, y)
+      return stack.some((el) => el.closest('[data-group-id]')) && !stack.some((el) => el.closest('[data-node-id]'))
+    }
+    for (let dy = 12; dy < box.height - 8; dy += 10) {
+      for (let dx = 12; dx < box.width - 8; dx += 10) {
+        if (hit(box.x + dx, box.y + dy)) return { x: box.x + dx, y: box.y + dy }
+      }
+    }
+    return null
+  }, gb)
+}
 
-// ② 整组运行：应当走**和「生成选中」同一条**批量链路 → 弹同一个消耗额度确认卡，且张数 = 组成员数。
-//    （这正是「不另起第二条调度」的可见证据：确认卡/队列/取消全是现成那套。）
-await runBtn.click({ timeout: 4000 })
+// ① 整组运行：**本来就有**，入口是「点组框 → 全部成员被选中 → 选择浮条『生成 N 个』」。
+//    这里验的是它确实好使，**以及同屏只有这一个生成动作**——2026-08-02 我在组标签上加过第二个 ▶，
+//    与浮条上的「生成 N 个」同屏并存（相距约 600px），是并行版，已删。这条断言就是防它复发。
+const groupClickPoint = await emptyPointInGroup()
+check('组框内找得到不压节点的空白点', Boolean(groupClickPoint))
+await win.mouse.click(groupClickPoint.x, groupClickPoint.y)
+await win.waitForTimeout(900)
+const selectedText = await win.locator('.generation-canvas-v2__selection-toolbar').first().textContent().catch(() => '')
+console.log('  → 点组框后选择浮条:', JSON.stringify(selectedText))
+check('点组框 = 选中全部成员（整组运行的现成入口）', /已选\s*4\s*个/.test(selectedText || ''), String(selectedText))
+check('浮条上有「生成 4 个」', /生成\s*4\s*个/.test(selectedText || ''), String(selectedText))
+
+// 反并行版断言：整屏只应有**一个**「生成」动作，组标签上不许再挂第二个。
+const generateAffordances = await win.evaluate(() => ({
+  onGroupLabel: document.querySelectorAll('[data-group-run]').length,
+  runAll: document.querySelectorAll('[data-storyboard-run-all]').length,
+}))
+console.log('  → 同屏生成动作:', JSON.stringify(generateAffordances))
+check('组标签上没有第二个运行钮（并行版已删，防复发）', generateAffordances.onGroupLabel === 0, JSON.stringify(generateAffordances))
+check('生成动作全屏只有一个（就是选择浮条那个）', generateAffordances.runAll === 1, JSON.stringify(generateAffordances))
+{
+  const box = await win.locator('.generation-canvas-v2__group-box-label').first().boundingBox().catch(() => null)
+  if (box) await snap(win, 'group-label-no-run-button', { x: Math.max(0, box.x - 14), y: Math.max(0, box.y - 14), width: 420, height: 120 })
+}
+
+// ② 走浮条那条路跑整组：应当进现成的批量确认卡，张数 = 组成员数。
+await win.locator('[data-storyboard-run-all]').first().click({ timeout: 5000 })
 await win.waitForTimeout(2500)
 await snap(win, 'after-run-group')
 const confirmCard = await win.evaluate(() => {
@@ -120,10 +139,9 @@ const confirmCard = await win.evaluate(() => {
   return veil ? veil.textContent?.replace(/\s+/g, ' ').trim() ?? '' : null
 })
 console.log('  → 确认卡:', JSON.stringify(confirmCard))
-check('整组运行走的是现成的批量确认卡（没另起一套）', typeof confirmCard === 'string' && /开始生成/.test(confirmCard), String(confirmCard))
+check('整组运行走现成的批量确认卡', typeof confirmCard === 'string' && /开始生成/.test(confirmCard), String(confirmCard))
 check('确认卡张数 = 组成员数 4', /生成\s*4\s*张/.test(confirmCard || ''), String(confirmCard))
 
-// 取消掉，别真花额度；后面还要接着验连线。
 const cancelBtn = win.locator('button', { hasText: /^取消$/ }).first()
 if (await cancelBtn.count()) await cancelBtn.click({ timeout: 4000 }).catch(() => {})
 await win.waitForTimeout(1200)
