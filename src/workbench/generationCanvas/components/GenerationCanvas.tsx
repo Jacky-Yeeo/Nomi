@@ -51,6 +51,7 @@ import { hasPendingScene3DCameraMoveCapture, hasPendingScene3DStagingCapture } f
 import { lazyWithChunkBoundary } from '../../../ui/chunkBoundary'
 import { useCanvasSelectionDrag } from './useCanvasSelectionDrag'
 import { CanvasSelectionToolbar } from './CanvasSelectionToolbar'
+import { useCanvasScreenshotCapture } from './useCanvasScreenshotCapture'
 import '../styles/generationCanvas.css'
 
 const FOCUS_GENERATION_NODE_EVENT = 'nomi-focus-generation-node'
@@ -428,6 +429,8 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
     })
   }, [handleBrowserAssetsImportToCanvas, t])
 
+  const { screenshotOverlay } = useCanvasScreenshotCapture({ readOnly, getInsertPosition: getToolbarInsertionPosition, categoryId: activeCategoryId })
+
   const getPastePosition = React.useCallback(
     () => lastPastePositionRef.current ?? getToolbarInsertionPosition(),
     [getToolbarInsertionPosition],
@@ -707,6 +710,7 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
                 })}
               </React.Suspense>
             </div>
+            {screenshotOverlay}
             {selectedBounds && selectedCount > 1 && !readOnly ? (
               <CanvasSelectionToolbar
                 selectedCount={selectedCount}

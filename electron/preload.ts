@@ -214,6 +214,29 @@ contextBridge.exposeInMainWorld("nomiDesktop", {
     detectShotCuts: (payload: unknown) =>
       ipcRenderer.invoke("nomi:video:detect-shot-cuts", payload) as Promise<unknown>,
   },
+  screenshot: {
+    get: () => ipcRenderer.invoke("nomi:screenshot:get") as Promise<unknown>,
+    set: (payload: unknown) => ipcRenderer.invoke("nomi:screenshot:set", payload) as Promise<unknown>,
+    openPermissionSettings: () => ipcRenderer.invoke("nomi:screenshot:open-permission-settings") as Promise<unknown>,
+    setProjectId: (projectId: string) => ipcRenderer.invoke("nomi:screenshot:set-project", projectId) as Promise<unknown>,
+    // 走查专用：对应的 handler 只在主进程 NOMI_E2E=1 时注册，生产环境这里会直接 reject（门禁在主进程侧）。
+    e2eCapture: () => ipcRenderer.invoke("nomi:screenshot:e2e-capture") as Promise<unknown>,
+    onCaptured: (cb: (payload: { url: string; width: number; height: number }) => void) => {
+      const listener = (_: unknown, value: { url: string; width: number; height: number }) => cb(value);
+      ipcRenderer.on("nomi:screenshot:captured", listener);
+      return () => ipcRenderer.removeListener("nomi:screenshot:captured", listener);
+    },
+    onDenied: (cb: (payload: { screenAccess: string }) => void) => {
+      const listener = (_: unknown, value: { screenAccess: string }) => cb(value);
+      ipcRenderer.on("nomi:screenshot:denied", listener);
+      return () => ipcRenderer.removeListener("nomi:screenshot:denied", listener);
+    },
+    onFailed: (cb: (payload: { reason: string }) => void) => {
+      const listener = (_: unknown, value: { reason: string }) => cb(value);
+      ipcRenderer.on("nomi:screenshot:failed", listener);
+      return () => ipcRenderer.removeListener("nomi:screenshot:failed", listener);
+    },
+  },
   image: {
     decomposeLayers: (payload: unknown) =>
       ipcRenderer.invoke("nomi:image:decompose-layers", payload) as Promise<{ layers: string[] }>,

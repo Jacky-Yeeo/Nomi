@@ -1,8 +1,10 @@
 import type { ExportJobEvent, ExportJobSnapshot } from '../../electron/export/exportJobManager'
 import type { WorkspaceFileListResult } from '../../electron/workspace/workspaceFileIndex'
 import type { ProviderKind } from './providerKind'
+import type { DesktopMediaBridge } from './bridgeMedia'
 
 export type { ProviderKind }
+export type { ScreenshotHotkeyStatus } from './bridgeMedia'
 
 /** 落盘的对话消息(conversation 域;draft/附件是 session 域不落盘)。 */
 export type PersistedAiMessage = { id: string; role: string; content: string }
@@ -280,7 +282,7 @@ export type DesktopUpdateEvent =
   | { type: 'downloaded'; version: string }
   | { type: 'error'; message: string }
 
-export type DesktopBridge = {
+export type DesktopBridge = DesktopMediaBridge & {
   platform: string
   i18n?: {
     setLocale: (locale: 'zh-CN' | 'en') => void
@@ -455,36 +457,6 @@ export type DesktopBridge = {
     onTextPromptSave?: (callback: (event: DesktopBrowserTextPromptSaveEvent) => void) => () => void
     onResourceCapture?: (callback: (event: DesktopBrowserResourceCaptureEvent) => void) => () => void
     onState: (callback: (event: DesktopBrowserViewState) => void) => () => void
-  }
-  video: {
-    /** 视频抽帧（首/尾帧/指定秒）→ 项目素材 nomi-local:// URL。通用基建，见 electron/video/extractVideoFrame.ts。 */
-    extractFrame: (payload: {
-      videoUrl: string
-      which: 'first' | 'last' | number
-      projectId: string
-      forceRerun?: boolean
-    }) => Promise<{ url: string }>
-    /** 胶片缩略图条：16 帧横向拼条 jpg → 项目素材 URL（时间轴 clip 全员真帧渲染用）。 */
-    extractFilmstrip: (payload: {
-      videoUrl: string
-      projectId: string
-      forceRerun?: boolean
-    }) => Promise<{ url: string; tiles: number; tileHeight: number }>
-    /**
-     * 按切镜检测：找出视频里的画面切点 + 一张对齐的联系表缩略图。见 electron/video/detectShotCuts.ts。
-     * cuts 是**低阈值全集带分数**——灵敏度滑杆在前端按 score 过滤，不重跑 ffmpeg。
-     */
-    detectShotCuts: (payload: {
-      videoUrl: string
-      projectId: string
-    }) => Promise<{
-      cuts: { seconds: number; score: number }[]
-      durationSeconds: number
-      sheetUrl: string | null
-      sheetColumns: number
-      sheetTileHeight: number
-      truncated: boolean
-    }>
   }
   image: {
     /** 元素拆解：一张图 → Replicate qwen-image-layered → N 张落地 RGBA 图层 URL（对标 Lovart Edit Elements）。

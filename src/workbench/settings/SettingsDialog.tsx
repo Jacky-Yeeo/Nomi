@@ -5,6 +5,7 @@ import { IconAdjustmentsHorizontal, IconFolder, IconInfoCircle, IconX } from '@t
 import { cn } from '../../utils/cn'
 import { DesignSwitch } from '../../design'
 import { getDesktopBridge } from '../../desktop/bridge'
+import { ScreenshotHotkeySection } from './ScreenshotHotkeySection'
 
 // 集中设置页（2026-08-01 用户拍板样张）：左 tab 右内容。首批「文件与保存」做实——自动另存开关+目录；
 // 其余 tab 占位。复用 OnboardingFloatingPanel 的外壳交互（Portal + Esc + 点遮罩关），布局是居中大 modal。
@@ -142,6 +143,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
                   </div>
                   <div className="text-caption leading-relaxed text-nomi-ink-40">{t('settings.file.saveRootHint')}</div>
                 </div>
+              </div>
+            ) : tab === 'general' ? (
+              <div>
+                <div className="mb-4 text-body font-medium text-nomi-ink">{t('settings.general.title')}</div>
+                <ScreenshotHotkeySection />
               </div>
             ) : (
               <div className="pt-10 text-center text-caption text-nomi-ink-40">{t('settings.placeholder')}</div>

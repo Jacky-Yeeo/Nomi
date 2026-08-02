@@ -49,6 +49,7 @@ import { readMcpInfo, installMcp, uninstallMcp } from "./capabilityCore/mcpConfi
 import { registerLocalProtocol } from "./protocol/localProtocol";
 import { installMainWindowInteractions } from "./mainWindowInteractions";
 import { getMainWindow, setMainWindow } from "./mainWindowRegistry";
+import { registerScreenshotIpc } from "./screenshot/screenshotIpc";
 import { desktopT, registerI18nIpc, setDesktopLocale } from "./i18n";
 installCrashHandlers();
 
@@ -583,6 +584,7 @@ function registerIpc(): void {
     const { extractVideoFilmstripToAsset } = await import("./video/extractVideoFrame");
     return extractVideoFilmstripToAsset(payload);
   });
+  registerScreenshotIpc();
   ipcMain.handle("nomi:video:detect-shot-cuts", async (_event, payload) => {
     const { detectShotCuts } = await import("./video/detectShotCuts");
     return detectShotCuts(payload);
@@ -739,6 +741,10 @@ if (hasSingleInstanceLock)
       await createWindow();
       setTimeout(
         () => {
+          // 全局截图热键：默认关，只有用户在设置里开过才会真注册（见 screenshot/screenshotHotkey.ts）。
+          void import("./screenshot/screenshotHotkey")
+            .then(({ applyScreenshotHotkey }) => applyScreenshotHotkey())
+            .catch((error) => console.error("[nomi:desktop] screenshot hotkey boot failed:", error));
           void import("./proxyIpc")
             .then(({ applyProxyAtBoot }) => applyProxyAtBoot())
             .catch((error) => console.error("[nomi:desktop] proxy boot failed:", error))
