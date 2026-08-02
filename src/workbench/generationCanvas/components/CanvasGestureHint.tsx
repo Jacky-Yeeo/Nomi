@@ -8,13 +8,12 @@ import { hasSeenCanvasGestureHint, markCanvasGestureHintSeen } from '../../onboa
 
 type GestureItem = { keysKey: string; labelKey: string }
 
-// 平移放首位、且同时列出鼠标(滚轮/空格拖)与触控板(双指)两套——用户群反复反馈「画布只能缩放不能移动」，
-// 根因是旧图例只写「双指滑」，纯鼠标用户看不到任何平移手势(滚轮/空格拖其实都实现了，只是没告诉他)。
+// ComfyUI 式语义（2026-07-31 用户拍板）：空白拖=平移、滚轮=缩放、Shift+拖=框选、Shift+点=多选。
 const GESTURES: GestureItem[] = [
-  { keysKey: 'wheelOrSpace', labelKey: 'pan' },
-  { keysKey: 'twoFinger', labelKey: 'pan' },
-  { keysKey: 'commandWheel', labelKey: 'zoom' },
-  { keysKey: 'blankDrag', labelKey: 'boxSelect' },
+  { keysKey: 'blankDrag', labelKey: 'pan' },
+  { keysKey: 'wheel', labelKey: 'zoom' },
+  { keysKey: 'shiftDrag', labelKey: 'boxSelect' },
+  { keysKey: 'shiftClick', labelKey: 'multiSelect' },
 ]
 
 export function CanvasGestureHint(): JSX.Element | null {

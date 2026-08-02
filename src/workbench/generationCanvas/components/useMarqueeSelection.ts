@@ -1,6 +1,6 @@
-// 框选 marquee（B2，2026-06-14）。空白处左键拖拽画选框，抬起按 AABB 选中当前分类节点。
-// 与平移分工：平移走 双指/空格/中键/右键（useCanvasViewportGestures，allowLeftDragPan=false），
-// 故左键拖空白只会进这里，二者不抢。纯点击空白（未拖动）= 清空选择（原 pan 路径让出后由此接管）。
+// 框选 marquee（2026-07-31 用户拍板：Shift+左键拖空白）。拖拽画选框，抬起按 AABB 并入当前分类选区。
+// 与平移分工：空白左键拖（无修饰）= 平移（useCanvasViewportGestures），按住 Shift 才进这里，二者按
+// shiftKey 分工不抢。纯点击空白清空选择由平移路径的 pointerUp 负责；Shift+点击空白不清（追加意图）。
 import React from 'react'
 
 const MARQUEE_THRESHOLD = 4
@@ -16,7 +16,6 @@ type UseMarqueeSelectionArgs = {
   zoomRef: React.MutableRefObject<number>
   activeCategoryId: string
   selectNodesInRect: (rect: { x1: number; y1: number; x2: number; y2: number }, categoryId?: string, additive?: boolean) => void
-  clearSelection: () => void
 }
 
 export type MarqueeSelection = {
@@ -36,9 +35,8 @@ export function useMarqueeSelection({
   zoomRef,
   activeCategoryId,
   selectNodesInRect,
-  clearSelection,
 }: UseMarqueeSelectionArgs): MarqueeSelection {
-  const startRef = React.useRef<{ clientX: number; clientY: number; additive: boolean; moved: boolean } | null>(null)
+  const startRef = React.useRef<{ clientX: number; clientY: number; moved: boolean } | null>(null)
   const [marqueeRect, setMarqueeRect] = React.useState<MarqueeRect | null>(null)
 
   const computeStageRect = React.useCallback((clientX: number, clientY: number) => {
@@ -54,10 +52,10 @@ export function useMarqueeSelection({
   }, [stageRef])
 
   const handlePointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (readOnly || event.button !== 0) return
+    if (readOnly || event.button !== 0 || !event.shiftKey) return
     const target = event.target instanceof Element ? event.target : null
     if (target?.closest(EMPTY_TARGET_GUARD)) return
-    startRef.current = { clientX: event.clientX, clientY: event.clientY, additive: event.shiftKey, moved: false }
+    startRef.current = { clientX: event.clientX, clientY: event.clientY, moved: false }
     setMarqueeRect(null)
     try { event.currentTarget.setPointerCapture(event.pointerId) } catch { /* 无活动指针时忽略 */ }
   }, [readOnly])
@@ -85,11 +83,8 @@ export function useMarqueeSelection({
     ) {
       event.currentTarget.releasePointerCapture(event.pointerId)
     }
-    if (!start.moved || !stage) {
-      // 纯点击空白：清空选择（除非 Shift 追加意图）
-      if (!start.additive) clearSelection()
-      return
-    }
+    // Shift+纯点击空白（未拖动）：追加意图，不清选区、不选中
+    if (!start.moved || !stage) return
     const bounds = stage.getBoundingClientRect()
     const z = zoomRef.current || 1
     const toCanvas = (clientX: number, clientY: number) => ({
@@ -98,8 +93,8 @@ export function useMarqueeSelection({
     })
     const a = toCanvas(start.clientX, start.clientY)
     const b = toCanvas(event.clientX, event.clientY)
-    selectNodesInRect({ x1: a.x, y1: a.y, x2: b.x, y2: b.y }, activeCategoryId, start.additive)
-  }, [activeCategoryId, clearSelection, offsetRef, selectNodesInRect, stageRef, zoomRef])
+    selectNodesInRect({ x1: a.x, y1: a.y, x2: b.x, y2: b.y }, activeCategoryId, true)
+  }, [activeCategoryId, offsetRef, selectNodesInRect, stageRef, zoomRef])
 
   return { marqueeRect, handlePointerDown, handlePointerMove, handlePointerUp }
 }
