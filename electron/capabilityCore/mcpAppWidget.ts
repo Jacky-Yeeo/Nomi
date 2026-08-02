@@ -272,6 +272,14 @@ export const NOMI_LIVE_DRAFT_WIDGET_HTML = `<!DOCTYPE html>
     if (state && state.deepLink) request("ui/open-link", { url: state.deepLink });
   });
 
+  // ChatGPT（OpenAI Apps SDK）桥：数据不走标准 postMessage，而是 window.openai.toolOutput（= structuredContent）
+  // + openai:set_globals 事件下发。双桥并存 → 同一份 widget 在 Claude/参考宿主(postMessage)与 ChatGPT(window.openai)都活（P4 通用）。
+  try { if (window.openai && window.openai.toolOutput) ingest(window.openai.toolOutput); } catch (e) {}
+  window.addEventListener("openai:set_globals", function (ev) {
+    var o = ev && ev.detail && ev.detail.globals && ev.detail.globals.toolOutput;
+    if (o) ingest(o);
+  }, { passive: true });
+
   // 视图↔宿主握手：先 ui/initialize，再 initialized 通知（规范 2026-01-26）。
   request("ui/initialize", { appInfo: { name: "nomi-live-draft", version: "1.0.0" } });
   notify("ui/notifications/initialized", {});

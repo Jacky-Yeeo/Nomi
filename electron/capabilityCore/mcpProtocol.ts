@@ -15,7 +15,6 @@
 import {
   NOMI_LIVE_DRAFT_UI_URI,
   MCP_APP_MIME_TYPE,
-  MCP_UI_EXTENSION_ID,
   NOMI_LIVE_DRAFT_WIDGET_HTML,
   buildNomiDraftFromGenerate,
 } from './mcpAppWidget'
@@ -175,8 +174,6 @@ type SkillContentFrame = { name: string; directoryName: string; description: str
 export function createMcpProtocol(transport: McpTransport) {
   // 客户端能力（initialize 时捕获）。elicitation = 客户端能代我们向真人弹确认对话框（MCP 规范 2025-06-18）。
   let clientSupportsElicitation = false
-  // MCP Apps UI 扩展：客户端声明 capabilities.extensions['io.modelcontextprotocol/ui'] = 宿主能渲活 widget。
-  let clientSupportsUiApps = false
   // 服务端→客户端请求自管 id 与 pending，等客户端回响应。
   let serverReqSeq = 0
   const pendingServerReqs = new Map<string, { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>()
@@ -191,12 +188,14 @@ export function createMcpProtocol(transport: McpTransport) {
     send({ jsonrpc: '2.0', id, error: { code, message } })
   }
 
-  // tool result 载荷：文本兜底（宿主无 UI 时也看得到）+ 挂 widget 的工具额外带 structuredContent.nomiDraft
-  // （宿主注入 iframe 渲活生成面板）+ _meta.ui.resourceUri（本次结果关联的 widget，冗余声明）。
+  // tool result 载荷：文本兜底（宿主无 UI 时也看得到，且 content[].text 不变=终端体验零回归）+ 挂 widget 的
+  // 工具额外带 structuredContent.nomiDraft（宿主注入 iframe/window.openai 渲活生成面板）+ _meta.ui.resourceUri
+  // （标准）与 openai/outputTemplate（ChatGPT 别名）。always 附——宿主不支持则忽略这些附加字段（spec 设计），
+  // 跨 Claude/ChatGPT/参考宿主通用（P4）；不 gate on 客户端声明，否则 ChatGPT 不声明该扩展就拿不到 widget。
   function buildToolResultPayload(toolName: string, args: Record<string, unknown>, result: unknown): Record<string, unknown> {
     const payload: Record<string, unknown> = { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
-    // 只对声明了 UI 扩展的宿主附 widget 数据——纯终端客户端（Claude Code 等）保持原文本结果，零回归。
-    if (toolName === 'nomi_generate' && clientSupportsUiApps) {
+    const uiUri = TOOL_UI_RESOURCE[toolName]
+    if (toolName === 'nomi_generate' && uiUri) {
       payload.structuredContent = {
         nomiDraft: buildNomiDraftFromGenerate({
           intent: typeof args.intent === 'string' ? args.intent : undefined,
@@ -207,8 +206,7 @@ export function createMcpProtocol(transport: McpTransport) {
           result,
         }),
       }
-      const uiUri = TOOL_UI_RESOURCE[toolName]
-      if (uiUri) payload._meta = { ui: { resourceUri: uiUri } }
+      payload._meta = { ui: { resourceUri: uiUri }, 'openai/outputTemplate': uiUri }
     }
     return payload
   }
@@ -258,8 +256,6 @@ export function createMcpProtocol(transport: McpTransport) {
 
     if (method === 'initialize') {
       clientSupportsElicitation = Boolean(params?.capabilities && (params.capabilities as Record<string, unknown>).elicitation)
-      const clientExtensions = (params?.capabilities as Record<string, unknown> | undefined)?.extensions as Record<string, unknown> | undefined
-      clientSupportsUiApps = Boolean(clientExtensions && clientExtensions[MCP_UI_EXTENSION_ID])
       // 协议版本回显客户端请求的版本（兼容性根因 R5 实证）：硬回我们偏好版本会让只讲老协议的客户端按规范断开。
       const requested = params?.protocolVersion
       const negotiatedVersion = typeof requested === 'string' && requested ? requested : PROTOCOL_VERSION
@@ -277,9 +273,20 @@ export function createMcpProtocol(transport: McpTransport) {
     if (method === 'tools/list') {
       reply(id, {
         tools: TOOLS.map(({ name, description, inputSchema }) => {
-          // _meta.ui.resourceUri：预声明该工具的活 widget（MCP Apps 2026-01-26）。只发给声明了 UI 扩展的宿主。
-          const uiUri = clientSupportsUiApps ? TOOL_UI_RESOURCE[name] : undefined
-          return uiUri ? { name, description, inputSchema, _meta: { ui: { resourceUri: uiUri } } } : { name, description, inputSchema }
+          // 挂活 widget 的工具：预声明 _meta.ui.resourceUri（MCP Apps 标准）+ openai/outputTemplate（ChatGPT 别名）
+          // + 调用状态文案。always 广告（宿主不支持则忽略 _meta，spec 设计）→ 跨 Claude/ChatGPT 通用（P4）。
+          const uiUri = TOOL_UI_RESOURCE[name]
+          return uiUri
+            ? {
+                name, description, inputSchema,
+                _meta: {
+                  ui: { resourceUri: uiUri },
+                  'openai/outputTemplate': uiUri,
+                  'openai/toolInvocation/invoking': 'Nomi 生成中…',
+                  'openai/toolInvocation/invoked': '已出图',
+                },
+              }
+            : { name, description, inputSchema }
         }),
       })
       return
@@ -333,15 +340,13 @@ export function createMcpProtocol(transport: McpTransport) {
         description: s.description,
         mimeType: 'text/markdown',
       }))
-      // 活 widget 资源（MCP Apps）：宿主预取渲染 nomi_generate 的活生成面板。只列给声明了 UI 扩展的宿主。
-      const uiResources = clientSupportsUiApps
-        ? [{
-            uri: NOMI_LIVE_DRAFT_UI_URI,
-            name: 'Nomi 活生成面板',
-            description: '在支持 MCP Apps 的宿主里内嵌显示 Nomi 生成的画面缩略图与状态。',
-            mimeType: MCP_APP_MIME_TYPE,
-          }]
-        : []
+      // 活 widget 资源（MCP Apps）：宿主预取渲染 nomi_generate 的活生成面板。always 列出（宿主不支持则不取）。
+      const uiResources = [{
+        uri: NOMI_LIVE_DRAFT_UI_URI,
+        name: 'Nomi 活生成面板',
+        description: '在支持 MCP Apps 的宿主里内嵌显示 Nomi 生成的画面缩略图与状态。',
+        mimeType: MCP_APP_MIME_TYPE,
+      }]
       reply(id, { resources: [...uiResources, ...skillResources] })
       return
     }

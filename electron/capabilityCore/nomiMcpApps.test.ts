@@ -78,9 +78,11 @@ describe('nomi-mcp · MCP Apps 活生成 widget serving', () => {
     h = new AppsHarness()
     await h.initUi()
     const res = await h.call(2, 'tools/list')
-    const tools = (res.result as { tools: Array<{ name: string; _meta?: { ui?: { resourceUri?: string } } }> }).tools
+    const tools = (res.result as { tools: Array<{ name: string; _meta?: Record<string, unknown> }> }).tools
     const gen = tools.find((t) => t.name === 'nomi_generate')
-    expect(gen?._meta?.ui?.resourceUri).toBe(NOMI_LIVE_DRAFT_UI_URI)
+    const meta = gen?._meta as { ui?: { resourceUri?: string }; 'openai/outputTemplate'?: string } | undefined
+    expect(meta?.ui?.resourceUri).toBe(NOMI_LIVE_DRAFT_UI_URI) // MCP Apps 标准
+    expect(meta?.['openai/outputTemplate']).toBe(NOMI_LIVE_DRAFT_UI_URI) // ChatGPT 别名
     const listProjects = tools.find((t) => t.name === 'nomi_list_projects')
     expect(listProjects?._meta).toBeUndefined()
   })
@@ -104,8 +106,10 @@ describe('nomi-mcp · MCP Apps 活生成 widget serving', () => {
     expect(contents[0].uri).toBe(NOMI_LIVE_DRAFT_UI_URI)
     expect(contents[0].mimeType).toBe(MCP_APP_MIME_TYPE)
     expect(contents[0].text).toContain('<!DOCTYPE html>')
-    expect(contents[0].text).toContain('ui/notifications/tool-result') // 宿主注入数据的通道
+    expect(contents[0].text).toContain('ui/notifications/tool-result') // 标准宿主注入通道（Claude/参考宿主）
     expect(contents[0].text).toContain('ui/initialize') // 视图↔宿主握手
+    expect(contents[0].text).toContain('window.openai') // ChatGPT 桥（双桥并存）
+    expect(contents[0].text).toContain('openai:set_globals') // ChatGPT 数据更新事件
     expect(contents[0].text).toContain('Nomi 活生成')
   })
 
@@ -116,31 +120,33 @@ describe('nomi-mcp · MCP Apps 活生成 widget serving', () => {
       name: 'nomi_generate',
       arguments: { projectId: 'p1', vendor: 'apimart', modelKey: 'z-image-turbo', intent: 'image', prompt: '一只橘猫蹲在深夜面馆的木桌上' },
     })
-    const result = res.result as { content: unknown[]; structuredContent?: { nomiDraft?: { shots?: Array<{ status?: string; thumbnailUrl?: string }> } }; _meta?: { ui?: { resourceUri?: string } } }
+    const result = res.result as { content: unknown[]; structuredContent?: { nomiDraft?: { shots?: Array<{ status?: string; thumbnailUrl?: string }> } }; _meta?: { ui?: { resourceUri?: string }; 'openai/outputTemplate'?: string } }
     expect(result.content).toBeTruthy() // 文本兜底仍在
     const draft = result.structuredContent?.nomiDraft
     expect(draft).toBeTruthy()
     expect(draft?.shots?.[0]?.status).toBe('success')
     expect(draft?.shots?.[0]?.thumbnailUrl).toBe('nomi-local://asset-abc')
     expect(result._meta?.ui?.resourceUri).toBe(NOMI_LIVE_DRAFT_UI_URI)
+    expect(result._meta?.['openai/outputTemplate']).toBe(NOMI_LIVE_DRAFT_UI_URI) // ChatGPT 别名
   })
 
-  it('纯终端客户端（无 UI 扩展）：零 widget 字段——tools/list 无 _meta、resources 无 ui://、结果无 structuredContent', async () => {
+  it('纯终端客户端（未声明扩展）：widget 元数据照常广告（跨宿主通用），但 content[].text 文本结果不变（终端零回归）', async () => {
+    // 改口径（Phase B→C 走 ChatGPT）：不再 gate on 客户端声明扩展——ChatGPT 不声明 io.modelcontextprotocol/ui，
+    // gate 就会把 widget 藏掉。改为 always 广告（spec：宿主不支持则忽略 _meta/structuredContent）；
+    // 真正的「终端零回归」= content[].text 与从前一致（终端照样看得到文本结果）。
     h = new AppsHarness()
     await h.initPlain()
     const toolsRes = await h.call(2, 'tools/list')
-    const gen = (toolsRes.result as { tools: Array<{ name: string; _meta?: unknown }> }).tools.find((t) => t.name === 'nomi_generate')
-    expect(gen?._meta).toBeUndefined()
-
-    const resRes = await h.call(3, 'resources/list')
-    const hasUi = (resRes.result as { resources: Array<{ uri: string }> }).resources.some((r) => r.uri === NOMI_LIVE_DRAFT_UI_URI)
-    expect(hasUi).toBe(false)
+    const gen = (toolsRes.result as { tools: Array<{ name: string; _meta?: { ui?: { resourceUri?: string } } }> }).tools.find((t) => t.name === 'nomi_generate')
+    expect(gen?._meta?.ui?.resourceUri).toBe(NOMI_LIVE_DRAFT_UI_URI) // 未声明扩展也照常广告
 
     const callRes = await h.call(4, 'tools/call', {
       name: 'nomi_generate',
       arguments: { projectId: 'p1', vendor: 'apimart', modelKey: 'z-image-turbo', intent: 'image', prompt: 'x' },
     })
-    expect((callRes.result as { structuredContent?: unknown }).structuredContent).toBeUndefined()
+    const r = callRes.result as { content?: Array<{ type?: string; text?: string }>; structuredContent?: unknown }
+    expect(r.structuredContent).toBeTruthy() // widget 数据照常带
+    expect(r.content?.[0]?.text).toContain('succeeded') // 文本兜底不变（终端仍看得到原结果）
   })
 })
 
