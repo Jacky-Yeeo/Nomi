@@ -31,6 +31,7 @@ import { AddComfyuiInstanceButton } from './AddComfyuiInstanceButton'
 import { isComfyuiVendorKey } from '../../workbench/generationCanvas/runner/comfyuiTaskControl'
 import { NetworkSection } from './NetworkSection'
 import { CODEX_LOCAL_VENDOR_KEY } from './codexLocalProvider'
+import { CodexLocalImageCard } from './CodexLocalImageCard'
 import { KNOWN_VENDORS, isKnownVendor } from '../../config/knownVendors'
 import { getDesktopBridge } from '../../desktop/bridge'
 import { notifyModelOptionsRefresh } from '../../config/useModelOptions'
@@ -96,20 +97,10 @@ export function OnboardingDrawer(): JSX.Element {
       const ms = bridge.modelCatalog.listModels() as Array<Record<string, unknown>>
       const vs = bridge.modelCatalog.listVendors() as Array<Record<string, unknown>>
       const maps = bridge.modelCatalog.listMappings({ vendorKey: COMFYUI_VENDOR_KEY }) as Array<Record<string, unknown>>
-      let currentMcpInfo: McpInfo | null = null
-      try {
-        currentMcpInfo = (bridge.capability?.mcpInfo?.() as McpInfo | undefined) ?? null
-      } catch {
-        currentMcpInfo = null
-      }
-      const codexInstalled = currentMcpInfo?.clients.codex?.installed === true
-      const codexVendor = vs.find((v) => String(v.key) === CODEX_LOCAL_VENDOR_KEY)
-      if (codexVendor && (codexVendor.enabled !== false) !== codexInstalled) {
-        bridge.modelCatalog.upsertVendor({ key: CODEX_LOCAL_VENDOR_KEY, enabled: codexInstalled })
-        codexVendor.enabled = codexInstalled
-        notifyModelOptionsRefresh('all')
-        window.dispatchEvent(new CustomEvent('nomi-model-catalog-changed'))
-      }
+      // 注意：这里**不再**把 codex-local 的 enabled 掰成 MCP 接入状态。两者方向相反——
+      // MCP =「助手来用 Nomi」，codex-local =「Nomi 去用 Codex 出图」。旧实现把后者当前者的副作用，
+      // 且每次刷新都强制回写 → 用户在模型列表/卡里自己关掉，下次打开面板又被打开（冲用户数据）。
+      // 现在 codex-local 有自己的卡（CodexLocalImageCard），开关归用户。别再把这段接回来。
       const metaMap = new Map<string, VendorMeta>()
       for (const v of vs) {
         metaMap.set(String(v.key), {
@@ -263,13 +254,18 @@ export function OnboardingDrawer(): JSX.Element {
   const assistantAvailable = mcpInfo !== null
   // 「已接入」= 真写了某客户端配置；仅 tokenReady（就绪未接）归「可接入」。
   const assistantConnected = !!(mcpInfo && Object.values(mcpInfo.clients).some((c) => c.installed))
+  // Codex 本地生图（Nomi 去用 Codex 出图，与上面的 MCP 方向相反）：种子存在才显卡，enabled 归用户。
+  const codexImageMeta = vendorMeta.get(CODEX_LOCAL_VENDOR_KEY)
+  const codexImageAvailable = codexImageMeta !== undefined
+  const codexImageEnabled = codexImageMeta?.enabled === true
 
   const hasConnected =
     connectedKnown.length > 0 ||
     otherModels.length > 0 ||
     comfyuiConnected.length > 0 ||
     dreaminaConnected ||
-    assistantConnected
+    assistantConnected ||
+    codexImageEnabled
 
   // 能力覆盖：某 kind 有「已连通供应商（hasApiKey）+ 已启用」的模型 = 现在就能生成（诚实，未连通不算）。
   // 计数 = 该 kind 下已启用且可用的模型数（用户 2026-07-17：能力条要显示选中的不同类型模型数量）。
@@ -435,6 +431,9 @@ export function OnboardingDrawer(): JSX.Element {
             {assistantAvailable && assistantConnected ? (
               <ConnectAssistantCard info={mcpInfo} onChanged={refresh} />
             ) : null}
+            {codexImageAvailable && codexImageEnabled ? (
+              <CodexLocalImageCard enabled onChanged={refresh} />
+            ) : null}
           </>
         ) : null}
 
@@ -485,6 +484,12 @@ export function OnboardingDrawer(): JSX.Element {
         {assistantAvailable && !assistantConnected ? (
           <AvailableGroup title={t('onboardingProviders.drawer.connectAssistant')} count={1} defaultExpanded={false}>
             <ConnectAssistantCard info={mcpInfo} onChanged={refresh} />
+          </AvailableGroup>
+        ) : null}
+
+        {codexImageAvailable && !codexImageEnabled ? (
+          <AvailableGroup title={t('onboardingProviders.drawer.localCodexImage')} count={1} defaultExpanded={false}>
+            <CodexLocalImageCard enabled={false} onChanged={refresh} />
           </AvailableGroup>
         ) : null}
       </div>

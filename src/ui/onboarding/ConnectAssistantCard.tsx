@@ -16,7 +16,6 @@ import { getDesktopBridge } from '../../desktop/bridge'
 import { toast } from '../toast'
 import { FoldableModelCard } from './FoldableModelCard'
 import { DesignSegmentedControl } from '../../design'
-import { CODEX_IMAGE_MODEL_LABEL, CODEX_LOCAL_VENDOR_KEY } from './codexLocalProvider'
 import type { McpInfo, McpVerifyReason } from '../../desktop/mcpBridgeTypes'
 
 const GUIDE_URL = 'https://github.com/aqm857886159/Nomi/blob/main/docs/guide/capability-core-cli-mcp.md'
@@ -24,14 +23,9 @@ type ClientKey = 'claude' | 'codex' | 'cursor'
 const CLIENT_LABEL: Record<ClientKey, string> = { claude: 'Claude Code', codex: 'Codex', cursor: 'Cursor' }
 const CLIENT_ORDER: ClientKey[] = ['claude', 'codex', 'cursor']
 
-function syncCodexLocalVendor(enabled: boolean): void {
-  try {
-    getDesktopBridge()?.modelCatalog?.upsertVendor({ key: CODEX_LOCAL_VENDOR_KEY, enabled })
-  } catch {
-    // 非关键路径：OnboardingDrawer 刷新时还会按 Codex MCP 接入状态再次派生。
-  }
-}
-
+// 本卡只管一个方向：**让 AI 助手来用 Nomi**（MCP）。
+// 反方向的「Nomi 去用 Codex 出图」已拆成独立的 CodexLocalImageCard，各开各的——此前接入 MCP 会
+// 顺带开生图模型、撤销顺带关，且抽屉刷新还会把用户手动改的开关掰回来（冲用户数据）。别再接回来。
 /**
  * 实连验证状态。**「配置里有 nomi 这行字」≠「还连得上」**——老版本写的 `node …/scripts/nomi-mcp.mjs`
  * 早已随仓库删除、从 dev 构建点的接入会把路径钉在随时会消失的 worktree 上，两者在旧口径下都显示
@@ -121,7 +115,6 @@ export function ConnectAssistantCard({ info, onChanged }: ConnectAssistantCardPr
     setError('')
     try {
       capability.installMcp(target)
-      if (target === 'codex') syncCodexLocalVendor(true)
       onChanged()
       setCheckNonce((n) => n + 1) // 重连后立刻复验，别让刚修好的还挂着「已失效」。
       toast(t('onboardingProviders.assistant.connectedToast', { client: label }), 'success')
@@ -138,7 +131,6 @@ export function ConnectAssistantCard({ info, onChanged }: ConnectAssistantCardPr
     setError('')
     try {
       capability.uninstallMcp(target)
-      if (target === 'codex') syncCodexLocalVendor(false)
       onChanged()
       toast(t('onboardingProviders.assistant.disconnectedToast'), 'success')
     } catch (e) {
@@ -247,15 +239,6 @@ export function ConnectAssistantCard({ info, onChanged }: ConnectAssistantCardPr
               <div className="text-body-sm text-nomi-ink-80 leading-relaxed rounded-nomi-sm border border-nomi-line bg-nomi-paper px-3 py-2.5">
                 “{t('onboardingProviders.assistant.example')}”
               </div>
-              {target === 'codex' ? (
-                <div className="flex items-start gap-2 rounded-nomi-sm bg-nomi-ink-05 px-3 py-2.5">
-                  <IconCircleCheck size={16} className="shrink-0 mt-0.5 text-workbench-success" />
-                  <div className="min-w-0">
-                    <div className="text-body-sm font-semibold text-nomi-ink">{t('onboardingProviders.assistant.codexImageReadyTitle')}</div>
-                    <div className="text-caption text-nomi-ink-60 mt-0.5">{t('onboardingProviders.assistant.codexImageReadyBody', { model: CODEX_IMAGE_MODEL_LABEL })}</div>
-                  </div>
-                </div>
-              ) : null}
               <button
                 type="button"
                 onClick={handleUninstall}
