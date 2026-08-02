@@ -58,6 +58,7 @@ import {
 } from './controls/archetypeMeta'
 import { resolveReferenceSlots, decideArrayReferenceRemoval } from '../runner/referenceSlots'
 import { useChannelCreateBody } from './controls/useChannelCreateBody'
+import { translateModelDisplayText } from '../../../i18n/modelDisplayText'
 import { resolveModeForConnectedReferences } from '../agent/referenceEdgeCapability'
 import { specializeArchetypeForVariant } from '../../../config/modelArchetypes'
 import ModeBar from './controls/ModeBar'
@@ -507,7 +508,10 @@ export default function NodeParameterControls({
     ...imageUrlSlots.map(
       (s): AssetSlot => ({
         key: s.key,
-        label: s.label,
+        // 唯一翻译点：档案路的槽标签在 archetypeModeSlots 里已翻过（对已是英文的再翻是 no-op，
+        // 查不到即原样返回），**启发式路（通用中转/ComfyUI 导入）此前根本没翻** → 英文用户在这个槽
+        // 上看到的是中文「参考图」。收在这里翻一次，两条路才真的一个口径。
+        label: translateModelDisplayText(s.label),
         accept: 'image',
         form: 'single',
         persistAsEdge: true,
