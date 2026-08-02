@@ -189,6 +189,10 @@ export function registerOnboardingIpc(): void {
           return { id, displayName, kind, ...(nativeWireArchetypeId ? { nativeWireArchetypeId } : {}) };
         }
         if (effectiveKind !== "image" || !id) return { id, displayName, kind };
+        // 图像同样探原生报文。命中就直接用，**并跳过改图协议探测**——原生自带 image_edit op，而
+        // chat/completions 那条路对 Seedream 这类非聊天模型本来就是错的（改图不按原图甚至直接失败）。
+        const nativeImageArchetypeId = await nativeArchetypeIdFor(id);
+        if (nativeImageArchetypeId) return { id, displayName, kind, nativeWireArchetypeId: nativeImageArchetypeId };
         if (explicit) return { id, displayName, kind, imageEditProtocol: explicit };
         if (smartDefaultImageEditProtocol(id) !== "chat-completions-image-url") return { id, displayName, kind };
         const controller = new AbortController();

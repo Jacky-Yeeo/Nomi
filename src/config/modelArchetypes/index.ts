@@ -64,12 +64,22 @@ function lastSegment(identifier: string): string {
   return idx >= 0 ? identifier.slice(idx + 1) : identifier;
 }
 
-function identifierMatchesPattern(identifier: string, pattern: string): boolean {
+/**
+ * 匹配分两档，**精确整串永远优先于末段**（见 resolveBaseArchetype 的两趟解析）。
+ * 只认相等、不认前缀：故 seedance-2 不会误命中 seedance-2-fast。
+ * ⚠️ 规则与 electron/catalog/archetypeIdentity 逐字对齐，改一处必改两处。
+ */
+function matchesExact(identifier: string, pattern: string): boolean {
   const id = normalizeIdentifier(identifier);
   const pat = normalizeIdentifier(pattern);
-  if (!id || !pat) return false;
-  // 整串相等，或「去掉 vendor 前缀后的末段」相等 —— 故 seedance-2 不会误命中 seedance-2-fast。
-  return id === pat || lastSegment(id) === lastSegment(pat);
+  return Boolean(id) && Boolean(pat) && id === pat;
+}
+
+/** 去掉 vendor 前缀后末段相等（"bytedance/seedance-2" ↔ "seedance-2"）。 */
+function matchesLastSegment(identifier: string, pattern: string): boolean {
+  const id = normalizeIdentifier(identifier);
+  const pat = normalizeIdentifier(pattern);
+  return Boolean(id) && Boolean(pat) && lastSegment(id) === lastSegment(pat);
 }
 
 export type ArchetypeModelLike = {
@@ -125,10 +135,12 @@ function resolveBaseArchetype(model: ArchetypeModelLike): ModelArchetype | null 
   const explicit = getArchetypeById(readArchetypeIdFromMeta(model.meta));
   if (explicit) return explicit;
   const identifiers = [model.modelKey, model.modelAlias].filter((v): v is string => typeof v === "string" && v.trim().length > 0);
-  for (const archetype of MODEL_ARCHETYPES) {
-    for (const identifier of identifiers) {
-      if (archetype.identifierPatterns.some((pattern) => identifierMatchesPattern(identifier, pattern))) {
-        return archetype;
+  // **两趟**：先全表找精确整串命中，无果再找末段命中。单趟会让结果取决于档案声明顺序
+  // （实测「Tongyi-MAI/Z-Image-Turbo」被排在前面的 z-image-turbo 档案靠末段抢走 = 认错模型、参数全错）。
+  for (const match of [matchesExact, matchesLastSegment]) {
+    for (const archetype of MODEL_ARCHETYPES) {
+      for (const identifier of identifiers) {
+        if (archetype.identifierPatterns.some((pattern) => match(identifier, pattern))) return archetype;
       }
     }
   }

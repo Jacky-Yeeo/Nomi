@@ -33,19 +33,22 @@ export const ARCHETYPE_IDENTIFIER_PATTERNS: Record<string, string[]> = {
     "bytedance/seedream-v4-edit",
     "bytedance/seedream-v4-text-to-image",
     "seedream-4-5",
-    "seedream-v4"
+    "seedream-v4",
+    "doubao-seedream-4.5"
   ],
   "nano-banana": [
     "nano-banana",
     "google/nano-banana",
     "google/nano-banana-edit",
-    "nano-banana-pro"
+    "nano-banana-pro",
+    "gemini-2.5-flash-image-preview"
   ],
   "kling-3.0": [
     "kling-3.0",
     "kling-3.0/video",
     "kling-3",
-    "kling3"
+    "kling3",
+    "kling-v3"
   ],
   "qwen-image": [
     "qwen-image",
@@ -145,15 +148,23 @@ export const ARCHETYPE_IDENTIFIER_PATTERNS: Record<string, string[]> = {
     "tongyi-mai/z-image",
     "qwen/qwen-image-2",
     "black-forest-labs/flux",
-    "modelscope"
+    "modelscope",
+    "Tongyi-MAI/Z-Image-Turbo",
+    "Tongyi-MAI/Z-Image",
+    "Qwen/Qwen-Image-2512",
+    "black-forest-labs/FLUX.2-klein-9B",
+    "black-forest-labs/FLUX.1-Krea-dev",
+    "MAILAND/majicflus_v1"
   ],
   "modelscope-image-edit": [
     "qwen/qwen-image-edit",
-    "modelscope-edit"
+    "modelscope-edit",
+    "Qwen/Qwen-Image-Edit-2511"
   ],
   "volcengine-seedream": [
-    "doubao-seedream-5",
-    "doubao-seedream-4"
+    "doubao-seedream-5-0-260128",
+    "doubao-seedream-4-5-251128",
+    "doubao-seedream-4-0-250828"
   ],
   "volcengine-seedance-2": [
     "doubao-seedance-2-0-260128",

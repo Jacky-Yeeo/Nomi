@@ -20,21 +20,36 @@ function lastSegment(identifier: string): string {
   return idx >= 0 ? identifier.slice(idx + 1) : identifier;
 }
 
-function identifierMatchesPattern(identifier: string, pattern: string): boolean {
+/**
+ * 匹配分两档，**精确整串永远优先于末段**（见下方两趟解析）。
+ * 只认相等、不认前缀：故 seedance-2 不会误命中 seedance-2-fast。
+ */
+function matchesExact(identifier: string, pattern: string): boolean {
   const id = normalizeIdentifier(identifier);
   const pat = normalizeIdentifier(pattern);
-  if (!id || !pat) return false;
-  // 整串相等，或去掉 vendor 前缀后的末段相等 —— 故 seedance-2 不会误命中 seedance-2-fast。
-  return id === pat || lastSegment(id) === lastSegment(pat);
+  return Boolean(id) && Boolean(pat) && id === pat;
+}
+
+/** 去掉 vendor 前缀后末段相等（"bytedance/seedance-2" ↔ "seedance-2"）。 */
+function matchesLastSegment(identifier: string, pattern: string): boolean {
+  const id = normalizeIdentifier(identifier);
+  const pat = normalizeIdentifier(pattern);
+  return Boolean(id) && Boolean(pat) && lastSegment(id) === lastSegment(pat);
 }
 
 /** 从 modelKey / modelAlias 认出档案 id；认不出返回 null。与渲染层解析结果一致（都与 vendor 无关）。 */
 export function archetypeIdForModel(modelKey?: string | null, modelAlias?: string | null): string | null {
   const identities = [modelKey, modelAlias].filter((v): v is string => typeof v === "string" && v.trim() !== "");
   if (identities.length === 0) return null;
-  for (const [archetypeId, patterns] of Object.entries(ARCHETYPE_IDENTIFIER_PATTERNS)) {
-    for (const pattern of patterns) {
-      if (identities.some((identity) => identifierMatchesPattern(identity, pattern))) return archetypeId;
+  // **两趟**：先全表找精确整串命中，无果再找末段命中。
+  // 单趟会让结果取决于档案声明顺序——实测 "Tongyi-MAI/Z-Image-Turbo" 明明在 modelscope-image 里列了
+  // 完整 key，却因 z-image-turbo 档案排在前面、靠末段先命中而被判成后者（= 中转上认错模型、参数全错）。
+  // 同一课 types.ts 的 selectExecutableModel 早修过：精确身份永远赢，不能靠数组序。
+  for (const match of [matchesExact, matchesLastSegment]) {
+    for (const [archetypeId, patterns] of Object.entries(ARCHETYPE_IDENTIFIER_PATTERNS)) {
+      for (const pattern of patterns) {
+        if (identities.some((identity) => match(identity, pattern))) return archetypeId;
+      }
     }
   }
   return null;

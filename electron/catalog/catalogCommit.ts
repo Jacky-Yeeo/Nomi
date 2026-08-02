@@ -359,6 +359,22 @@ function draftShapeForKind(
       };
     }
   }
+  // 图像同样吃原生报文（同步族：只有 create/edit，无轮询）。不这么做的话，中转就算代理了方舟，
+  // Seedream 改图仍会被当**聊天模型**塞进 chat/completions 多模态——它不是聊天模型，改图不按原图甚至直接失败。
+  if (nativeProfile && kind === "image") {
+    const create = nativeProfile.create.text_to_image;
+    const edit = nativeProfile.create.image_edit;
+    if (create) {
+      return {
+        targetKind: "image",
+        // 同视频分支：不落通用标准参数（这条 wire 没这些键），headless 缺参由 archetypeWireDefaults 按档案兜底。
+        modelFields: [],
+        mappingCreate: create,
+        ...(edit ? { mappingEdit: edit } : {}),
+        wireProfileId: nativeProfile.archetypeId,
+      };
+    }
+  }
   if (kind === "image") {
     const t = newapiTransportFor("image");
     // 改图协议：探测/手动 override 优先，否则按模型族智能默认（gpt-image/dall-e → multipart edits）。
