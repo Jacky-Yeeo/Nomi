@@ -37,12 +37,13 @@ function syncCodexLocalVendor(enabled: boolean): void {
  * 早已随仓库删除、从 dev 构建点的接入会把路径钉在随时会消失的 worktree 上，两者在旧口径下都显示
  * 「已接入」，用户却在助手里发消息石沉大海。故打开面板即真起一次配置里那条命令握手（见 mcpVerify）。
  */
+// 卡头徽章只放「已接入 / 配置已失效 / 检测中」。曾试过在徽章里带握手耗时当证据，真机走查发现
+// 卡头本来就窄，多这一截会把标题挤成「接入 AI 编程...」，且实测常是 0.0s（读起来像没算出来）。
+// 「真的连上了」的证据改由展开后的「9 个工具可用」承担——那句更具体，也不跟标题抢位置。
 type VerifyState = {
   phase: 'checking' | 'ok' | 'broken'
   toolCount: number | null
   reason: McpVerifyReason
-  /** 「已接入 · 0.5s」里那截——把「真的连上了」变成用户看得见的证据，而不是一句空话。 */
-  latencyLabel: string
 }
 
 const REASON_I18N: Partial<Record<McpVerifyReason, string>> = {
@@ -92,16 +93,11 @@ export function ConnectAssistantCard({ info, onChanged }: ConnectAssistantCardPr
       return
     }
     let alive = true
-    setVerify({ phase: 'checking', toolCount: null, reason: 'ok', latencyLabel: '' })
+    setVerify({ phase: 'checking', toolCount: null, reason: 'ok' })
     void verifyBridge(target)
       .then((res) => {
         if (!alive) return
-        setVerify({
-          phase: res.ok ? 'ok' : 'broken',
-          toolCount: res.toolCount,
-          reason: res.reason,
-          latencyLabel: typeof res.latencyMs === 'number' ? `${(res.latencyMs / 1000).toFixed(1)}s` : '',
-        })
+        setVerify({ phase: res.ok ? 'ok' : 'broken', toolCount: res.toolCount, reason: res.reason })
       })
       .catch(() => {
         // 老 preload / 桥异常：退回「只读配置」的老口径，不误报失效。
@@ -170,9 +166,7 @@ export function ConnectAssistantCard({ info, onChanged }: ConnectAssistantCardPr
       ? t('onboardingProviders.assistant.status.checking')
       : broken
         ? t('onboardingProviders.assistant.status.broken')
-        : verify?.phase === 'ok' && verify.latencyLabel
-          ? `${t('onboardingProviders.assistant.status.connected')} · ${verify.latencyLabel}`
-          : t('onboardingProviders.assistant.status.connected')
+        : t('onboardingProviders.assistant.status.connected')
 
   return (
     <FoldableModelCard

@@ -82,6 +82,17 @@ describe('capabilityCore/mcpVerify', () => {
     expect(res.reason).toBe('handshake-failed')
   })
 
+  // 真机走查抓到的误报：用户的老配置是 command:"node"（裸命令名靠 PATH 解析），
+  // 早先版本用 existsSync(command) 判存在 → 恒 false → 每份走 PATH 的配置都被误报「程序不在了」。
+  // 单测此前全喂绝对路径，五门全绿也照样放过去。这条专门钉住裸命令名不许被误判。
+  it('裸命令名（node/npx，靠 PATH 解析）不许被误报成 command-missing', async () => {
+    writeClaudeEntry('node', [fakeServerScript(4)])
+    const res = await verifyMcp('claude')
+    expect(res.reason).not.toBe('command-missing')
+    expect(res.ok).toBe(true)
+    expect(res.toolCount).toBe(4)
+  })
+
   it('真能握手 → ok，并带回工具数与耗时（UI 拿它当「已接入」的证据）', async () => {
     writeClaudeEntry(process.execPath, [fakeServerScript(9)])
     const res = await verifyMcp('claude')
