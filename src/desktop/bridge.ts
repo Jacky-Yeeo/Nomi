@@ -470,6 +470,21 @@ export type DesktopBridge = {
       projectId: string
       forceRerun?: boolean
     }) => Promise<{ url: string; tiles: number; tileHeight: number }>
+    /**
+     * 按切镜检测：找出视频里的画面切点 + 一张对齐的联系表缩略图。见 electron/video/detectShotCuts.ts。
+     * cuts 是**低阈值全集带分数**——灵敏度滑杆在前端按 score 过滤，不重跑 ffmpeg。
+     */
+    detectShotCuts: (payload: {
+      videoUrl: string
+      projectId: string
+    }) => Promise<{
+      cuts: { seconds: number; score: number }[]
+      durationSeconds: number
+      sheetUrl: string | null
+      sheetColumns: number
+      sheetTileHeight: number
+      truncated: boolean
+    }>
   }
   image: {
     /** 元素拆解：一张图 → Replicate qwen-image-layered → N 张落地 RGBA 图层 URL（对标 Lovart Edit Elements）。

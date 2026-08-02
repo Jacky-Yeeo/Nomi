@@ -40,8 +40,11 @@ export class VideoFrameError extends Error {
 const frameCache = new Map<string, string>();
 const cacheKey = (p: ExtractVideoFramePayload) => `${p.projectId}::${p.videoUrl}::${String(p.which)}`;
 
-/** 把源视频 URL 解析成磁盘可读的绝对路径；https 下载到 temp（返回 cleanup 删临时文件）。 */
-async function resolveVideoLocalPath(
+/**
+ * 把源视频 URL 解析成磁盘可读的绝对路径；https 下载到 temp（返回 cleanup 删临时文件）。
+ * 导出给 detectShotCuts 共用——同一套 nomi-local 反解 / SSRF 加固下载 / 绝对路径判定只此一份（P1）。
+ */
+export async function resolveVideoLocalPath(
   videoUrl: string,
   projectId: string,
 ): Promise<{ filePath: string; cleanup: () => void }> {
