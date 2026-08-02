@@ -319,6 +319,8 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
     handleBatchGenerate,
     handleRunGroup,
     handleConnectToGroup,
+    contactSheetCount,
+    handleBuildContactSheet,
   } = useCanvasGroupActions({ activeCategoryId, selectedGroupIds, selectedNodeIds })
 
   // 拖拽连线跟踪（含 rAF 节流预览线）抽到 useDragToConnect（R9/B3）
@@ -710,9 +712,11 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
                 selectedCount={selectedCount}
                 selectedGroupCount={selectedGroupIds.length}
                 transform={`translate(${Math.round(selectedBounds.minX + selectedBounds.width / 2)}px, ${Math.round(selectedBounds.minY - MULTI_SELECTION_BOUNDS_PADDING - MULTI_SELECTION_TOOLBAR_OFFSET)}px) translateX(-50%)`}
+                contactSheetCount={contactSheetCount}
                 onBatchGenerate={handleBatchGenerate}
                 onGroupSelectedNodes={handleGroupSelectedNodes}
                 onUngroupSelectedNodes={handleUngroupSelectedNodes}
+                onBuildContactSheet={handleBuildContactSheet}
                 onClearSelection={clearSelection}
               />
             ) : null}

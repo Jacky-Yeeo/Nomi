@@ -65,6 +65,14 @@ export const zhGenerationCommon = {
     cameraMoveCapture: '3D 运镜捕获',
     batchPlan: '批量生成面板',
   },
+  contactSheet: {
+    action: '拼成联系表（{{count}} 张）',
+    nodeTitle: '联系表 · {{count}} 张',
+    needTwo: '至少要两张已出图才拼得成联系表',
+    failed: '联系表没拼成',
+    missing: '图没加载出来',
+    someMissing: '{{count}} 张没加载出来，那几格留了空位',
+  },
   canvas: {
     aria: 'AI 影像创作画布',
     noImportableAssets: '没有可导入画布的素材',
@@ -981,6 +989,14 @@ export const enGenerationCommon = {
     stagingCapture: '3D staging capture',
     cameraMoveCapture: '3D camera-move capture',
     batchPlan: 'Batch generation panel',
+  },
+  contactSheet: {
+    action: 'Make contact sheet ({{count}})',
+    nodeTitle: 'Contact sheet · {{count}}',
+    needTwo: 'Need at least two generated images to make a contact sheet',
+    failed: 'Could not build the contact sheet',
+    missing: 'Image failed to load',
+    someMissing: '{{count}} images failed to load; those cells were left blank',
   },
   canvas: {
     aria: 'AI visual creation canvas',

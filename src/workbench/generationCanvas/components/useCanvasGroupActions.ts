@@ -10,6 +10,7 @@ import { showInfoToast } from '../../../utils/showInfoToast'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import { buildDependencyWaves } from '../runner/dependencyWaves'
 import { confirmAndRunPlan } from './batchPlanPreview'
+import { buildContactSheetNode, contactSheetSources } from '../nodes/buildContactSheetNode'
 
 export function useCanvasGroupActions(params: {
   activeCategoryId: string
@@ -21,6 +22,9 @@ export function useCanvasGroupActions(params: {
   handleBatchGenerate: () => void
   handleRunGroup: (groupId: string) => void
   handleConnectToGroup: (groupId: string) => void
+  /** 选中里已出图的张数（<2 就没有联系表可拼，浮条上那个钮不出现）。 */
+  contactSheetCount: number
+  handleBuildContactSheet: () => void
 } {
   const { activeCategoryId, selectedGroupIds, selectedNodeIds } = params
   const { t } = useTranslation()
@@ -81,11 +85,23 @@ export function useCanvasGroupActions(params: {
     }
   }, [t])
 
+  // 联系表：把选中的成图拼成一张，给客户/团队看整场戏。产物是普通图片节点（不新增节点 kind）。
+  const nodes = useGenerationCanvasStore((state) => state.nodes)
+  const contactSheetCount = React.useMemo(
+    () => contactSheetSources(selectedNodeIds, nodes).length,
+    [selectedNodeIds, nodes],
+  )
+  const handleBuildContactSheet = React.useCallback(() => {
+    void buildContactSheetNode(selectedNodeIds)
+  }, [selectedNodeIds])
+
   return {
     handleGroupSelectedNodes,
     handleUngroupSelectedNodes,
     handleBatchGenerate,
     handleRunGroup,
     handleConnectToGroup,
+    contactSheetCount,
+    handleBuildContactSheet,
   }
 }

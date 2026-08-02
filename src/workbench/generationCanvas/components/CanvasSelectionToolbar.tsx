@@ -1,4 +1,4 @@
-import { IconFolderMinus, IconFolderPlus, IconPlayerPlay, IconX } from '@tabler/icons-react'
+import { IconFolderMinus, IconFolderPlus, IconLayoutGrid, IconPlayerPlay, IconX } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
 import { WorkbenchIconButton } from '../../../design'
 import { cn } from '../../../utils/cn'
@@ -7,9 +7,12 @@ type CanvasSelectionToolbarProps = {
   selectedCount: number
   selectedGroupCount: number
   transform: string
+  /** 选中的节点里已经出图的张数——不足 2 张就没有联系表可拼，钮直接不出现（不给点了才说不行）。 */
+  contactSheetCount: number
   onBatchGenerate: () => void
   onGroupSelectedNodes: () => void
   onUngroupSelectedNodes: () => void
+  onBuildContactSheet: () => void
   onClearSelection: () => void
 }
 
@@ -17,9 +20,11 @@ export function CanvasSelectionToolbar({
   selectedCount,
   selectedGroupCount,
   transform,
+  contactSheetCount,
   onBatchGenerate,
   onGroupSelectedNodes,
   onUngroupSelectedNodes,
+  onBuildContactSheet,
   onClearSelection,
 }: CanvasSelectionToolbarProps): JSX.Element {
   const { t } = useTranslation()
@@ -53,6 +58,14 @@ export function CanvasSelectionToolbar({
         {t('generationCommon.selection.generate', { count: selectedCount })}
       </button>
       <span className={cn('w-px h-4 bg-nomi-line')} />
+      {contactSheetCount >= 2 ? (
+        <WorkbenchIconButton
+          data-contact-sheet="true"
+          label={t('generationCommon.contactSheet.action', { count: contactSheetCount })}
+          icon={<IconLayoutGrid size={16} />}
+          onClick={onBuildContactSheet}
+        />
+      ) : null}
       {selectedGroupCount > 0 ? (
         <WorkbenchIconButton
           label={t('generationCommon.selection.ungroup')}
