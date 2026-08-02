@@ -55,10 +55,15 @@ function inputKeyOf(slot: ReachSlot): string {
  * @param createBody 这条 mapping 的 create.body（判据 derive 自它引用的 {{request.params.X}}，不 hardcode 供应商）
  * @returns 与 slots 等长、一一对应的承载力数组
  */
-export function modeSlotReach(slots: ReachSlot[], createBody: unknown): SlotReach[] {
+export function modeSlotReach(slots: ReachSlot[], createBody: unknown, combineKey?: string): SlotReach[] {
   const referenced = new Set(bodyReferencedParamKeys(createBody));
   // body 完全不引用任何参数（如纯静态 body）→ 判不出来，一律放行不误伤（与第三闸同口径）。
   if (referenced.size === 0) return slots.map(() => "full");
+
+  // 合并槽（mode.combineSlotsInto）：整组槽序列化进**同一个**参数发出——apimart 首尾帧走
+  // `image_with_roles`、Veo 首尾帧走 `image_urls`(flat)。这时逐槽查自己的 inputKey 必然全落空，
+  // 会把好端端的原生通道判死（reachNoOverNarrow.test 就是这么抓住我的）。认合并键即可。
+  if (combineKey && referenced.has(combineKey.trim())) return slots.map(() => "full");
 
   const reach: SlotReach[] = slots.map((slot) => {
     const key = inputKeyOf(slot);
@@ -80,7 +85,7 @@ export function modeSlotReach(slots: ReachSlot[], createBody: unknown): SlotReac
 }
 
 /** 整个模式在这条渠道上能不能用：所有声明的参考槽都发不出 = 这个模式在这里是空的。 */
-export function modeIsUsable(slots: ReachSlot[], createBody: unknown): boolean {
+export function modeIsUsable(slots: ReachSlot[], createBody: unknown, combineKey?: string): boolean {
   if (slots.length === 0) return true; // 纯文生模式没有参考槽，永远可用。
-  return modeSlotReach(slots, createBody).some((r) => r !== "none");
+  return modeSlotReach(slots, createBody, combineKey).some((r) => r !== "none");
 }

@@ -91,3 +91,18 @@ describe("缺省 inputKey 表 = 单一真相源", () => {
     );
   });
 });
+
+describe("合并槽（mode.combineSlotsInto）", () => {
+  it("整组槽合并进一个键发出时，认合并键——否则会把原生首尾帧通道判死", () => {
+    // apimart 首尾帧：两个槽序列化进 image_with_roles 一个参数。
+    const body = { model: "x", image_with_roles: "{{request.params.image_with_roles}}" };
+    const slots = [slot("first_frame"), slot("last_frame")];
+    expect(modeSlotReach(slots, body)).toEqual(["none", "none"]); // 不认合并键 = 全判死
+    expect(modeSlotReach(slots, body, "image_with_roles")).toEqual(["full", "full"]);
+  });
+
+  it("Veo 首尾帧走 flat 的 image_urls：同样认得出", () => {
+    const body = { image_urls: "{{request.params.image_urls}}" };
+    expect(modeSlotReach([slot("first_frame"), slot("last_frame")], body, "image_urls")).toEqual(["full", "full"]);
+  });
+});

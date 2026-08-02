@@ -47,6 +47,7 @@ import {
   applyArchetypeVariantSwitch,
   archetypeModeArraySlots,
   archetypeModeChoices,
+  archetypeModeSlotReachByKey,
   archetypeModeSlots,
   archetypeModeSourceVideoSlot,
   archetypeVariantChoices,
@@ -56,6 +57,7 @@ import {
   referenceSlotStorage,
 } from './controls/archetypeMeta'
 import { resolveReferenceSlots, decideArrayReferenceRemoval } from '../runner/referenceSlots'
+import { useChannelCreateBody } from './controls/useChannelCreateBody'
 import { resolveModeForConnectedReferences } from '../agent/referenceEdgeCapability'
 import { specializeArchetypeForVariant } from '../../../config/modelArchetypes'
 import ModeBar from './controls/ModeBar'
@@ -139,6 +141,21 @@ export default function NodeParameterControls({
   const archMode = effectiveArchetype ? currentArchetypeMode(effectiveArchetype, meta) : null
   const imageCatalogConfig = archetype ? null : buildEffectiveImageCatalogConfig(selectedModelOption?.meta)
   const renderedControls = resolveRenderedControls(selectedModelOption, meta, isImageLike, isVideoLike)
+
+  // ── 渠道诚实：档案声明的槽 × **这条渠道真发得出的键** ──────────────────────────────
+  // UI 能力由档案声明（供应商无关），发得出什么由渠道 mapping 决定；此前两者只在「点生成那一刻」
+  // 才对账，于是用户连好参考、切到「全能参考」、点了生成才被拒。这里提前算出来，发不出的槽不显示、
+  // 只带得动 1 张的槽如实收成 1 张。判据与第三闸同一套（referenceReachability），不另起一份。
+  // 拿不到 body（老 preload / 查不到 mapping）→ 空表 → 一律不收窄，绝不因为查不到就藏用户的槽。
+  const channelCreateBody = useChannelCreateBody(
+    selectedModelOption?.vendor ?? '',
+    selectedModelOption?.value ?? '',
+    (archMode?.transportTaskKind ?? effectiveArchetype?.transportTaskKind ?? '') as string,
+  )
+  const slotReachByKey = React.useMemo(
+    () => (archMode && channelCreateBody ? archetypeModeSlotReachByKey(archMode, channelCreateBody) : {}),
+    [archMode, channelCreateBody],
+  )
 
   // P1 单一真相源：所有 meta 增量 patch 都从 store 读**最新** meta 再 spread，绝不基于渲染快照 prop
   // `node.meta`（那是第二份真相源）。连边赋图 + 紧接改参数等「先后两次写」时，读快照会让后写覆盖前写
@@ -524,6 +541,14 @@ export default function NodeParameterControls({
         ]
       : []),
   ]
+    // 这条渠道压根发不出的槽：不显示。让用户连上一个「连了也不会进请求」的东西，才是真的坑。
+    .filter((slot) => slotReachByKey[slot.key] !== 'none')
+    // 只挤得进单图聚合位的槽：如实收成 1 张并说明白，别让用户放了 9 张以为都发得出去。
+    .map((slot) =>
+      slotReachByKey[slot.key] === 'single' && slot.max > 1
+        ? { ...slot, max: 1, caption: t('generationCommon.parameters.channelSingleReferenceOnly') }
+        : slot,
+    )
   // 档案节点：槽值统一由 resolveReferenceSlots（边 + 上传单一真相源）派生——这样连线参考在槽里
   // 真的看得见（根治「显示读 meta、生成读边」分裂导致的「连线没用」）。按存储键回填到 assetValuesByKey。
   // pending（连了边但源未生成/待抽帧）本片先不显示空位（占位态留 S4b）；非档案模型仍走旧启发式路径。
