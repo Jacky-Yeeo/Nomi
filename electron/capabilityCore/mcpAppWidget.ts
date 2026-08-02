@@ -101,7 +101,11 @@ export const NOMI_LIVE_DRAFT_WIDGET_HTML = `<!DOCTYPE html>
     --line: oklch(0.90 0.005 80);
     --soft: oklch(0.97 0.003 80);
     --accent: oklch(0.55 0.13 250);
-    --accent-soft: color-mix(in oklch, var(--accent) 12%, var(--paper));
+    /* ⚠️ 语义色 × paper 的混合一律 in srgb，别改回 in oklch：oklch 对色相走最短弧插值，而 --paper 显式钉了
+       色相（浅 h=0 / 暗 h=80）→ 混出来的是 paper 的色相不是语义色的。实测 accent(h250) 浅色落 h≈347(粉)、
+       暗色落 h≈124(橄榄绿)；ok(h150) 浅色落 h≈24(橙) —— 成功徽章变橙、失败徽章暗色落 h≈71(橄榄)。
+       完整原委见 tailwind.config.ts 的 --nomi-accent-soft（同一 bug 的主 App 侧）。 */
+    --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--paper));
     --ok: oklch(0.60 0.13 150);
     --err: oklch(0.58 0.18 25);
     --radius: 12px;
@@ -116,20 +120,20 @@ export const NOMI_LIVE_DRAFT_WIDGET_HTML = `<!DOCTYPE html>
       --line: oklch(0.34 0.006 85);
       --soft: oklch(0.30 0.006 85);
       --accent: oklch(0.70 0.13 250);
-      --accent-soft: color-mix(in oklch, var(--accent) 26%, var(--paper));
+      --accent-soft: color-mix(in srgb, var(--accent) 26%, var(--paper));
     }
   }
   html.nomi-dark {
     --paper: oklch(0.235 0.007 80); --ink: oklch(0.93 0.006 85); --ink-80: oklch(0.84 0.006 85);
     --ink-60: oklch(0.70 0.006 85); --ink-40: oklch(0.62 0.006 85); --line: oklch(0.34 0.006 85);
     --soft: oklch(0.30 0.006 85); --accent: oklch(0.70 0.13 250);
-    --accent-soft: color-mix(in oklch, var(--accent) 26%, var(--paper));
+    --accent-soft: color-mix(in srgb, var(--accent) 26%, var(--paper));
   }
   html.nomi-light {
     --paper: oklch(1 0 0); --ink: oklch(0.22 0.01 80); --ink-80: oklch(0.32 0.01 80);
     --ink-60: oklch(0.50 0.01 80); --ink-40: oklch(0.68 0.01 80); --line: oklch(0.90 0.005 80);
     --soft: oklch(0.97 0.003 80); --accent: oklch(0.55 0.13 250);
-    --accent-soft: color-mix(in oklch, var(--accent) 12%, var(--paper));
+    --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--paper));
   }
   * { box-sizing: border-box; }
   body {
@@ -144,8 +148,8 @@ export const NOMI_LIVE_DRAFT_WIDGET_HTML = `<!DOCTYPE html>
   .title { font-size: 13px; font-weight: 600; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .badge { margin-left: auto; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--soft); color: var(--ink-60); flex: none; }
   .badge.running { background: var(--accent-soft); color: var(--accent); }
-  .badge.succeeded { background: color-mix(in oklch, var(--ok) 16%, var(--paper)); color: var(--ok); }
-  .badge.failed { background: color-mix(in oklch, var(--err) 16%, var(--paper)); color: var(--err); }
+  .badge.succeeded { background: color-mix(in srgb, var(--ok) 16%, var(--paper)); color: var(--ok); }
+  .badge.failed { background: color-mix(in srgb, var(--err) 16%, var(--paper)); color: var(--err); }
   .body { padding: 12px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
   .shot { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--soft); }
