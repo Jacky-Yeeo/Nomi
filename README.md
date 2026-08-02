@@ -4,9 +4,11 @@
 
 # Nomi
 
-**Direct the shot. Not just the prompt.**
+**Bring your own models. Let your AI assistant direct them.**
 
-Nomi is an open-source, local-first AI video workbench that keeps your story, storyboard, visual anchors, generation canvas, and timeline connected.
+Nomi is an open-source desktop workbench for AI video. Connect any OpenAI-compatible endpoint or your local ComfyUI, then let Claude Code, Codex, or Cursor drive it over MCP — storyboard, references, generation, and an editable first cut on a real timeline.
+
+Your projects, prompts, and API keys stay on your machine. No account. No telemetry.
 
 [简体中文](README.zh-CN.md) · [Website](https://nomiaqm.com/en/) · [Download](https://github.com/aqm857886159/Nomi/releases/latest) · [Community](https://github.com/aqm857886159/Nomi/discussions) · [For Teams](https://nomiaqm.com/en/#teams) · [Watch the 60s film](https://nomiaqm.com/assets/video/launch-film-en.mp4) · [Documentation](docs/user-guide.md)
 
@@ -44,10 +46,10 @@ International community: [GitHub Discussions](https://github.com/aqm857886159/No
 
 ## Why Nomi
 
-- **Connected context** — Story, characters, storyboard, generated evidence, and timeline stay in one project instead of being copied between disconnected tools.
-- **Visual anchors** — Lock characters, locations, props, camera, and style before generation so later shots inherit the same world.
-- **Directable workflow** — Arrange the sequence on canvas, connect references, choose generation results, and finish on a real timeline.
-- **Agentic creation over MCP** — Connect Claude Code, Codex, or Cursor with one click. The assistant can call Nomi over MCP, use Skills to create a project, storyboard shots, connect references, and advance an editable first cut. You keep final control over the images, edits, and export.
+- **One project, not eleven tabs.** Story, shots, references, generated takes, and the timeline live in the same file on your disk instead of being copied between disconnected tools.
+- **Shot 4 and shot 9 should be the same person.** Lock characters, locations, props, camera, and style once; later shots inherit them instead of restarting from a new prompt.
+- **Bring your own stack.** Around ten curated providers are pre-wired, and any OpenAI-compatible, Anthropic, Responses, or relay endpoint can be added by pasting a URL and a key — no rebuild. A local ComfyUI is a provider like any other: Nomi converts the normal "Save" workflow format, so the workflows you download actually import, and it diffs the graph against `/object_info` to tell you which custom nodes and model files you are missing before you run it.
+- **Your agent can operate it.** Nine MCP tools let Claude Code, Codex, or Cursor create the project, lay out shots, wire references, and run generation, then hand you an editable first cut. Anything that spends money stops and asks you first — enforced in the main process, so an agent cannot quietly spend your money.
 
 ## Download
 
@@ -70,6 +72,8 @@ International community: [GitHub Discussions](https://github.com/aqm857886159/No
 1. **Connect a model.** Choose a curated provider and enter one API key, or add your own OpenAI-, Responses-, or Anthropic-compatible endpoint.
 2. **Write the intent.** Start with a story or one shot. Ask Nomi—or a connected AI assistant over MCP—to build an editable storyboard and canvas plan.
 3. **Direct and export.** Review visual anchors, generate images or video with your configured models, choose the results, arrange the timeline, and export MP4.
+
+> **Disclosure:** one curated provider (APImart) is linked with a referral code. You always pay providers directly with your own key at their price — Nomi never proxies or resells inference, and every provider can be replaced by your own endpoint.
 
 Read the [user guide](docs/user-guide.md), [provider guide](docs/provider-integration.md), or [CLI + MCP guide](docs/guide/capability-core-cli-mcp.md).
 

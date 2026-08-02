@@ -2,7 +2,7 @@
   "name": "nomi",
   "private": true,
   "version": "0.18.1",
-  "description": "Open-source, local-first AI video creation workbench for writing scripts, generating assets, editing timelines, and exporting videos.",
+  "description": "Open-source AI video workbench. Bring any model or your local ComfyUI, and let Claude Code or Cursor direct it over MCP. Local-first: projects, prompts, and keys stay on your machine.",
   "author": "青阳 <TZ857886159>",
   "license": "AGPL-3.0-only",
   "packageManager": "pnpm@10.8.1",
