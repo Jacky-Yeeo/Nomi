@@ -38,7 +38,6 @@ import { openWorkspaceFromLibrary } from './library/openWorkspaceFlow'
 import { lazyWithChunkBoundary } from '../ui/chunkBoundary'
 import { releaseWorkbenchProjectRuntimeState } from './project/releaseWorkbenchProjectSession'
 import { useSpendConfirmStore } from './generationCanvas/spend/spendConfirm'
-import { useFilePreviewStore } from './explorer/useFilePreviewStore'
 import { runAssetSurfaceMigrations } from './assets/assetSurfaceMigration'
 
 type AppView = 'library' | 'studio'
@@ -86,11 +85,6 @@ const JourneyTourController = lazyWithChunkBoundary('引导旅途', () =>
     default: module.JourneyTourController,
   })),
 )
-const FilePreviewPanel = lazyWithChunkBoundary('文件预览', () =>
-  import('./explorer/FilePreviewPanel').then((module) => ({
-    default: module.FilePreviewPanel,
-  })),
-)
 const NomiBrowserDialog = lazyWithChunkBoundary('浏览器', () =>
   import('../ui/browser/dialog/NomiBrowserDialog').then((module) => ({
     default: module.NomiBrowserDialog,
@@ -132,8 +126,7 @@ export default function NomiStudioApp(): JSX.Element {
   const [browserOpened, setBrowserOpened] = React.useState(false)
   const [browserMounted, setBrowserMounted] = React.useState(false)
   const hasPendingSpendConfirm = useSpendConfirmStore((state) => Boolean(state.pending))
-  const filePreviewOpen = useFilePreviewStore((state) => state.open)
-  // 首启开屏：仅首次未看过时自动放；看过后可经项目库「看看 Nomi」重看。
+  // 首启开屏：仅首次未看过时自动放；看过后可经设置「关于」→「重看开屏动画」重看。
   const [splashDone, setSplashDone] = React.useState(() => hasSeenSplash())
   const [journeyTourControllerMounted, setJourneyTourControllerMounted] = React.useState(false)
   const { hasTextModel, refresh: refreshModelStatus } = useHasTextModel()
@@ -681,12 +674,6 @@ export default function NomiStudioApp(): JSX.Element {
         {handbookOpened ? (
           <React.Suspense fallback={null}>
             <HandbookPanel opened={handbookOpened} onClose={() => setHandbookOpened(false)} />
-          </React.Suspense>
-        ) : null}
-
-        {filePreviewOpen ? (
-          <React.Suspense fallback={null}>
-            <FilePreviewPanel />
           </React.Suspense>
         ) : null}
 

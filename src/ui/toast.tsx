@@ -57,6 +57,3 @@ export function toast(message: string, type?: ToastType): void {
   }
 }
 
-export function ToastHost(): JSX.Element | null {
-  return null
-}

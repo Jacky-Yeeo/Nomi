@@ -12,7 +12,7 @@ import { bindConfirmDialogHost, type DialogRequest } from './confirmDialogStore'
 import { useTranslation } from 'react-i18next'
 
 /**
- * 全局宿主：App 根部挂一次（与 ToastHost 同级）。多请求按序排队逐个展示。
+ * 全局宿主：App 根部挂一次。多请求按序排队逐个展示。
  * zIndex 高于模型设置浮卡（4000）——确认可能从浮卡内部发起。
  */
 export function ConfirmDialogHost(): JSX.Element {

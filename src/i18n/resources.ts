@@ -11,7 +11,6 @@ import { enScene3dJourney, zhScene3dJourney } from './locales/scene3dJourney'
 import { enTimelineEditor, zhTimelineEditor } from './locales/timelineEditor'
 import { enCreationAi, zhCreationAi } from './locales/creationAi'
 import { enStoryboardEditor, zhStoryboardEditor } from './locales/storyboardEditor'
-import { enFileExplorer, zhFileExplorer } from './locales/fileExplorer'
 import { enGenerationCommon, zhGenerationCommon } from './locales/generationCommon'
 import { enRuntime, zhRuntime } from './locales/runtime'
 
@@ -341,7 +340,6 @@ export const zhCN = {
   timelineEditor: zhTimelineEditor,
   creationAi: zhCreationAi,
   storyboardEditor: zhStoryboardEditor,
-  fileExplorer: zhFileExplorer,
   generationCommon: zhGenerationCommon,
   runtime: zhRuntime,
 } as const
@@ -683,7 +681,6 @@ export const en = {
   timelineEditor: enTimelineEditor,
   creationAi: enCreationAi,
   storyboardEditor: enStoryboardEditor,
-  fileExplorer: enFileExplorer,
   generationCommon: enGenerationCommon,
   runtime: enRuntime,
 } satisfies TranslationShape<typeof zhCN>
