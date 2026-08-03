@@ -175,7 +175,11 @@ describe('capabilityCore/core (磁盘网关：直写 project.json)', () => {
     // 请求体：高层 TaskRequest，extras 带 modelKey/projectId/nodeId/referenceImages，kind 由 intent 推。
     const req = captured[0].request as { kind: string; prompt: string; extras: Record<string, unknown> }
     expect(captured[0].vendor).toBe('apimart')
-    expect(req.kind).toBe('text_to_image')
+    // ⚠️ 这条**曾经断言 text_to_image**——本用例明明传了 references，却把「参考图被丢掉」写成了规范，
+    // 于是 bug 有测试保护、一直没人发现。真生成实测才暴露：喂「橘猫戴红围巾坐雪景窗台」的照片说
+    // 「把围巾改成蓝色」，出来的是另一只白猫的插画（火山 Seedream 与 apimart 两条路都中招）。
+    // 带参考图 = 改图，与 video 那支对称。
+    expect(req.kind).toBe('image_edit')
     expect(req.prompt).toBe('一只赛博朋克猫')
     expect(req.extras.modelKey).toBe('seedream-4')
     expect(req.extras.projectId).toBe(project.id)
@@ -185,6 +189,20 @@ describe('capabilityCore/core (磁盘网关：直写 project.json)', () => {
     // 结果落回节点：重读画布该节点 hasResult。
     const canvas = await readProjectCanvas(createDiskGateway(project.id))
     expect(canvas.nodes.find((node) => node.id === out.nodeId)?.hasResult).toBe(true)
+  })
+
+  it('generate：image + 没有参考图 → text_to_image（别反过来把纯文生也当改图）', async () => {
+    const project = createNamedProject('纯文生图意图测试')
+    let kind = ''
+    await generateOnProject(
+      { projectId: project.id, intent: 'image', prompt: '一只赛博朋克猫', vendor: 'apimart', modelKey: 'seedream-4' },
+      createDiskGateway(project.id),
+      async (payload) => {
+        kind = (payload.request as { kind: string }).kind
+        return { id: 't', status: 'succeeded', assets: [] }
+      },
+    )
+    expect(kind).toBe('text_to_image')
   })
 
   it('generate：video + 有参考图 → image_to_video', async () => {

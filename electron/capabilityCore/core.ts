@@ -90,7 +90,12 @@ export function referencesFromEdges(snapshot: CanvasSnapshot, nodeId: string): s
 function defaultKindForIntent(intent: GenerateIntent, hasReferences: boolean): string {
   switch (intent) {
     case 'image':
-      return 'text_to_image'
+      // 带了参考图 = 图生图（改图），与下面 video 那支对称。
+      // 曾经这里无条件回 text_to_image：外部助手（Claude Code / Codex / Cursor）经 MCP 带着参考图调
+      // nomi_generate，一律被当**纯文生图**跑 —— 参考图静默丢弃、出一张跟原图毫无关系的新图。
+      // 真生成实测抓到（火山 Seedream 与 apimart 两条路都中招）：喂一张「橘猫戴红围巾坐雪景窗台」的
+      // 照片说「把围巾改成蓝色」，出来的是另一只白猫的插画。
+      return hasReferences ? 'image_edit' : 'text_to_image'
     case 'video':
       return hasReferences ? 'image_to_video' : 'text_to_video'
     case 'audio':
