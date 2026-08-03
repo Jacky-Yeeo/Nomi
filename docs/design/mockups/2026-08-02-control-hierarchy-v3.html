@@ -273,7 +273,7 @@ h2:first-of-type{border-top:0;padding-top:0}
 
 
 <h2>一之二、项目库：弱入口 6 个 → 3 个（其中 1 个是和主卡重复的）</h2>
-<p class="sub">真机截图坐实了一件事：顶栏的「看看 Nomi」和页面正中那张主卡「重看一遍引导」<b>是同一个功能的两个入口</b>，而且重要度信号自相矛盾——一个是大卡片，一个是顶栏小字。</p>
+<p class="sub"><b>修正（2026-08-02 实证）：</b>我原先断言顶栏「看看 Nomi」和主卡「重看一遍引导」是同一个功能的两个入口——<b>这是错的</b>。前者 <code>onReplaySplash</code> → <code>setSplashDone(false)</code>，重放的是 <b>SplashIntro 开屏品牌动画</b>；后者 <code>onPlayJourneyTour</code> 会<b>建一个 demo 项目、进 studio、启动 JourneyTourController 回放整条流水线</b>。两个不同功能。<br>真实的毛病是<b>命名撞车</b>：<code>watchNomi</code>=「看看 Nomi」、<code>watchHow</code>=「看 Nomi 怎么出片」、<code>replayGuide</code>=「重看一遍引导」——用户分不出这是两件事。所以解法不是删（那是真删能力），是<b>归位</b>。</p>
 <div class="pair stack">
   <div class="pane">
     <div class="pane-hd"><span class="tag tag-now">现状</span> 项目库首页<span class="count">弱入口 6 个</span></div>
@@ -303,10 +303,10 @@ h2:first-of-type{border-top:0;padding-top:0}
         </div>
       </div>
     </div>
-    <div style="padding:10px 16px 16px"><p class="note">红框的两处<b>指向同一个引导动画</b>。另有「语言」「外观」两个纯偏好项挤在这排里。</p></div>
+    <div style="padding:10px 16px 16px"><p class="note">红框的两处<b>是两个不同功能，但名字几乎一样</b>（「看看 Nomi」vs「看 Nomi 怎么出片」）——顶栏那个重放开屏动画，主卡那个回放整条创作流水线。另有「语言」「外观」两个纯偏好项挤在这排里。</p></div>
   </div>
   <div class="pane">
-    <div class="pane-hd"><span class="tag tag-new">v2</span> 项目库首页<span class="count">弱入口 3 个</span></div>
+    <div class="pane-hd"><span class="tag tag-new">v2</span> 项目库首页<span class="count">弱入口 3 个 · 零能力损失</span></div>
     <div class="pane-bd">
       <div style="background:var(--nomi-bg);padding:14px 16px">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">
@@ -332,8 +332,8 @@ h2:first-of-type{border-top:0;padding-top:0}
     </div>
     <div style="padding:10px 16px 16px">
       <p class="note">
-      <span class="tech">去重</span>顶栏「看看 Nomi」<b>删掉</b>——主卡那张更大更清楚，留一个就够（首次进来它写「看 Nomi 怎么出片」，看过后自动变「重看一遍引导」，这套 derive 已经在了）。<br>
-      <span class="tech">归位</span>语言 · 外观 → 设置面板（和 studio 顶栏同一处归位）。<br>
+      <span class="tech">归位</span>顶栏「看看 Nomi」<b>移进设置「关于」tab</b>——它重放的是开屏品牌动画，本质是「关于这个软件」，和版本 / 检查更新 / 上手手册同类，属 L4（10 次里用不到 1 次）。<b>不是删除，能力一个不丢</b>；搬走后主卡独占「引导」语义，命名撞车也就没了。<br>
+      <span class="tech">归位</span>语言 · 外观 → 设置「通用」tab（和 studio 顶栏同一处归位）。<br>
       主卡三张、最近项目、搜索、筛选页签<b>全部原样不动</b>。
       </p>
     </div>
