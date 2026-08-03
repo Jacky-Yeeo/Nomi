@@ -92,6 +92,20 @@ const readGroups = () => getWin().evaluate(() => {
 
 win.on('pageerror', (e) => console.log(`  [pageerror] ${String(e).slice(0, 160)}`))
 
+const readClipTools = () => getWin().evaluate(() => {
+    // 两套 TimelinePanel 实例：其中一份零宽/隐藏，只认真实渲染的那份
+    const box = [...document.querySelectorAll('.workbench-timeline__clip-tools')]
+      .find((el) => el.getBoundingClientRect().width > 0)
+    if (!box) return null
+    const btns = [...box.querySelectorAll('button')]
+    return {
+      count: btns.length,
+      disabled: btns.filter((b) => b.disabled).length,
+      reason: box.parentElement?.getAttribute('title') || '',
+      width: Math.round(box.getBoundingClientRect().width),
+    }
+  })
+
 const verdicts = []
 const check = (name, ok, detail = '') => { verdicts.push([name, ok, detail]); console.log(`  ${ok ? '✅' : '❌'} ${name}${detail ? ` — ${detail}` : ''}`) }
 
@@ -154,6 +168,9 @@ try {
   check('无目标时「这一段」组全部禁用', Boolean(clipGroupIdle) && clipGroupIdle.controls > 0 && clipGroupIdle.disabledCount === clipGroupIdle.controls,
     clipGroupIdle ? `${clipGroupIdle.disabledCount}/${clipGroupIdle.controls} 禁用` : '没找到该组')
   check('禁用时说得出原因（不是沟通死路）', Boolean(clipGroupIdle?.reason), clipGroupIdle?.reason || '无 title')
+  const idleTools = await readClipTools()
+  check('无选中时单片工具禁用', (idleTools?.disabled ?? 0) === 4, `${idleTools?.disabled}/4 禁用`)
+  check('无选中时说得出原因', Boolean(idleTools?.reason), idleTools?.reason || '无 title')
   await snapBar('01-bar-no-target.png')
 
   // 源面板可能是收起的，先展开（收起态那颗钮的 aria-label 里有「素材来源」）
@@ -187,6 +204,14 @@ try {
   check('组名写出了当前片段（作用对象可见）', Boolean(clipGroupSel?.label) && clipGroupSel.label !== '这一段' && clipGroupSel.label.includes('·'),
     clipGroupSel?.label || '')
   await snapBar('02-bar-clip-selected.png')
+
+  // ========== ③ 单片工具：恒常渲染、无选中时禁用带原因（原先是有选中才插入 → 整条 pill 变长、布局抖） ==========
+  const withSel = await readClipTools()
+  check('单片工具恒常渲染（4 颗）', withSel?.count === 4, JSON.stringify(withSel))
+  check('选中片段时可用', withSel?.disabled === 0, `${withSel?.disabled}/4 禁用`)
+  check('工具条宽度恒定（不再一选中就抖）', idleTools && withSel && idleTools.width === withSel.width,
+    `${idleTools?.width}px → ${withSel?.width}px`)
+
   await snap('03-preview-full.png')
 
   console.log('\n=== 判据 ===')
