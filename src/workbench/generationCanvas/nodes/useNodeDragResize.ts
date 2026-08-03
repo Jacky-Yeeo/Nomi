@@ -165,9 +165,11 @@ export function useNodeDragResize({
       selectNode(node.id, event.shiftKey)
       return
     }
-    if (typeof event.currentTarget.setPointerCapture === 'function') {
-      event.currentTarget.setPointerCapture(event.pointerId)
-    }
+    // ⚠️ 这里刻意【不】setPointerCapture。capture 一旦在按下时抢走，浏览器会把后续
+    // pointerup/click 重定向到外壳 article，子元素的 click 默认行为整类死掉——
+    // <label> 弹文件框（角色/场景/道具卡上传，2026-08-03 群反馈）、画板「打开」、3D 空态启动器
+    // 都栽过同一坑。capture 只有「真拖起来」才需要（接住画布外的 move/up），推迟到
+    // handlePointerMove 跨过拖拽阈值那一刻再抢（见 dragStart.dragging 翻 true 处）。
     captureHistory()
     const dragSelection = selected && isMultiSelectActive && !event.shiftKey
     dragStartRef.current = {
@@ -265,12 +267,24 @@ export function useNodeDragResize({
     }
     const dragStart = dragStartRef.current
     if (!dragStart) return
+    // capture 推迟后，「阈值内松手在画布外」会收不到 pointerup——按键已松的残留 move 必须清态，
+    // 否则节点会无按键跟着光标跑。
+    if (event.buttons === 0) {
+      dragStartRef.current = null
+      return
+    }
     const effectiveZoom = useGenerationCanvasStore.getState().canvasZoom || 1
     const deltaX = Math.round((event.clientX - dragStart.pointerX) / effectiveZoom)
     const deltaY = Math.round((event.clientY - dragStart.pointerY) / effectiveZoom)
     if (!dragStart.dragging) {
       if (Math.abs(deltaX) < 2 && Math.abs(deltaY) < 2) return
       dragStart.dragging = true
+      // 真开拖这一刻才抢 capture：从此 move/up 稳定送达外壳（可拖出画布），且 click 会被
+      // 重定向到外壳=拖完不会误触子元素（label 不弹文件框）。短按（阈值内）永远不 capture，
+      // 子元素 click 默认行为（弹文件框/按钮）完好——这是「短按点、长按拖」两全的机制保证。
+      if (typeof event.currentTarget.setPointerCapture === 'function') {
+        event.currentTarget.setPointerCapture(event.pointerId)
+      }
     }
     event.preventDefault()
     event.stopPropagation()
