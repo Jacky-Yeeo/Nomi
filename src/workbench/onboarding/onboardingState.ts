@@ -11,7 +11,8 @@ const CHECKLIST_KEY = 'nomi:checklist:v1'
 const CHECKLIST_COLLAPSED_KEY = 'nomi:checklist-collapsed:v1'
 const CHECKLIST_FIRST_SHOWN_KEY = 'nomi:checklist-first-shown:v1'
 const CHECKLIST_DISMISSED_KEY = 'nomi:checklist-dismissed:v1'
-const CANVAS_GESTURE_HINT_KEY = 'nomi:canvas-gesture-hint:v1'
+// v2：2026-07-31 手势语义翻转（空白拖=平移、滚轮=缩放、Shift+拖=框选），旧已读设备需再看一次
+const CANVAS_GESTURE_HINT_KEY = 'nomi:canvas-gesture-hint:v2'
 const JOURNEY_TOUR_KEY = 'nomi:journey-tour:v1'
 
 /** 上手清单生命周期上限：首次显示满 2 天仍未完成 → 自动永久关闭，不再回来。 */
