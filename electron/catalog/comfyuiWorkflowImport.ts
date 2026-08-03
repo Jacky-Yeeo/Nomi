@@ -78,6 +78,9 @@ const LOAD_VIDEO_RE = /loadvideo|vhs_loadvideo/i;
  */
 const MEDIA_INPUT_KEYS = new Set(["image", "file", "video", "audio"]);
 const VIDEO_OUT_RE = /videocombine|savevideo|saveanimated|savewebp|savewebm|createvideo/i;
+/** 真把产物**写进 /output** 的节点（对照：CreateVideo/PreviewX 只在内存里造对象或只预览，不产文件）。
+ *  同 kind 的多个输出里优先它——否则会挑中不产文件的中间节点，产物拉不回来。 */
+const SAVE_OUT_RE = /^(save|export)/i;
 /** 预览类也是输出（纯图工作流常只有 PreviewImage/MaskPreview，此前被判「无输出」整张图不可导入）。 */
 const IMAGE_OUT_RE = /saveimage|previewimage|maskpreview/i;
 /** 3D 网格输出——**Nomi 支持 model3d 产物**（GenerationResultType 含它、runtime 读 model_url、
@@ -332,7 +335,13 @@ export function analyzeComfyWorkflow(graph: ComfyGraph): WorkflowAnalysis {
     const classType = node.class_type ?? "";
     const inputs = node.inputs && typeof node.inputs === "object" ? node.inputs : {};
     for (const [inputKey, value] of Object.entries(inputs)) {
-      if (TEXT_ENCODE_RE.test(classType) && (inputKey === "text" || inputKey === "prompt") && isLink(value)) {
+      // 提示词**从连线进来**时追到可注入的源头。判据用 isPromptLikeKey（规则派生），**不限节点类型**——
+      // 早先这里卡了 TEXT_ENCODE_RE，等于「只有 CLIPTextEncode 系的连线提示词才追」。于是任何把 prompt
+      // 做成输入槽的节点（云端 API 节点、以及 ComfyUI 0.30 子图把 prompt 提升成子图入参后的形态）
+      // 都会掉到下面 `isLink → continue`，提示词节点整个识别不出来，只能由用户手动指。
+      // 实例：MiniMax H3 官方模板把整条管线打包进子图，prompt 提升到子图边界 →
+      // 展开后落在 MiniMaxH3ImageToVideo.prompt 这个**连线**输入上（非 text-encode 类）。
+      if (isPromptLikeKey(inputKey) && isLink(value)) {
         pushUniqueCandidate(textInputs, resolveTextSourceFromInput(graph, value, new Set([nodeId])));
         continue;
       }
@@ -368,6 +377,16 @@ export function analyzeComfyWorkflow(graph: ComfyGraph): WorkflowAnalysis {
 
   const positiveId = findPositiveTargetId(graph);
   const suggestedPrompt = pickSuggestedPrompt(textInputs, positiveId);
+  // 选中当提示词的那个输入，不该再出现在「生成时可用参数」里——它是提示词本身，不是可调参数。
+  // 上面收 widgetInputs 是**在文本分类之前无条件跑的**，所以内联提示词会被两边各收一次。
+  // 用户 2026-08-03 反馈实见：MiniMax H3 工作流里「我提示词应该输入的那个节点」跑进了参数列表。
+  // 只摘掉被选中的这一个，其余文本输入仍可当参数绑（多文本工作流不受影响）。
+  if (suggestedPrompt) {
+    const dup = widgetInputs.findIndex(
+      (w) => w.nodeId === suggestedPrompt.nodeId && w.inputKey === suggestedPrompt.inputKey,
+    );
+    if (dup >= 0) widgetInputs.splice(dup, 1);
+  }
   const startImageId = findLinkedInputTargetId(graph, ["start_image", "first_image", "first_frame", "image", "video"]);
   const endImageId = findLinkedInputTargetId(graph, ["end_image", "last_image", "last_frame"]);
   // 视频输入（LoadVideo.file）另立一槽 —— 它收的是**视频**，绝不能当首帧图发出去
@@ -385,7 +404,15 @@ export function analyzeComfyWorkflow(graph: ComfyGraph): WorkflowAnalysis {
     (o): o is OutputNodeCandidate & { kind: "image" | "video" | "model3d" } => o.kind !== "unsupported",
   );
   // 优先级 video > model3d > image：3D 工作流常同时挂 PreviewImage（预览渲染图），成品是 .glb 那个。
+  // 同类里再优先**真落盘的 Save/Export 节点**：CreateVideo 只是把帧序列装成 VIDEO 对象、不写文件，
+  // 后面必须再接一个 SaveVideo 才有产物。按枚举序取第一个会挑中 CreateVideo（节点号更小），
+  // 结果 Nomi 去一个不产文件的节点上找产物 → 拉不回成片。MiniMax H3 官方模板正是 CreateVideo→SaveVideo。
+  const preferSaving = (list: typeof usableOutputs, kind: "image" | "video" | "model3d") =>
+    list.find((o) => o.kind === kind && SAVE_OUT_RE.test(o.classType)) ?? list.find((o) => o.kind === kind);
   const suggestedOutput =
+    preferSaving(usableOutputs, "video") ??
+    preferSaving(usableOutputs, "model3d") ??
+    preferSaving(usableOutputs, "image") ??
     usableOutputs.find((o) => o.kind === "video") ??
     usableOutputs.find((o) => o.kind === "model3d") ??
     usableOutputs[0];
