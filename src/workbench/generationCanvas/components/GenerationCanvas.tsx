@@ -208,7 +208,7 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
     activeEdgeId,
     selectNodesInRect,
   })
-  const { isPanning, setViewportTransform, animateViewportTo, zoomAtStagePoint } = pointer
+  const { isPanning, isSpaceHeld, setViewportTransform, animateViewportTo, zoomAtStagePoint } = pointer
   const { handleGroupFramePointerDown, handleSelectionBoundsPointerDown } = useCanvasSelectionDrag({
     readOnly,
     selectedNodeCount: selectedNodeIds.length,
@@ -618,6 +618,7 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
           className="generation-canvas-v2__stage"
           ref={stageRef}
           data-panning={isPanning ? 'true' : undefined}
+          data-space-pan={isSpaceHeld ? 'true' : undefined}
           onPointerDownCapture={pointer.onPointerDownCapture}
           onPointerDown={handleStagePointerDown}
           onPointerMove={handleStagePointerMove}

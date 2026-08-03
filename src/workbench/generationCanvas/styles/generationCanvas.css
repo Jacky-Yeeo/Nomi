@@ -2,13 +2,17 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-  /* ComfyUI 式：空白左键拖=平移（拖动中 data-panning 切 grabbing）；框选走 Shift+拖 */
+  /* 空白左键拖=平移（拖动中 data-panning 切 grabbing）；框选走 Shift+拖；空格按住切 grab */
   cursor: default;
   user-select: none;
   background:
     radial-gradient(circle, var(--nomi-ink-20) 1px, transparent 1.2px),
     var(--nomi-bg);
   background-size: 24px 24px;
+}
+
+.generation-canvas-v2__stage[data-space-pan] {
+  cursor: grab;
 }
 
 .generation-canvas-v2__stage[data-panning] {

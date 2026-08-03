@@ -1,6 +1,7 @@
-// R13 真机走查：画布操作语义翻转（2026-07-31 用户拍板，ComfyUI 式）。
-// 验三件事：① 左键按住空白拖 = 平移（旧空格拖已删）；② 滚轮 = 缩放且锚在光标；
-// ③ Shift+拖空白 = 框选、Shift+点节点 = 多选切换、纯点空白 = 清选区。
+// R13 真机走查：画布操作语义（#832 二选一，2026-07-31 用户拍板 / 2026-08-03 补齐）。
+// A 档 wheel-zoom（默认）：① 空白拖 = 平移；② 滚轮 = 缩放且锚在光标；
+//   ③ Shift+拖空白 = 框选、Shift+点节点 = 多选切换、纯点空白 = 清选区；④ 空格+拖 = 平移（压在节点上也行）。
+// B 档 modifier-zoom（走真设置 UI 切过去）：⑤ 滚轮 = 平移且倍率不变；⑥ ⌘+滚轮 = 缩放；⑦ 提示卡文案跟着换。
 // 截图人眼判断 + 程序断言（节点位移/锚点漂移/选中数）双保险。
 // 用法：node scripts/canvas-gestures-walkthrough.mjs
 import { _electron as electron } from 'playwright'
@@ -147,6 +148,87 @@ try {
   const selectedAfterToggle = await win.locator('.generation-canvas-v2-node[data-selected="true"]').count()
   check(selectedAfterToggle === 1, `Shift+再点 B → 反选回 ${selectedAfterToggle}/1`)
   await shot(win, '08-shift-click-toggle.png')
+
+  // ─── ④ 空格+拖 = 平移（PR#56 越界删掉、2026-08-03 恢复）───
+  // 刻意把光标压在**节点上**按下：空白左键拖这时会被节点接走，只有空格档能平移——这正是它存在的理由。
+  const spaceNodeBox = await nodes.nth(0).boundingBox()
+  const spaceFromX = spaceNodeBox.x + spaceNodeBox.width / 2
+  const spaceFromY = spaceNodeBox.y + 12
+  const beforeSpace = await nodes.nth(0).boundingBox()
+  await win.keyboard.down('Space')
+  await win.waitForTimeout(200)
+  const grabCursor = await win.locator('.generation-canvas-v2__stage').getAttribute('data-space-pan')
+  check(grabCursor === 'true', '空格按住 → 外壳切平移态（data-space-pan，光标 grab）')
+  await win.mouse.move(spaceFromX, spaceFromY)
+  await win.mouse.down()
+  await win.mouse.move(spaceFromX - 120, spaceFromY + 90, { steps: 8 })
+  await shot(win, '09-space-pan-dragging.png')
+  await win.mouse.up()
+  await win.keyboard.up('Space')
+  await win.waitForTimeout(400)
+  const afterSpace = await nodes.nth(0).boundingBox()
+  const spaceDx = afterSpace.x - beforeSpace.x
+  const spaceDy = afterSpace.y - beforeSpace.y
+  check(
+    Math.abs(spaceDx + 120) < 10 && Math.abs(spaceDy - 90) < 10,
+    `空格+拖（压在节点上）→ 画布平移（位移 ${Math.round(spaceDx)},${Math.round(spaceDy)} ≈ -120,90）`,
+  )
+  const spaceReleased = await win.locator('.generation-canvas-v2__stage').getAttribute('data-space-pan')
+  check(spaceReleased === null, '松开空格 → 平移态复位（不卡在 grab）')
+  await shot(win, '10-space-pan-done.png')
+
+  // ─── ⑤⑥⑦ 切到 modifier-zoom 档：走真设置 UI，不直接改 localStorage ───
+  const hintBefore = await win.locator('.generation-canvas-v2__gesture-hint').textContent().catch(() => '')
+  await win.locator('.nomi-appbar__ghost[aria-label="设置"]').first().click()
+  await win.waitForTimeout(800)
+  // 必须锚在对话框内：'通用' 这两个字在别处也有（隐藏的 caption span），全局 getByText 会选中它然后死等可见。
+  const settingsDialog = win.locator('[role="dialog"][aria-label="设置"]')
+  check(await settingsDialog.count() > 0, '齿轮 → 设置对话框打开')
+  await settingsDialog.getByRole('button', { name: '通用' }).click()
+  await win.waitForTimeout(500)
+  await shot(win, '11-settings-general.png')
+  const schemeChip = win.locator('[data-canvas-gesture-scheme="modifier-zoom"]')
+  check(await schemeChip.count() > 0, '设置 · 通用里有「画布滚轮」二选一')
+  await schemeChip.click()
+  await win.waitForTimeout(300)
+  const chipChecked = await schemeChip.getAttribute('aria-checked')
+  check(chipChecked === 'true', '点「平移」档 → 芯片选中态生效')
+  await shot(win, '12-settings-scheme-picked.png')
+  await win.keyboard.press('Escape')
+  await win.waitForTimeout(600)
+
+  const hintAfter = await win.locator('.generation-canvas-v2__gesture-hint').textContent().catch(() => '')
+  check(
+    hintBefore !== hintAfter && /滚轮/.test(hintAfter || '') && /⌘/.test(hintAfter || ''),
+    `提示卡文案跟着换档（现含 ⌘+滚轮：${JSON.stringify((hintAfter || '').slice(0, 40))}）`,
+  )
+
+  // ⑤ 这一档裸滚轮 = 平移，倍率不能变
+  const panBox0 = await nodes.nth(0).boundingBox()
+  await win.mouse.move(panBox0.x + panBox0.width / 2, panBox0.y + panBox0.height / 2)
+  await win.mouse.wheel(0, 120)
+  await win.waitForTimeout(500)
+  const panBox1 = await nodes.nth(0).boundingBox()
+  check(
+    Math.abs(panBox1.y - panBox0.y + 120) < 12,
+    `modifier-zoom 档：滚轮 → 平移（节点纵向位移 ${Math.round(panBox1.y - panBox0.y)} ≈ -120）`,
+  )
+  check(Math.abs(panBox1.width / panBox0.width - 1) < 0.02, '滚轮平移时倍率不变（没顺手缩放）')
+  await shot(win, '13-modifier-wheel-pan.png')
+
+  // ⑥ ⌘+滚轮仍是缩放——这一档下它是唯一的缩放入口，断了这条这一档就废了
+  const zoomBox0 = await nodes.nth(0).boundingBox()
+  await win.mouse.move(zoomBox0.x + zoomBox0.width / 2, zoomBox0.y + zoomBox0.height / 2)
+  await win.keyboard.down('Meta')
+  await win.mouse.wheel(0, -240)
+  await win.keyboard.up('Meta')
+  await win.waitForTimeout(500)
+  const zoomBox1 = await nodes.nth(0).boundingBox()
+  check(
+    zoomBox1.width / zoomBox0.width > 1.2,
+    `modifier-zoom 档：⌘+滚轮 → 放大（节点宽 ×${(zoomBox1.width / zoomBox0.width).toFixed(2)}）`,
+  )
+  await shot(win, '14-modifier-cmd-wheel-zoom.png')
 } catch (error) {
   failed = true
   console.error('  ✗ 走查中断: ' + (error instanceof Error ? error.message : String(error)))

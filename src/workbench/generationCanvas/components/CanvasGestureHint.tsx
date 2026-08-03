@@ -5,19 +5,31 @@ import { useTranslation } from 'react-i18next'
 import { IconX } from '@tabler/icons-react'
 import { cn } from '../../../utils/cn'
 import { hasSeenCanvasGestureHint, markCanvasGestureHintSeen } from '../../onboarding/onboardingState'
+import { useCanvasGestureScheme } from './canvasGesturePreference'
 
 type GestureItem = { keysKey: string; labelKey: string }
 
-// ComfyUI 式语义（2026-07-31 用户拍板）：空白拖=平移、滚轮=缩放、Shift+拖=框选、Shift+点=多选。
-const GESTURES: GestureItem[] = [
-  { keysKey: 'blankDrag', labelKey: 'pan' },
-  { keysKey: 'wheel', labelKey: 'zoom' },
-  { keysKey: 'shiftDrag', labelKey: 'boxSelect' },
-  { keysKey: 'shiftClick', labelKey: 'multiSelect' },
-]
+// 图例必须跟着用户选的滚轮语义走（#832 二选一）——否则在「滚轮=平移」档它会当面撒谎说「滚轮 缩放」。
+// 两档共有：空白拖=平移、Shift+拖=框选；差异只在滚轮那一格。
+const GESTURES_BY_SCHEME: Record<'wheel-zoom' | 'modifier-zoom', GestureItem[]> = {
+  'wheel-zoom': [
+    { keysKey: 'blankDrag', labelKey: 'pan' },
+    { keysKey: 'wheel', labelKey: 'zoom' },
+    { keysKey: 'shiftDrag', labelKey: 'boxSelect' },
+    { keysKey: 'shiftClick', labelKey: 'multiSelect' },
+  ],
+  'modifier-zoom': [
+    { keysKey: 'blankDrag', labelKey: 'pan' },
+    { keysKey: 'wheelOrTwoFinger', labelKey: 'pan' },
+    { keysKey: 'commandWheel', labelKey: 'zoom' },
+    { keysKey: 'shiftDrag', labelKey: 'boxSelect' },
+  ],
+}
 
 export function CanvasGestureHint(): JSX.Element | null {
   const { t } = useTranslation()
+  const scheme = useCanvasGestureScheme()
+  const gestures = GESTURES_BY_SCHEME[scheme]
   const [visible, setVisible] = React.useState(() => !hasSeenCanvasGestureHint())
 
   const dismiss = React.useCallback(() => {
@@ -39,7 +51,7 @@ export function CanvasGestureHint(): JSX.Element | null {
       aria-label={t('generationCommon.canvas.gestureHint.aria')}
       onPointerDown={(event) => event.stopPropagation()}
     >
-      {GESTURES.map((gesture, index) => (
+      {gestures.map((gesture, index) => (
         <React.Fragment key={gesture.keysKey}>
           {index > 0 ? (
             <span className="text-nomi-ink-20" aria-hidden="true">

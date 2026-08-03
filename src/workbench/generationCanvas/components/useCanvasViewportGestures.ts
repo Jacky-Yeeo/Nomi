@@ -1,13 +1,15 @@
 // 画布视口手势控制器（从 GenerationCanvas 抽出，R9/R12 防巨壳）。
-// 收口三类输入为 ComfyUI 式语义（2026-07-31 用户拍板，替换旧 Figma 式）：
-//   · 滚轮（含 ⌘/Ctrl+滚轮、触控板捏合）= 缩放，锚在光标；卡内可滚区放行原生滚动。
-//   · 左键按住空白拖 / 中键拖 / 右键拖 = 平移（右键拖超阈值才平移并吞掉右键菜单）。
+// 收口三类输入（2026-07-31 用户拍板 #832，2026-08-03 补齐二选一）：
+//   · 滚轮：**语义可配**（canvasGesturePreference）——默认缩放锚光标（ComfyUI 式），
+//     可切成平移（Figma 式，给触控板党）；⌘/Ctrl+滚轮与捏合**两档恒缩放**。卡内可滚区放行原生滚动。
+//   · 左键按住空白拖 / 空格+拖 / 中键拖 / 右键拖 = 平移（右键拖超阈值才平移并吞掉右键菜单）。
 //   · Shift+左键拖空白 = 框选（useMarqueeSelection 接管，此处让出）。
 // 同时托管视口变换原语（scheduleOffset / setViewportTransform / zoomAtStagePoint），
 // 平移与离散缩放都走 rAF 批处理，消除快速输入的多次 setState 抖动。
 import React from 'react'
 import { clampNumber, getWheelZoomFactor } from './generationCanvasGeometry'
 import { findScrollableAncestor } from './canvasScroll'
+import { resolveWheelIntent, useCanvasGestureScheme } from './canvasGesturePreference'
 
 type Offset = { x: number; y: number }
 type Viewport = { zoom: number; offset: Offset }
@@ -31,6 +33,8 @@ type UseCanvasViewportGesturesArgs = {
 
 export type CanvasViewportGestures = {
   isPanning: boolean
+  /** 空格按住中 → 外壳切 grab 光标，提示「现在拖就是平移」 */
+  isSpaceHeld: boolean
   scheduleOffset: (offset: Offset) => void
   setViewportTransform: (zoom: number, offset: Offset) => void
   animateViewportTo: (zoom: number, offset: Offset, duration?: number) => void
@@ -62,7 +66,10 @@ export function useCanvasViewportGestures({
   const isPanningRef = React.useRef(false)
   const panStartRef = React.useRef<{ clientX: number; clientY: number; offsetX: number; offsetY: number; button: number; moved: boolean } | null>(null)
   const suppressContextMenuRef = React.useRef(false)
+  const spaceHeldRef = React.useRef(false)
   const [isPanning, setIsPanning] = React.useState(false)
+  const [isSpaceHeld, setIsSpaceHeld] = React.useState(false)
+  const gestureScheme = useCanvasGestureScheme()
 
   const cancelAnim = React.useCallback(() => {
     if (animFrameRef.current !== null) {
@@ -147,6 +154,41 @@ export function useCanvasViewportGestures({
     }
   }, [])
 
+  // 空格按住 = 平移模式（光标 grab）。输入框/可编辑区放行，别抢空格输入。
+  // 它不是「滚轮方案的一部分」，是正交的第四个平移入口：光标压在**节点上**时，除中键/右键外
+  // 只有它能平移（空白左键拖此时会被节点接走）。故两档共用、不进设置。
+  React.useEffect(() => {
+    if (readOnly) return undefined
+    const isEditableTarget = (target: EventTarget | null) =>
+      target instanceof HTMLElement && Boolean(target.closest('input, textarea, select, [contenteditable="true"], .ProseMirror'))
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== 'Space' && event.key !== ' ') return
+      if (isEditableTarget(event.target)) return
+      if (!stageRef.current || stageRef.current.offsetParent === null) return
+      if (!spaceHeldRef.current) {
+        spaceHeldRef.current = true
+        setIsSpaceHeld(true)
+      }
+      event.preventDefault() // 否则空格会滚页 / 触发按钮
+    }
+    const release = () => {
+      if (!spaceHeldRef.current) return
+      spaceHeldRef.current = false
+      setIsSpaceHeld(false)
+    }
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.code === 'Space' || event.key === ' ') release()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('blur', release) // 切走窗口时松开，否则回来还卡在平移态
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('blur', release)
+    }
+  }, [readOnly, stageRef])
+
   const beginPan = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     setContextNodeMenu(null)
     setActiveEdge(null)
@@ -164,9 +206,9 @@ export function useCanvasViewportGestures({
     try { event.currentTarget.setPointerCapture(event.pointerId) } catch { /* 无活动指针时忽略 */ }
   }, [cancelConnection, offsetRef, pendingConnectionSourceId, readOnly, setActiveEdge, setContextNodeMenu])
 
-  // 捕获阶段：中键/右键拖在节点之上也能平移（抢在节点 pointerdown 前）。
+  // 捕获阶段：空格/中键/右键拖在节点之上也能平移（抢在节点 pointerdown 前）。
   const handlePointerDownCapture = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    const wantsPan = event.button === 1 || event.button === 2
+    const wantsPan = spaceHeldRef.current || event.button === 1 || event.button === 2
     if (wantsPan) {
       event.preventDefault()
       event.stopPropagation()
@@ -247,7 +289,7 @@ export function useCanvasViewportGestures({
     return false
   }, [])
 
-  // 滚轮 / 触控板捏合 = 缩放，锚在光标（ComfyUI 式）。
+  // 滚轮 / 触控板：缩放还是平移由用户设置决定（#832 二选一）；⌘/Ctrl+滚轮与捏合恒缩放。
   const handleWheel = React.useCallback((event: WheelEvent) => {
     // 命中卡内可滚区（提示词编辑器等）→ 交原生滚动，画布不动（一处覆盖所有入口，P2）。
     // 捏合/⌘+滚轮（ctrlKey/metaKey）不放行——浏览器此时本来就不滚内容，仍走缩放。
@@ -259,11 +301,18 @@ export function useCanvasViewportGestures({
     ) return
     event.preventDefault()
     setContextNodeMenu(null)
+    if (resolveWheelIntent(gestureScheme, event) === 'pan') {
+      // Shift+滚轮：把纵向滚动当横向（鼠标无横轴时的水平平移）
+      const panX = event.shiftKey && event.deltaX === 0 ? event.deltaY : event.deltaX
+      const panY = event.shiftKey && event.deltaX === 0 ? 0 : event.deltaY
+      scheduleOffset({ x: offsetRef.current.x - panX, y: offsetRef.current.y - panY })
+      return
+    }
     if (!stageRef.current) return
     const rect = stageRef.current.getBoundingClientRect()
     const nextZoom = clampNumber(zoomRef.current * getWheelZoomFactor(event), 0.2, 3)
     zoomAtStagePoint(nextZoom, { x: event.clientX - rect.left, y: event.clientY - rect.top })
-  }, [setContextNodeMenu, stageRef, zoomAtStagePoint, zoomRef])
+  }, [gestureScheme, offsetRef, scheduleOffset, setContextNodeMenu, stageRef, zoomAtStagePoint, zoomRef])
 
   React.useEffect(() => {
     const stage = stageRef.current
@@ -274,6 +323,7 @@ export function useCanvasViewportGestures({
 
   return {
     isPanning,
+    isSpaceHeld,
     scheduleOffset,
     setViewportTransform,
     animateViewportTo,

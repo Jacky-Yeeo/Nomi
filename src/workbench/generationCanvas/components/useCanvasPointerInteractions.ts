@@ -1,7 +1,7 @@
 // 画布 stage 指针交互总入口（合并视口手势 + 框选）。
 // 把 useCanvasViewportGestures（平移/缩放）与 useMarqueeSelection（框选）组合成一组
 // stage handler，让 GenerationCanvas 只挂一处、不必关心二者分工：
-//   · capture 阶段：中键/右键平移抢在节点之前（gestures）。
+//   · capture 阶段：空格/中键/右键平移抢在节点之前（gestures）。
 //   · bubble 阶段：左键拖空白 → 平移；Shift+左键拖空白 → 框选。二者按 shiftKey 分工不抢。
 import React from 'react'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
@@ -27,6 +27,7 @@ type Args = {
 
 export type CanvasPointerInteractions = {
   isPanning: boolean
+  isSpaceHeld: boolean
   marqueeRect: MarqueeRect | null
   setViewportTransform: (zoom: number, offset: Offset) => void
   animateViewportTo: (zoom: number, offset: Offset, duration?: number) => void
@@ -76,6 +77,7 @@ export function useCanvasPointerInteractions(args: Args): CanvasPointerInteracti
 
   return {
     isPanning: gestures.isPanning,
+    isSpaceHeld: gestures.isSpaceHeld,
     marqueeRect: marquee.marqueeRect,
     setViewportTransform: gestures.setViewportTransform,
     animateViewportTo: gestures.animateViewportTo,

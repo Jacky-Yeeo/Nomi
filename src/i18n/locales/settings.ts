@@ -13,6 +13,13 @@ export const zhSettings = {
     screenshotNeedsPermission:
       'macOS 还没给 Nomi「屏幕录制」权限，现在按热键抓不到画面。这项权限没法由应用自己申请，得去系统设置里勾上，勾完要重开 Nomi 才生效。',
     screenshotOpenSettings: '打开系统设置',
+    canvasGesture: '画布滚轮',
+    canvasGestureHint:
+      '在生成画布里滚动滚轮（触控板双指滑）时做什么。不管选哪档，空白处按住拖都是平移、Shift+拖都是框选。',
+    canvasGestureZoom: '缩放',
+    canvasGestureZoomHint: '滚轮直接缩放，锚在光标。多数节点编辑器（ComfyUI 等）的习惯。',
+    canvasGesturePan: '平移',
+    canvasGesturePanHint: '滚轮/双指滑平移画布，⌘/Ctrl+滚轮才缩放。触控板用户通常选这档（Figma 等的习惯）。',
   },
   file: {
     title: '文件与保存',
@@ -42,6 +49,13 @@ export const enSettings = {
     screenshotNeedsPermission:
       'macOS has not granted Nomi Screen Recording permission, so the hotkey cannot capture anything yet. Apps cannot request this permission themselves — enable it in System Settings, then restart Nomi.',
     screenshotOpenSettings: 'Open System Settings',
+    canvasGesture: 'Canvas wheel',
+    canvasGestureHint:
+      'What the wheel (or a trackpad two-finger swipe) does on the generation canvas. Either way, dragging empty space always pans and Shift+drag always box-selects.',
+    canvasGestureZoom: 'Zoom',
+    canvasGestureZoomHint: 'The wheel zooms directly, anchored at the cursor. What most node editors (ComfyUI and friends) do.',
+    canvasGesturePan: 'Pan',
+    canvasGesturePanHint: 'Wheel/two-finger swipe pans the canvas; ⌘/Ctrl+wheel zooms. Usually what trackpad users want (the Figma convention).',
   },
   file: {
     title: 'File & saving',
