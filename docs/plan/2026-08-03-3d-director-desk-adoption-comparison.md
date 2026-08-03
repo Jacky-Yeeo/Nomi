@@ -59,7 +59,9 @@
 
 ### 批次进度
 - [x] **批次 1（2026-08-03 已落）**：策展移植 11 种道具（SUV/公交车/自行车/电动踏板车/沙发/餐桌/冰箱/洗衣机/分类垃圾桶/ATM/背包；砍掉保温瓶/扳手/台钻/鹿头骨；轿车/路灯/树与我们重复不搬）。逐件重标定米制、AI 站位/运镜词表同步扩容、双语、走查 `scripts/scene3d-new-props-walkthrough.mjs`（菜单 16 项/11 件全加成功/看全场人眼验几何）。
-- [ ] 批次 2：姿势库对齐（他们 20 姿势为参照补齐缺口 + 用姿势度量核重校现有 13 个的观感问题——用户反馈「我们姿势很多是错的」）+ 逐骨骼滑杆体验对齐
+- [x] **批次 2 spike（2026-08-04 已验证，用户拍板「直接用他们的模型+姿势」）**：UE 人偶 GLB（Sketchfab Standard 许可，750KB，随仓带许可文件，与他们同姿势）+ 他们整套姿势控制系统（`scene3d/ueSpike/` 摘录 5 文件 ~1.1k 行 MIT）在我们渲染器里跑通。样张（devlab `ue-spike-lab.html`，`?set=pairs|extra`）：**他们 12 个姿势全部干净落地**（sit 真坐姿/kneel 稳/fight/phone/think/bow/throw 全对），直接对比里我们的 sit=悬浮半蹲、wave=僵硬——用户「我们姿势是错的」成立。
+  **集成四坑（spike 实证，正式接入必须处理）**：① `useMannequinLocomotion` 的 retargetClip 按 mixamorig 髋骨名驱动目标骨架，Bip001 骨架被搅爆（世界包围盒炸到 1142m）→ locomotion 必须按 rig 分发；② 该 GLB 几何 bind 空间是厘米（高 182）而骨骼世界是米 → 一切包围盒必须 `Box3.setFromObject(obj, /*precise*/true)`，我们的 bbox normalize/落地全会被骗；③ 重挂进带缩放的外层树必须**先贴地后 rebind 再设内衬位移**（three 蒙皮三明治：bind 前设的变换会被冻进 bind 矩阵抵消）；④ demand 帧循环下 imperative 骨骼变更不触发重绘 → 需手动 invalidate。
+- [ ] 批次 2 正式接入：UE 人偶转正为默认假人 + 20 姿势进姿势面板/AI 词表（含旧 13 姿势 id 兼容别名）+ locomotion 按 rig 分发（mixamorig clips retarget 到 Bip001 或用他们的控制空间步态）+ poseMetrics 语义部位适配 + 名牌锚点/foot ring/安全画幅常数按新身高派生 + 序列化兼容（存量 pose 数据）+ 5 体型（他们的骨骼缩放体型系统白送）
 - [ ] 批次 3：角色/动作导入体检链（FBX/GLB 体检、骨架方言、15 部位手动映射、自动动作自检轮播）——「模型多」的可持续解
 - [ ] 批次 4：编辑器基本功（undo 拖动批处理 / 多选 / 锁定 / 吸附）+ 鼠标操控（缩放 gizmo 按钮、灵敏度设置、视角手柄）
 - [ ] 批次 5：掌镜 Enter 记点 + 逐点身体部位追踪 + 防抖；路线点显式编辑（到达时间/停留动作/弧长 timing/防穿模）

@@ -38,6 +38,11 @@ import {
 } from './scene3dMath'
 import { locomotionAnimationClip } from './scene3dCharacterDrive'
 import { useMannequinLocomotion, type MannequinLocomotionDriver } from './scene3dMannequinLocomotion'
+// UE 素体 spike（评估用）：见 Mannequin 组件内 __nomiUeSpike 开关
+import { UE4_MANNEQUIN_MODEL_URL, getUE4ModelScale } from './ueSpike/ue4MannequinRig'
+import { alignUE4MannequinToGround } from './ueSpike/ueGrounding'
+import { applyUE4RestPoseAndRig, captureUE4RestPose } from './ueSpike/ue4MannequinPoseApplication'
+import { MANNEQUIN_POSE_PRESETS as UE_POSE_PRESETS } from './ueSpike/mannequinPosePresets'
 
 export function Scene3DMeshGeometry({ geometry }: { geometry: Scene3DGeometry | undefined }): JSX.Element {
   if (geometry === 'sphere') return <sphereGeometry args={[0.55, 40, 24]} />
@@ -112,9 +117,42 @@ export function Mannequin({
   // 缺省 → LIVE 实时推进（possess 走路不变）。
   driverRef?: React.MutableRefObject<MannequinLocomotionDriver | null>
 }): JSX.Element {
-  const { scene } = useGLTF(MANNEQUIN_MODEL_URL)
+  // ── UE 素体 spike（评估用，不落 main）：localStorage.__nomiUeSpike = 姿势id 时，
+  // 换 UE GLB + 他们的姿势控制系统渲染，验证「直接用他们的模型+姿势」在我们场景里的观感。
+  const ueSpikePose = typeof window !== 'undefined' ? window.localStorage.getItem('__nomiUeSpike') : null
+  const { scene } = useGLTF(ueSpikePose ? UE4_MANNEQUIN_MODEL_URL : MANNEQUIN_MODEL_URL)
   const model = React.useMemo(() => {
     const skeletonClone = cloneSkeleton(scene)
+    if (ueSpikePose) {
+      // 照抄他们的挂载：固定 modelScale 包装组（不走 bbox normalize），姿势施加后由通用贴地兜底。
+      const restPose = captureUE4RestPose(skeletonClone)
+      const preset = UE_POSE_PRESETS.find((item) => item.id === ueSpikePose) ?? UE_POSE_PRESETS[0]
+      applyUE4RestPoseAndRig(skeletonClone, { controls: preset.controls, restPose })
+      const wrapper = new THREE.Group()
+      const [sx, sy, sz] = getUE4ModelScale('mannequin')
+      // 抵消外层假人挂载约定（scale 2.5 + 中心点抬升 y=scale*0.5）：他们的 GLB 骨骼即真实米制、脚在 0。
+      const counter = 1 / 2.5
+      wrapper.scale.set(sx * counter, sy * counter, sz * counter)
+      wrapper.add(skeletonClone)
+      wrapper.updateMatrixWorld(true)
+      alignUE4MannequinToGround(skeletonClone)
+      // 我们会把模型重挂进带缩放的外层树（他们不会）——按当前 matrixWorld 重绑，蒙皮三明治恒等消去。
+      wrapper.updateMatrixWorld(true)
+      skeletonClone.traverse((o) => {
+        if (o instanceof THREE.SkinnedMesh) o.bind(o.skeleton, o.matrixWorld.clone())
+      })
+      // 内衬位移必须在 rebind 之后设（先设会被冻进 bind 矩阵抵消掉）：抵消外层中心点抬升。
+      wrapper.position.set(0, -0.5, 0)
+      const materials: THREE.Material[] = []
+      wrapper.traverse((object) => {
+        if (object instanceof THREE.Mesh) {
+          object.castShadow = true
+          object.receiveShadow = true
+          object.frustumCulled = false
+        }
+      })
+      return { object: wrapper, materials }
+    }
     rememberMannequinRestPose(skeletonClone)
     const cloned = normalizeMannequinModel(skeletonClone)
     const materials: THREE.Material[] = []
@@ -137,7 +175,7 @@ export function Mannequin({
     })
     captureMannequinGroundReference(cloned)
     return { object: cloned, materials }
-  }, [scene])
+  }, [scene, ueSpikePose])
 
   React.useEffect(() => {
     const materials = model.materials
@@ -162,11 +200,18 @@ export function Mannequin({
   // idle/空（animationClip=undefined）走这里：可能有用户摆的 pose，缺省则 MANNEQUIN_DEFAULT_POSE = 自然站姿。
   React.useLayoutEffect(() => {
     if (animationClip) return
+    if (ueSpikePose) return // spike：姿势+贴地已在 useMemo 内按他们的管线做完
     applyMannequinSkeletonPose(model.object, pose)
     groundMannequinModel(model.object)
-  }, [model, pose, animationClip])
+  }, [model, pose, animationClip, ueSpikePose])
 
-  useMannequinLocomotion(model.object, animationClip, driverRef)
+  // UE spike：locomotion 的 retargetClip 按 mixamorig 髋骨名驱动目标骨架，Bip001 骨架会被搅爆
+  //（实测世界包围盒炸到 1142m）——spike 喂空对象让 hook 惰性化，静态姿势不需要它。
+  const locomotionTarget = React.useMemo(
+    () => (ueSpikePose ? new THREE.Group() : model.object),
+    [ueSpikePose, model.object],
+  )
+  useMannequinLocomotion(locomotionTarget, animationClip, driverRef)
 
   return <primitive object={model.object} />
 }
