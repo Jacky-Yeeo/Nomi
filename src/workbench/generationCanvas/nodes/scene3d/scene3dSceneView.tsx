@@ -25,6 +25,7 @@ import {
 } from './scene3dConstants'
 import { SCENE3D_ASPECT_RATIOS } from './scene3dTypes'
 import type { Scene3DCamera, Scene3DObject, Scene3DVector3, Scene3DTransformMode } from './scene3dTypes'
+import { useScene3DObjectRefRegistration } from './trajectory/useScene3DObjectRefRegistration'
 import {
   ProceduralMannequin,
   Mannequin,
@@ -161,6 +162,8 @@ export function SceneObjectView({
 }): JSX.Element {
   const visualRef = React.useRef<THREE.Group>(null!) as React.MutableRefObject<THREE.Group>
   const anchorRef = React.useRef<THREE.Group>(null!) as React.MutableRefObject<THREE.Group>
+  // 直驱表自注册：谁拥有这个 Object3D，谁负责注册（重挂载即换新，僵尸不可能）。
+  useScene3DObjectRefRegistration(object.id, visualRef)
   const transformRef = React.useRef<any>(null)
   const transformDraggingRef = React.useRef(false)
   const orbitControlsActiveRef = React.useRef(orbitControlsActive)
@@ -366,6 +369,9 @@ export function CameraHelperView({
   onTransform: (patch: Partial<Scene3DCamera>) => void
 }): JSX.Element {
   const markerRef = React.useRef<THREE.Group>(null)
+  // 直驱表自注册：取景调整会把相机 marker 整组卸载重挂，注册必须跟着组件生命周期走
+  //（旁路扫描一次的冻结快照在重挂后就是僵尸——取景往返后播放 marker 不动的根因）。
+  useScene3DObjectRefRegistration(cameraData.id, markerRef)
   const positionDraggingRef = React.useRef(false)
   const aimDraggingRef = React.useRef<{
     pointerId: number

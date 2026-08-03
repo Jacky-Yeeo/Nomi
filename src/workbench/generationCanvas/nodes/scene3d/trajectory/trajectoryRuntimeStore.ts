@@ -76,9 +76,8 @@ export function unregisterScene3DObjectRef(objectId: string, ref: RefObject<THRE
   map.set(objectId, next)
 }
 
-export function clearScene3DObjectRefs(): void {
-  useScene3DTrajectoryRuntimeStore.getState().objectRefMap.clear()
-}
+// 刻意没有「整表清空」API：注册表由 marker 组件的挂载生命周期维护（自注册/自注销），
+// 全局 clear 会抹掉活注册且没人补——等于换个门重引入「盖章落在表外」的僵尸类 bug。
 
 export function setScene3DObjectRuntimeRefsVisible(objectId: string, visible: boolean): void {
   const targets = useScene3DTrajectoryRuntimeStore.getState().objectRefMap.get(objectId)
