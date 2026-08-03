@@ -306,12 +306,9 @@ export default function TimelinePreview({ activeClips, aspectRatio, fps, playhea
     })
   }, [])
 
-  // 右上角「导出」在预览页时派发本事件 → 直接触发导出（handleExport 已自带 busy/空 守卫）。
-  React.useEffect(() => {
-    const onRequest = () => { void handleExport() }
-    window.addEventListener('nomi-request-export', onRequest as EventListener)
-    return () => window.removeEventListener('nomi-request-export', onRequest as EventListener)
-  }, [handleExport])
+  // 注：原先顶栏「导出」在预览页会派 nomi-request-export 让这里代劳。§1.5「一功能一个家」落地后，
+  // 顶栏那颗在预览页整个不渲染（非预览页改叫「去出片」，它本来就只是跳转），派发源没了，
+  // 监听同 commit 一并删（P1 不留逃生口）。预览页唯一的导出入口 = 控制条那颗「导出 MP4」。
 
   const togglePlayback = React.useCallback(() => {
     const durationFrame = computeTimelineDuration(timeline)

@@ -1,7 +1,6 @@
 export const zhSettings = {
   title: '设置',
   close: '关闭',
-  placeholder: '这个分区之后再填。',
   tab: { file: '文件与保存', general: '通用', about: '关于' },
   general: {
     title: '通用',
@@ -37,7 +36,6 @@ export const zhSettings = {
 export const enSettings = {
   title: 'Settings',
   close: 'Close',
-  placeholder: 'Coming soon.',
   tab: { file: 'File & saving', general: 'General', about: 'About' },
   general: {
     title: 'General',

@@ -63,16 +63,6 @@ const OnboardingFloatingPanel = lazyWithChunkBoundary('模型设置面板', () =
     default: module.OnboardingFloatingPanel,
   })),
 )
-const PromptLibraryPanel = lazyWithChunkBoundary('提示词库', () =>
-  import('./promptLibrary/PromptLibraryPanel').then((module) => ({
-    default: module.PromptLibraryPanel,
-  })),
-)
-const SkillLibraryPanel = lazyWithChunkBoundary('技能库', () =>
-  import('./skillLibrary/SkillLibraryPanel').then((module) => ({
-    default: module.SkillLibraryPanel,
-  })),
-)
 const HandbookPanel = lazyWithChunkBoundary('上手手册', () =>
   import('./onboarding/HandbookPanel').then((module) => ({
     default: module.HandbookPanel,
@@ -138,8 +128,6 @@ export default function NomiStudioApp(): JSX.Element {
   const generationAiCollapsed = useGenerationCanvasStore((state) => state.generationAiCollapsed)
   const [modelCatalogOpened, setModelCatalogOpened] = React.useState(false)
   const [settingsOpened, setSettingsOpened] = React.useState(false)
-  const [promptLibraryOpened, setPromptLibraryOpened] = React.useState(false)
-  const [skillLibraryOpened, setSkillLibraryOpened] = React.useState(false)
   const [handbookOpened, setHandbookOpened] = React.useState(false)
   const [browserOpened, setBrowserOpened] = React.useState(false)
   const [browserMounted, setBrowserMounted] = React.useState(false)
@@ -207,18 +195,6 @@ export default function NomiStudioApp(): JSX.Element {
     const handleOpenModelCatalog = () => setModelCatalogOpened(true)
     window.addEventListener('nomi-open-model-catalog', handleOpenModelCatalog)
     return () => window.removeEventListener('nomi-open-model-catalog', handleOpenModelCatalog)
-  }, [])
-
-  React.useEffect(() => {
-    const handleOpenPromptLibrary = () => setPromptLibraryOpened(true)
-    window.addEventListener('nomi-open-prompt-library', handleOpenPromptLibrary)
-    return () => window.removeEventListener('nomi-open-prompt-library', handleOpenPromptLibrary)
-  }, [])
-
-  React.useEffect(() => {
-    const handleOpenSkillLibrary = () => setSkillLibraryOpened(true)
-    window.addEventListener('nomi-open-skill-library', handleOpenSkillLibrary)
-    return () => window.removeEventListener('nomi-open-skill-library', handleOpenSkillLibrary)
   }, [])
 
   React.useEffect(() => {
@@ -641,17 +617,8 @@ export default function NomiStudioApp(): JSX.Element {
           onOpenSettings={() => setSettingsOpened(true)}
           onPlayJourneyTour={playJourneyTour}
           journeyTourSeen={hasSeenJourneyTour()}
-          onReplaySplash={() => setSplashDone(false)}
           hasTextModel={hasTextModel}
         />
-        {!splashDone ? (
-          <SplashIntro
-            onDone={() => {
-              markSplashSeen()
-              setSplashDone(true)
-            }}
-          />
-        ) : null}
         {/* 模型接入面板也要在首页可用：全新安装零模型时，「30 秒体验」会派发
                     nomi-open-model-catalog 引导接入；之前此面板只挂在 studio 视图 →
                     首页派发事件无人响应，用户卡死（冷启动 J3 P0）。 */}
@@ -660,7 +627,9 @@ export default function NomiStudioApp(): JSX.Element {
             <OnboardingFloatingPanel opened={modelCatalogOpened} onClose={closeModelCatalog} />
           </React.Suspense>
         ) : null}
-        {settingsOpened ? <SettingsDialog onClose={() => setSettingsOpened(false)} /> : null}
+        {settingsOpened ? (
+          <SettingsDialog onClose={() => setSettingsOpened(false)} onReplaySplash={() => setSplashDone(false)} />
+        ) : null}
         {/* 付费确认卡提全局：外部 MCP 想在「非当前项目」生成时，用户停在项目库首页也能弹卡确认
                     （治静默黑洞，用户拍板 A）。同一全局 store，库/studio 任一时刻只一个分支渲染、不双弹。 */}
         {hasPendingSpendConfirm ? (
@@ -705,18 +674,8 @@ export default function NomiStudioApp(): JSX.Element {
             <OnboardingFloatingPanel opened={modelCatalogOpened} onClose={closeModelCatalog} />
           </React.Suspense>
         ) : null}
-        {settingsOpened ? <SettingsDialog onClose={() => setSettingsOpened(false)} /> : null}
-
-        {promptLibraryOpened ? (
-          <React.Suspense fallback={null}>
-            <PromptLibraryPanel opened={promptLibraryOpened} onClose={() => setPromptLibraryOpened(false)} />
-          </React.Suspense>
-        ) : null}
-
-        {skillLibraryOpened ? (
-          <React.Suspense fallback={null}>
-            <SkillLibraryPanel opened={skillLibraryOpened} onClose={() => setSkillLibraryOpened(false)} />
-          </React.Suspense>
+        {settingsOpened ? (
+          <SettingsDialog onClose={() => setSettingsOpened(false)} onReplaySplash={() => setSplashDone(false)} />
         ) : null}
 
         {handbookOpened ? (
@@ -745,6 +704,16 @@ export default function NomiStudioApp(): JSX.Element {
     <>
       {globalBrowserDialog}
       {viewContent}
+      {/* 开屏动画提到视图之外（原先只挂在库页分支）：重放入口已归位到设置「关于」，
+          而设置在库页和 studio 都能开——不提上来的话从 studio 点「重看开屏动画」不会有任何反应。 */}
+      {!splashDone ? (
+        <SplashIntro
+          onDone={() => {
+            markSplashSeen()
+            setSplashDone(true)
+          }}
+        />
+      ) : null}
     </>
   )
 }

@@ -10,14 +10,11 @@ import {
   IconPlugConnected,
   IconPlus,
   IconSettings,
-  IconSparkles,
   IconTrash,
 } from '@tabler/icons-react'
 import { cn } from '../../utils/cn'
 import { ActionCard, NomiLogoMark, NomiWordmark, DesignEmptyState, DesignSearchInput } from '../../design'
 import { NomiImage } from '../../design/media'
-import { ThemeToggleButton } from '../../ui/theme/ThemeToggleButton'
-import { LanguageMenuButton } from '../../ui/app-shell/LanguageMenuButton'
 import { WindowControls } from '../../ui/app-shell/WindowControls'
 import { handleWindowTitlebarDoubleClick } from '../../ui/app-shell/windowTitlebarDoubleClick'
 import type { LocalProjectSummary } from './localProjectStore'
@@ -39,7 +36,6 @@ type Props = {
   /** 旅途是否看过——决定 CTA 文案在「看一遍 / 重看」之间切换 */
   journeyTourSeen?: boolean
   /** 重看开屏动画（首启播完后从这里可主动重播）；缺省则不渲染重看入口 */
-  onReplaySplash?: () => void
   /** null = 查询中（不渲染告警）；false 时弱入口隐藏、状态条升权（单一入口互斥） */
   hasTextModel?: boolean | null
   projects: LocalProjectSummary[]
@@ -114,7 +110,6 @@ export default function ProjectLibraryPage({
   onOpenSettings,
   onPlayJourneyTour,
   journeyTourSeen = false,
-  onReplaySplash,
   hasTextModel = null,
   projects,
 }: Props): JSX.Element {
@@ -166,23 +161,11 @@ export default function ProjectLibraryPage({
     window.dispatchEvent(new CustomEvent('nomi-open-browser'))
   }, [])
 
+  // 弱入口 6 → 3（§1.5）：「看看 Nomi」（重放开屏动画）归位到设置「关于」——它和主卡
+  // 「重看一遍引导」是两个不同功能却名字撞车（后者会建 demo 项目回放整条流水线），
+  // 搬走后主卡独占「引导」语义；语言/外观归位到设置「通用」。剩下=接入模型 · 浏览器 · 设置。
   const libraryTopActions = (
     <div className="app-no-drag flex items-center gap-1">
-      {onReplaySplash ? (
-        <button
-          type="button"
-          onClick={onReplaySplash}
-          className={cn(
-            'inline-flex items-center gap-1.5 h-7 px-2 rounded-pill border-0 bg-transparent cursor-pointer font-inherit',
-            'text-caption text-nomi-ink-60 transition-colors hover:text-nomi-ink',
-          )}
-          data-replay-splash="true"
-          aria-label={t('library.replaySplash')}
-        >
-          <IconSparkles size={14} stroke={1.8} aria-hidden="true" />
-          {t('library.watchNomi')}
-        </button>
-      ) : null}
       {showModelEntry ? (
         <button
           type="button"
@@ -223,8 +206,6 @@ export default function ProjectLibraryPage({
           <IconSettings size={15} stroke={1.8} aria-hidden="true" />
         </button>
       ) : null}
-      <LanguageMenuButton className="size-7 rounded-pill" />
-      <ThemeToggleButton className="size-7 rounded-pill" />
     </div>
   )
 

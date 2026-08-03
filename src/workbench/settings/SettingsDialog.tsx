@@ -5,8 +5,15 @@ import { IconAdjustmentsHorizontal, IconFolder, IconInfoCircle, IconX } from '@t
 import { cn } from '../../utils/cn'
 import { DesignSwitch } from '../../design'
 import { getDesktopBridge } from '../../desktop/bridge'
+import { useNomiColorScheme } from '../../theme/colorScheme'
+import { getAppLocale, setAppLocale, SUPPORTED_LOCALES, type AppLocale } from '../../i18n'
+import { ThemeToggleButton } from '../../ui/theme/ThemeToggleButton'
 import { ScreenshotHotkeySection } from './ScreenshotHotkeySection'
 import { CanvasGestureSection } from './CanvasGestureSection'
+import { AboutSection } from './AboutSection'
+
+// 语言用「母语名」直读，不随界面语言翻译——换语言时两个名字都稳定可认（沿用 PR#50 的判断）。
+const LOCALE_LABEL_KEY: Record<AppLocale, string> = { 'zh-CN': 'common.chinese', en: 'common.english' }
 
 // 集中设置页（2026-08-01 用户拍板样张）：左 tab 右内容。首批「文件与保存」做实——自动另存开关+目录；
 // 其余 tab 占位。复用 OnboardingFloatingPanel 的外壳交互（Portal + Esc + 点遮罩关），布局是居中大 modal。
@@ -18,9 +25,12 @@ const TABS: { id: SettingsTab; icon: typeof IconFolder; labelKey: string }[] = [
   { id: 'about', icon: IconInfoCircle, labelKey: 'settings.tab.about' },
 ]
 
-export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Element {
+export function SettingsDialog({ onClose, onReplaySplash }: { onClose: () => void; onReplaySplash?: () => void }): JSX.Element {
   const { t } = useTranslation()
+  const { isDark } = useNomiColorScheme()
   const [tab, setTab] = React.useState<SettingsTab>('file')
+  // t 随语言变化重渲，渲染时读 getAppLocale() 即拿最新值（沿用 LanguageMenuButton 的做法）。
+  const locale = getAppLocale()
   const [enabled, setEnabled] = React.useState(false)
   const [dir, setDir] = React.useState('')
 
@@ -150,9 +160,47 @@ export function SettingsDialog({ onClose }: { onClose: () => void }): JSX.Elemen
                 <div className="mb-4 text-body font-medium text-nomi-ink">{t('settings.general.title')}</div>
                 <ScreenshotHotkeySection />
                 <CanvasGestureSection />
+                {/* 语言 / 外观归位到这里（§1.5「归位」）：它们过去挤在 studio 顶栏右簇 + 项目库顶栏，
+                    外观还另有一份藏在品牌钮弹窗里——纯偏好项本来就该住设置，且这里是唯一一份（P1）。
+                    ⚠️ 这一步等于改写 PR#50 的判断（当时把语言从「关于」弹窗第三层提到顶栏常驻图标，
+                    理由是「换个语言要三步、藏得太深」）。改判的依据：① 首启已按系统语言探测（i18n/index.ts），
+                    切换只是「探测错了纠正一次」，10 次里用不到 1 次 = §1.5 的 L4；② PR#50 治的是
+                    「弹窗第三层里的一行下拉」不可发现，这里给的是设置「通用」里两个选项平铺可见的分段控件，
+                    不是同一个毛病。所以是归位，不是倒退。 */}
+                <div className="mt-5 border-t border-nomi-line pt-4">
+                  <div className="mb-1.5 text-body-sm text-nomi-ink">{t('common.language')}</div>
+                  <div className="mb-4 flex flex-wrap gap-1.5">
+                    {SUPPORTED_LOCALES.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        data-settings-locale={option}
+                        aria-pressed={option === locale}
+                        onClick={() => setAppLocale(option)}
+                        className={cn(
+                          'rounded-nomi-sm border px-2.5 py-1.5 text-caption cursor-pointer',
+                          'transition-colors duration-[var(--nomi-transition-fast)]',
+                          option === locale
+                            ? 'border-nomi-accent bg-nomi-accent-soft text-nomi-accent'
+                            : 'border-nomi-line bg-nomi-paper text-nomi-ink-60 hover:bg-nomi-ink-05',
+                        )}
+                      >
+                        {t(LOCALE_LABEL_KEY[option])}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex min-h-9 items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-body-sm text-nomi-ink">{t('theme.appearance')}</div>
+                      <div className="mt-0.5 text-micro text-nomi-ink-40">{isDark ? t('theme.dark') : t('theme.light')}</div>
+                    </div>
+                    <ThemeToggleButton className="shrink-0 border-nomi-line bg-nomi-paper" />
+                  </div>
+                </div>
               </div>
             ) : (
-              <div className="pt-10 text-center text-caption text-nomi-ink-40">{t('settings.placeholder')}</div>
+              <AboutSection onClose={onClose} onReplaySplash={onReplaySplash} />
             )}
           </section>
         </div>
