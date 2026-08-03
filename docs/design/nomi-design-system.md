@@ -151,6 +151,62 @@ Script → Generate → Edit → Preview → Export
 
 ---
 
+## 1.6 控件交互契约（强制 · 有门岗）
+
+> §1.5 管「控件住哪一层」，这一节管「控件**说到做到**」。
+> 起因：剪辑页那个「显示」下拉写成 `onChange={(v) => { if (framingClipId) setTimelineClipFraming(...) }}` 却没有 `disabled`，
+> 播放头停在片段空隙时点它 → if 短路 → **完全没反应、界面也不解释**。
+> 它活过了七道门岗、3634 个单测、多轮人眼走查——因为「语法对、语义错」：纯函数全对，
+> 错的只有「界面承诺可点、实际什么都不做」这层契约。同类在本仓**至少第 5 次**
+> （3D 空态启动器 / 连线参考图 / 死的 + 图标 / 确认落画布…）。
+
+### C1 可点即有效，否则禁用并说明为什么 —— `pnpm run check:controls` 拦
+
+任何控件，只要它的 handler 里有**目标守卫**（拿不到目标就不做事），就**必须**同时：
+① 守卫为假时 `disabled`；② 用 `title` 说清「为什么现在点不了」。
+
+**禁用的 `<button>` 自己不触发 `title`**（浏览器行为），要靠外层包一层：
+
+```tsx
+<span title={reason} style={{ display: 'contents' }}>
+  <WorkbenchButton disabled={!canDo}>生成</WorkbenchButton>
+</span>
+```
+（既有范式：`NodeGenerationComposer.tsx` 的主生成钮。）
+
+门岗用 TypeScript AST 判，刻意收窄到**零误报**——它只抓「目标守卫」，不碰这四类：
+事件判定（`event.target === event.currentTarget`）、鼠标键过滤（`event.button !== 0`）、
+模式守卫（`if (splitMode) return`，另一个模式自有处理）、锁复检。
+判据核心：**守卫的那个变量被当参数传给了动作**（`if (id) doSomething(id, …)`）。
+
+### C2 作用域跟「选中」走，不跟播放头/hover 悄悄漂
+
+对象级控件（片段属性、节点参数…）的作用对象**必须来自用户选中**。
+查过 Final Cut Pro / Adobe Firefly / OpenCut 源码：三家一律 selection-driven，播放头只决定**渲染**哪些内容；
+DaVinci Resolve 确实有「选中跟随播放头」，但它是 **opt-in 且默认关闭**的加速档。无条件跟播放头是反模式。
+
+若产品确需跟播放头，**必须同步把那个对象真的选中并高亮**，不能偷偷改一个隐藏目标
+（`TimelinePreview` 的舞台拖拽就是这么做的：拖谁就先选中谁）。
+
+**结构保证**：把作用域抽成纯函数（如 `resolveFramingTarget(timeline, selectedClipIds)`），
+签名里根本不出现 playhead —— 在类型层就堵死漂移，再配不变量测试。
+
+### C3 不同作用域不混排
+
+整体级与对象级控件不得在同一条无标签的行里长成同款。跨作用域**必须分组、每组带名字**，
+对象级那组还要**写出当前对象名**（如「这一段 · 镜 3」）、没有对象时整组禁用。
+参考 `PreviewControlBar.tsx`：传输 / 整片 / 这一段 / 叠加 四组。
+
+> 真机实测教训：光加 `w-px` 分隔线不够——那 5 道线在真机上淡到基本看不见，等于没分。
+
+### C4 禁用不做沟通死路
+
+任何 `disabled` 的控件都要能让用户知道**为什么点不了**（`title` 或就近 hint）。
+这条**没做成硬门**——全仓 100+ 处 `disabled={readOnly}` 语境自明，硬拦必成噪音；
+它靠 R13 走查断言兜（禁用态必须可解析到原因文本）。
+
+---
+
 ## 2. 设计 Tokens（单一真相源）
 
 **所有数值都来自这里。** 三个源文件，按层级组合：
