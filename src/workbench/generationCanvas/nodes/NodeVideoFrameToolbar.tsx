@@ -7,6 +7,7 @@ import {
   ToolbarButton,
   ToolbarDivider,
   ToolbarIconButton,
+  ToolbarProvenanceButton,
 } from './NodeFloatingToolbar'
 import { extractVideoFrameToNode } from './extractVideoFrameToNode'
 import NodeShotCutPanel from './NodeShotCutPanel'
@@ -22,9 +23,11 @@ type Props = {
   downloading: boolean
   onDownload: (event: React.MouseEvent) => void
   onPreview: () => void
+  /** 生成记录（从卡片右上角迁来）。 */
+  onOpenProvenance: () => void
 }
 
-export default function NodeVideoFrameToolbar({ node, downloading, onDownload, onPreview }: Props): JSX.Element {
+export default function NodeVideoFrameToolbar({ node, downloading, onDownload, onPreview, onOpenProvenance }: Props): JSX.Element {
   const { t } = useTranslation()
   const [busy, setBusy] = React.useState<'first' | 'last' | null>(null)
   const [shotCutOpen, setShotCutOpen] = React.useState(false)
@@ -78,7 +81,8 @@ export default function NodeVideoFrameToolbar({ node, downloading, onDownload, o
         disabled={downloading}
         onClick={onDownload}
       />
-    </FloatingToolbarShell>
+      <ToolbarProvenanceButton onOpen={onOpenProvenance} />
+      </FloatingToolbarShell>
     </>
   )
 }

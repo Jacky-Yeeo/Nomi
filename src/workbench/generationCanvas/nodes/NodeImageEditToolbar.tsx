@@ -4,7 +4,7 @@ import { IconBrush, IconCrop, IconDownload, IconFlipHorizontal, IconFlipVertical
 import { type ImageGridSize, type ImageTransformOp } from './useNodeImageEditing'
 import type { CropGridSize } from './render/ImageCropGridOverlay'
 import { useResultDownload } from './useResultDownload'
-import { FloatingToolbarShell, TOOLBAR_ICON as I, ToolbarButton, ToolbarDivider, ToolbarIconButton, ToolbarMenu } from './NodeFloatingToolbar'
+import { FloatingToolbarShell, TOOLBAR_ICON as I, ToolbarButton, ToolbarDivider, ToolbarIconButton, ToolbarMenu, ToolbarProvenanceButton } from './NodeFloatingToolbar'
 import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
 import WhiteboardModal from './whiteboard/WhiteboardModal'
 import { inferWhiteboardAspectRatio, readWhiteboardState } from './whiteboard/whiteboardState'
@@ -30,11 +30,13 @@ type Props = {
   removeBackgroundBusy?: boolean
   /** 打开共享图片全屏预览。 */
   onPreview: () => void
+  /** 打开生成记录（原先住卡片右上角，常驻压在图上；2026-08-04 迁来这条浮条）。 */
+  onOpenProvenance: () => void
   /** Tier1「定妆」：基于当前图建一个预填身份板提示词的新节点（不自动生成）。缺省不渲染该按钮。 */
   onMakeup?: () => void
 }
 
-export default function NodeImageEditToolbar({ node, editGrid, imageOpBusy, onGridSplit, onCrop, onTransform, onRemoveBackground, removeBackgroundBusy = false, onPreview, onMakeup }: Props): JSX.Element {
+export default function NodeImageEditToolbar({ node, editGrid, imageOpBusy, onGridSplit, onCrop, onTransform, onRemoveBackground, removeBackgroundBusy = false, onPreview, onOpenProvenance, onMakeup }: Props): JSX.Element {
   const { t } = useTranslation()
   const { downloading, download } = useResultDownload(node)
   const [whiteboardOpen, setWhiteboardOpen] = React.useState(false)
@@ -131,6 +133,7 @@ export default function NodeImageEditToolbar({ node, editGrid, imageOpBusy, onGr
           disabled={downloading}
           onClick={download}
         />
+        <ToolbarProvenanceButton onOpen={onOpenProvenance} />
       </FloatingToolbarShell>
       {whiteboardOpen && imageUrl ? (
         <WhiteboardModal

@@ -2,7 +2,7 @@ import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { IconDownload } from '@tabler/icons-react'
 import { useResultDownload } from './useResultDownload'
-import { FloatingToolbarShell, TOOLBAR_ICON as I, ToolbarButton } from './NodeFloatingToolbar'
+import { FloatingToolbarShell, TOOLBAR_ICON as I, ToolbarButton, ToolbarProvenanceButton } from './NodeFloatingToolbar'
 import NodeVideoFrameToolbar from './NodeVideoFrameToolbar'
 import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
 
@@ -13,16 +13,18 @@ type Props = {
   node: GenerationCanvasNode
   selected: boolean
   onPreview: () => void
+  /** 生成记录（从卡片右上角迁来；这条链覆盖视频与其它非图片结果）。 */
+  onOpenProvenance: () => void
 }
 
-export default function NodeResultDownloadButton({ node, selected, onPreview }: Props): JSX.Element | null {
+export default function NodeResultDownloadButton({ node, selected, onPreview, onOpenProvenance }: Props): JSX.Element | null {
   const { t } = useTranslation()
   const { canDownload, downloading, download } = useResultDownload(node)
   if (!selected || !canDownload || node.result?.type === 'image') return null
 
   // 视频结果 → 专用浮条（抽首/尾帧 + 下载）。
   if (node.result?.type === 'video') {
-    return <NodeVideoFrameToolbar node={node} downloading={downloading} onDownload={download} onPreview={onPreview} />
+    return <NodeVideoFrameToolbar node={node} downloading={downloading} onDownload={download} onPreview={onPreview} onOpenProvenance={onOpenProvenance} />
   }
 
   return (
@@ -34,6 +36,7 @@ export default function NodeResultDownloadButton({ node, selected, onPreview }: 
         disabled={downloading}
         onClick={download}
       />
+      <ToolbarProvenanceButton onOpen={onOpenProvenance} />
     </FloatingToolbarShell>
   )
 }

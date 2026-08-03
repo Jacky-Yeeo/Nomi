@@ -1,5 +1,6 @@
 import React from 'react'
-import { IconChevronDown } from '@tabler/icons-react'
+import { useTranslation } from 'react-i18next'
+import { IconInfoCircle, IconChevronDown } from '@tabler/icons-react'
 import { cn } from '../../../utils/cn'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 
@@ -158,4 +159,22 @@ export function ToolbarMenu({ icon, label, items, disabled }: { icon: React.Reac
 }
 
 /** 工具栏内统一图标尺寸（§6 节点浮动工具栏：16/1.6）。 */
+/**
+ * 「生成记录」按钮。原先住在卡片右上角，是 `bg-nomi-paper/[0.82]` 半透明**常驻**盖在图上的
+ * （条件是 hasResult，跟选中/hover 无关）——设计系统 §1.5：动作不许压在内容上。
+ * 2026-08-04 迁进各条 hover 浮条的「看和拿」组：浮条浮在卡片**上方**，不遮画面。
+ * 它是 ProvenancePanel 的**唯一入口**，所以只能搬不能删。一份定义三处复用，不留近似拷贝（P1）。
+ */
+export function ToolbarProvenanceButton({ onOpen }: { onOpen: () => void }): JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <ToolbarIconButton
+      icon={<IconInfoCircle size={ICON.size} stroke={ICON.stroke} />}
+      title={t('generationCommon.provenance.actionTitle')}
+      ariaLabel={t('generationCommon.provenance.view')}
+      onClick={onOpen}
+    />
+  )
+}
+
 export const TOOLBAR_ICON = ICON

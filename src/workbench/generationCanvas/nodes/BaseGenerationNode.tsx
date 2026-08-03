@@ -10,7 +10,7 @@ import { NodeCardBody } from './render/NodeCardBody'
 import ImageCropGridOverlay from './render/ImageCropGridOverlay'
 import NodeImageEditToolbar from './NodeImageEditToolbar'
 import { ImageResultStackControls } from './ImageResultStack'
-import { FloatingToolbarShell, TOOLBAR_ICON as TBI, ToolbarButton, ToolbarDivider } from './NodeFloatingToolbar'
+import { FloatingToolbarShell, TOOLBAR_ICON as TBI, ToolbarButton, ToolbarDivider, ToolbarProvenanceButton } from './NodeFloatingToolbar'
 import { useNodeImageEditing } from './useNodeImageEditing'
 import { useNodeDragResize } from './useNodeDragResize'
 import { useHasFrameSourceEdge, useShotIndex, useMountedCards } from '../hooks/useNodeRelationships'
@@ -60,7 +60,7 @@ import {
   resolveNodeVisualSize,
 } from './nodeSizing'
 import { useNodeVideoHoverPreview } from './useNodeVideoHoverPreview'
-import { NodeInlineImageTitle, NodeResultHeaderActions } from './NodeImagePreviewActions'
+import { NodeInlineImageTitle } from './NodeImagePreviewActions'
 import { useNodeDisplayPrompt } from './useNodeDisplayPrompt'
 import { useNodeMediaPreview } from './useNodeMediaPreview'
 
@@ -120,7 +120,7 @@ function BaseGenerationNodeImpl({
   const panoramaUploadInputRef = React.useRef<HTMLInputElement | null>(null)
   const [provenanceOpen, setProvenanceOpen] = React.useState(false)
   const [imageStackOpen, setImageStackOpen] = React.useState(false)
-  const { openMediaPreview, mediaPreviewControls } = useNodeMediaPreview(node, selected && !isMultiSelectActive && !imageStackOpen)
+  const { openMediaPreview, mediaPreviewControls, mediaPreviewDoubleClick } = useNodeMediaPreview(node, selected && !isMultiSelectActive && !imageStackOpen, () => setProvenanceOpen(true))
   const handleImageStackOpenChange = React.useCallback((nextOpen: boolean) => {
     setImageStackOpen(nextOpen)
   }, [])
@@ -395,6 +395,7 @@ function BaseGenerationNodeImpl({
             disabled={panoramaDownloading}
             onClick={downloadPanorama}
           />
+          <ToolbarProvenanceButton onOpen={() => setProvenanceOpen(true)} />
           <input
             ref={panoramaUploadInputRef}
             className="hidden"
@@ -424,6 +425,7 @@ function BaseGenerationNodeImpl({
           onRemoveBackground={() => void imageEditing.handleRemoveBackground()}
           removeBackgroundBusy={isRemoveBackgroundPending}
           onPreview={openMediaPreview}
+          onOpenProvenance={() => setProvenanceOpen(true)}
         />
       ) : null}
       {mediaPreviewControls}
@@ -470,13 +472,10 @@ function BaseGenerationNodeImpl({
             <span>{t('generationCommon.node.independentCopy')}</span>
           </button>
         ) : null}
-        {hasResult && !imageStackOpen ? (
-          <NodeResultHeaderActions
-            imageSrc={imagePreviewUrl}
-            title={node.title}
-            onOpenProvenance={() => setProvenanceOpen(true)}
-          />
-        ) : null}
+        {/* 卡片右上原有两颗半透明常驻按钮（放大 · 生成记录），条件是 hasResult ——
+            跟选中/hover 都无关，只要出了图就一直压在画面上。设计系统 §1.5：动作不许压在内容上。
+            2026-08-04 撤离：「放大」和浮条的「全屏」本就重复（还是两套不同实现），直接去重；
+            「生成记录」是 ProvenancePanel 唯一入口，迁进各条 hover 浮条（浮在卡片上方，不遮画面）。 */}
       </header>
 
       {/* 切片2：镜头挂载的设定卡徽章——不选中也能一眼看「挂了谁」（卡节点不显，组件空挂载自返 null）。 */}
@@ -540,6 +539,7 @@ function BaseGenerationNodeImpl({
           (isCardKind || isTextKind) && 'hidden',
         )}
         draggable={false}
+        {...mediaPreviewDoubleClick}
       >
         {node.kind === 'scene3d' ? (
           <React.Suspense fallback={<Scene3DEditorLoading />}>
