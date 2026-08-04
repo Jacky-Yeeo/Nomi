@@ -158,12 +158,19 @@ export function ToolbarMenu({ icon, label, items, disabled }: { icon: React.Reac
   )
 }
 
-/** 工具栏内统一图标尺寸（§6 节点浮动工具栏：16/1.6）。 */
 /**
  * 「生成记录」按钮。原先住在卡片右上角，是 `bg-nomi-paper/[0.82]` 半透明**常驻**盖在图上的
  * （条件是 hasResult，跟选中/hover 无关）——设计系统 §1.5：动作不许压在内容上。
- * 2026-08-04 迁进各条 hover 浮条的「看和拿」组：浮条浮在卡片**上方**，不遮画面。
- * 它是 ProvenancePanel 的**唯一入口**，所以只能搬不能删。一份定义三处复用，不留近似拷贝（P1）。
+ * 2026-08-04 迁进浮动工具栏的「看和拿」组：工具栏浮在卡片**上方**，不遮画面。
+ *
+ * ⚠️ 这条工具栏是「**选中**才出」，不是「hover 才出」——门是
+ * `selected && !isMultiSelectActive && !readOnly`（见 BaseGenerationNode）。
+ * 光把鼠标移上去不出现，得单击选中节点。最初这里写的是「hover 浮条」，
+ * 2026-08-04 对着渲染条件复核时改正——注释写错会让下一个人按错的前提做判断。
+ *
+ * 它是 ProvenancePanel 的**唯一入口**，所以只能搬不能删。一份定义、**四处**复用：
+ * 图片与图编辑（同一条 NodeImageEditToolbar）/ 视频（NodeVideoFrameToolbar）/
+ * 全景（BaseGenerationNode）/ 其余结果（NodeResultDownloadButton）。不留近似拷贝（P1）。
  */
 export function ToolbarProvenanceButton({ onOpen }: { onOpen: () => void }): JSX.Element {
   const { t } = useTranslation()
@@ -177,4 +184,5 @@ export function ToolbarProvenanceButton({ onOpen }: { onOpen: () => void }): JSX
   )
 }
 
+/** 工具栏内统一图标尺寸（§6 节点浮动工具栏：16/1.6）。 */
 export const TOOLBAR_ICON = ICON
