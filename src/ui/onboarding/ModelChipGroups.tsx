@@ -21,6 +21,8 @@ export type ChipModel = {
   enabled: boolean
   /** 后端模型扩展信息；通用 chip 不消费，专用卡可透传读取。 */
   meta?: unknown
+  /** 该模型是否已设自定义调用脚本（模型行图标点亮 + 角标；chip 不消费）。 */
+  hasCustomCall?: boolean
 }
 
 type ModelChipGroupsProps = {

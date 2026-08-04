@@ -57,6 +57,7 @@ import { activeTaskProjectFallback, unlocalizedTaskAsset } from "./tasks/activeP
 import type { BillingModelKind, HttpOperation, Mapping, Model, ProfileKind, Vendor } from "./catalog/types";
 import { billingKindForTaskKind, selectExecutableModel, selectTaskMapping } from "./catalog/types";
 import { applyHeadlessParamDefaults, imageEditGuardError } from "./catalog/taskParams";
+import { runCustomCallTask } from "./catalog/customCallDispatch";
 import { assertAndConsumeSpendGrant } from "./spendGrant";
 export type {
   AiSdkProviderKind,
@@ -382,21 +383,20 @@ export async function runTask(payload: unknown): Promise<TaskResult> {
   const grantId = trim(request.extras?.grantId);
   const taskId = `task-${crypto.randomUUID()}`;
   const mapping = findTaskMapping(vendorKey, kind, modelKey);
-  request.extras = applyHeadlessParamDefaults(
-    request.extras,
-    (model?.meta as { archetypeId?: string } | undefined)?.archetypeId,
-    kind,
-    vendorKey,
-    mapping?.create?.defaultParams,
-  ); // headless 缺参兜底(档案默认+mapping)
+  // headless 缺参兜底(档案默认+mapping)
+  request.extras = applyHeadlessParamDefaults(request.extras, (model?.meta as { archetypeId?: string } | undefined)?.archetypeId, kind, vendorKey, mapping?.create?.defaultParams);
+  // 自定义调用脚本（用户数据，plan 2026-08-04）：存在即接管图像/视频/3D 请求；对 L3 护栏它就是「有 mapping」（否则改图类被误拒），参考缺失的拒发仍生效。派发抽到 catalog/customCallDispatch（R12）。
+  const customCallScript = trim((model as Model).customCall?.script);
   // L3 诚实护栏：图生图/图生视频缺参考或缺 mapping → 付费守卫之前拒发人话，绝不静默退化纯文生（判定在 taskParams.imageEditGuardError）。
-  const guardError = imageEditGuardError(kind, request, Boolean(mapping), model.labelZh || model.modelKey, mapping?.create?.body);
+  const guardError = imageEditGuardError(kind, request, Boolean(mapping) || Boolean(customCallScript), model.labelZh || model.modelKey, mapping?.create?.body);
   if (guardError) throw new Error(guardError);
   // 第四路 audio：TTS/Whisper 同步收口（二进制/multipart）。付费守卫：必发 vendor，进来即校验消费令牌。
   if (wantedKind === "audio") {
     assertAndConsumeSpendGrant(grantId, nodeId);
     return runAudioTask({ vendor, model, apiKey, request, kind, taskId, projectId, nodeId, mapping });
   }
+  if (customCallScript && wantedKind !== "text") // 先于 mapping/fallback；localizeTaskAsset 注入避免循环依赖
+    return runCustomCallTask({ vendor, model, apiKey, script: customCallScript, request, kind, wantedKind, projectId, nodeId, grantId, taskId, localizeTaskAsset });
   if (mapping) {
     // S8 指纹缓存:同配方(参数没动)秒回上次成功结果,零 vendor 调用;强制重跑经 extras.forceRerun 绕读。
     const recipe = buildNormalizedRecipe({

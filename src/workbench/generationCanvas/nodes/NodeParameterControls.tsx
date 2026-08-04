@@ -34,6 +34,7 @@ import {
   getSlotNodeRef,
   getSlotThumbUrl,
   imageCatalogReferenceSlot,
+  nodeSelectedModelAddress,
   parseControlInput,
   readMeta,
   removePreviousControlParams,
@@ -119,18 +120,10 @@ export default function NodeParameterControls({
   const isAudioLike = isAudioLikeGenerationNodeKind(node.kind)
   const isGenerationNode = isImageLike || isVideoLike || isTextLike || isAudioLike
 
-  const selectedModelValue =
-    readMeta(meta, 'modelKey') ||
-    readMeta(meta, 'modelAlias') ||
-    readMeta(meta, 'imageModel') ||
-    readMeta(meta, 'videoModel')
+  // 模型寻址链单源在 parameterControlModel.nodeSelectedModelAddress（报错卡自定义调用入口共用）。
   // 必须带上节点存的 vendor 寻址：两个中转站可提供同名 modelKey，裸身份匹配永远命中数组首条
   // （最新接入那家），下方 vendor 同步 effect 会跟着把 meta.vendor 改写过去——用户锁定被静默翻家。
-  const selectedModelVendor =
-    readMeta(meta, 'modelVendor') ||
-    readMeta(meta, 'vendor') ||
-    readMeta(meta, 'imageModelVendor') ||
-    readMeta(meta, 'videoModelVendor')
+  const { modelKey: selectedModelValue, vendorKey: selectedModelVendor } = nodeSelectedModelAddress(meta)
   const selectedModelOption = findModelOptionByIdentifier(modelOptions, selectedModelValue, selectedModelVendor) || null
   // 认得的模型 → 内置档案（供应商无关）；驱动模式分段切换 + 当前模式的槽/参数。认不出 → null（走 flat）。
   const archetype = resolveArchetypeForOption(selectedModelOption)

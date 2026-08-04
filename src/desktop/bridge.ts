@@ -656,6 +656,35 @@ export type DesktopBridge = DesktopMediaBridge & {
     upsertVendorApiKey: (vendorKey: string, payload: unknown) => unknown
     clearVendorApiKey: (vendorKey: string) => unknown
     upsertModel: (payload: unknown) => unknown
+    /** 自定义调用（2026-08-04）：契约（编辑器变量表/模板）。旧 preload 可能没有 → 可选。 */
+    customCallContract?: () => {
+      variables: Array<{ name: string; type: string }>
+      templates: Array<{ id: string; script: string }>
+    }
+    /** AI 帮写指令（主进程契约单源拼好，渲染层喂给文本脑）。 */
+    customCallAiInstruction?: (payload: {
+      vendorKey: string
+      modelKey: string
+      material: string
+      currentScript?: string
+      lastError?: string
+    }) => string
+    /** 试跑：真调一次最小请求，返回产物 + 请求/响应 transcript（Authorization 已脱敏）。 */
+    customCallTestRun?: (payload: { vendorKey: string; modelKey: string; script: string }) => Promise<{
+      ok: boolean
+      assets: string[]
+      errorMessage?: string
+      transcript: Array<{
+        method: string
+        url: string
+        status: 'ok' | 'error'
+        durationMs: number
+        requestPreview?: string
+        responsePreview?: string
+        errorMessage?: string
+      }>
+      durationMs: number
+    }>
     deleteModel: (vendorKey: string, modelKey: string) => void
     deleteModels: (targets: { vendorKey: string; modelKey: string }[]) => void
     upsertMapping: (payload: unknown) => unknown

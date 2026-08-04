@@ -178,6 +178,12 @@ export type Model = {
   kind: BillingModelKind;
   enabled: boolean;
   meta?: unknown;
+  /**
+   * 自定义调用脚本（用户数据，2026-08-04 拍板）：存在即整体接管该模型的请求构造/轮询/响应解析
+   * （runtime.runTask 单一派发点，先于 mapping）。与 enabled 同级的用户配置——拉取/重接入的
+   * upsert 不得清掉它（applyModelUpsert：undefined=保留，null=显式删除）。
+   */
+  customCall?: { script: string; updatedAt: string };
   pricing?: {
     cost: number;
     enabled: boolean;

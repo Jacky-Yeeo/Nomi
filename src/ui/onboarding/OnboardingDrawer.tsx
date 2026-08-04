@@ -23,6 +23,8 @@ import { AvailableGroup } from './AvailableGroup'
 import { type ChipModel } from './ModelChipGroups'
 import { ModelEnableEditor } from './ModelEnableEditor'
 import { CustomVendorManage } from './CustomVendorManage'
+import { CustomCallEditor, type CustomCallTarget } from './CustomCallEditor'
+import { consumePendingCustomCallIntent } from './customCallIntent'
 import { confirmAndDeleteVendor } from './vendorDeleteAction'
 import { ConnectAssistantCard, type McpInfo } from './ConnectAssistantCard'
 import { DreaminaMemberCard, type DreaminaStatus } from './DreaminaMemberCard'
@@ -67,6 +69,9 @@ export function OnboardingDrawer(): JSX.Element {
   const [models, setModels] = React.useState<ChipModel[]>([])
   const [mappings, setMappings] = React.useState<Array<Record<string, unknown>>>([])
   const [vendorMeta, setVendorMeta] = React.useState<Map<string, VendorMeta>>(new Map())
+  // 自定义调用：脚本正文表 + 编辑器目标（null=关）。
+  const [customCallScripts, setCustomCallScripts] = React.useState<Map<string, string>>(new Map())
+  const [customCallTarget, setCustomCallTarget] = React.useState<CustomCallTarget | null>(null)
   // 即梦 / 编程助手的连接状态上提到父组件（单一来源，plan §4.1）。null = 不可用/加载中（卡不显）。
   const [dreaminaStatus, setDreaminaStatus] = React.useState<DreaminaStatus | null>(null)
   const [mcpInfo, setMcpInfo] = React.useState<McpInfo | null>(null)
@@ -119,7 +124,15 @@ export function OnboardingDrawer(): JSX.Element {
         // enabled 缺省视为 true（老快照/DTO 未带时不误停用）。
         enabled: m.enabled !== false,
         meta: m.meta,
+        hasCustomCall: Boolean((m.customCall as { script?: unknown } | undefined)?.script),
       }))
+      // 自定义调用脚本正文（编辑器回填用）；行上只带 hasCustomCall 布尔，正文单独成表不肥 ChipModel。
+      const scripts = new Map<string, string>()
+      for (const m of ms) {
+        const script = (m.customCall as { script?: unknown } | undefined)?.script
+        if (typeof script === 'string' && script.trim()) scripts.set(`${String(m.vendorKey)}/${String(m.modelKey)}`, script)
+      }
+      setCustomCallScripts(scripts)
       setVendorMeta(metaMap)
       setModels(rows)
       setMappings(maps)
@@ -147,6 +160,31 @@ export function OnboardingDrawer(): JSX.Element {
     }
     return () => { alive = false }
   }, [version])
+
+  // 自定义调用编辑器（从模型行或报错卡进入；编辑器是全局弹窗，不依赖卡展开态）。
+  const openCustomCall = React.useCallback(
+    (vendorKey: string, modelKey: string) => {
+      setCustomCallTarget({
+        vendorKey,
+        modelKey,
+        label: models.find((m) => m.vendorKey === vendorKey && m.modelKey === modelKey)?.labelZh || modelKey,
+        script: customCallScripts.get(`${vendorKey}/${modelKey}`) || '',
+      })
+    },
+    [models, customCallScripts],
+  )
+
+  // 报错卡跳转意图：挂载后（数据就绪）消费一次；抽屉已开着时再点报错卡 → 事件再消费。
+  React.useEffect(() => {
+    if (!loaded) return
+    const consume = () => {
+      const intent = consumePendingCustomCallIntent()
+      if (intent) openCustomCall(intent.vendorKey, intent.modelKey)
+    }
+    consume()
+    window.addEventListener('nomi-open-model-catalog', consume)
+    return () => window.removeEventListener('nomi-open-model-catalog', consume)
+  }, [loaded, openCustomCall])
 
   // Issue #42:错误态「重新加载」——清零重试计数，重新走一遍取桥流程。
   const reloadFromError = React.useCallback(() => {
@@ -400,7 +438,12 @@ export function OnboardingDrawer(): JSX.Element {
                     </button>
                   }
                 >
-                  <ModelEnableEditor models={group.models} onToggle={handleSetEnabled} onDelete={handleDelete} />
+                  <ModelEnableEditor
+                    models={group.models}
+                    onToggle={handleSetEnabled}
+                    onDelete={handleDelete}
+                    onCustomCall={(row) => openCustomCall(row.vendorKey, row.modelKey)}
+                  />
                   <CustomVendorManage
                     vendorKey={group.vendorKey}
                     vendorName={group.name}
@@ -501,6 +544,7 @@ export function OnboardingDrawer(): JSX.Element {
         onCommitted={refresh}
         initialPreset={wizardPreset}
       />
+      <CustomCallEditor target={customCallTarget} onClose={() => setCustomCallTarget(null)} onSaved={refresh} />
     </div>
   )
 }

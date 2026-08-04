@@ -461,6 +461,9 @@ function registerIpc(): void {
   // ComfyUI 域 IPC（探测/导入/缺件对账）全住 electron/comfyuiIpc.ts（main.ts 800 行门腾空间）。
   const { registerComfyuiIpc } = require("./comfyuiIpc") as typeof import("./comfyuiIpc");
   registerComfyuiIpc(registerSyncIpc);
+  // 自定义调用域（契约/AI 指令/试跑）住 electron/catalog/customCallIpc.ts（同上，腾 800 行门）。
+  const { registerCustomCallIpc } = require("./catalog/customCallIpc") as typeof import("./catalog/customCallIpc");
+  registerCustomCallIpc(registerSyncIpc);
   // 系统通知（任务跑完且窗口失焦时）住 electron/notificationIpc.ts，同样为 800 行门腾空间。
   // 静态 import 而非惰性 require：该文件只依赖 electron 本身，载入零成本，且不吃 no-require-imports 警告配额。
   registerNotificationIpc();

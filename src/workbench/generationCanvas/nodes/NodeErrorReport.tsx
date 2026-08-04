@@ -3,6 +3,10 @@ import { useTranslation } from 'react-i18next'
 import { IconAlertTriangle, IconChevronDown, IconChevronRight, IconRefresh, IconReplace, IconSettings } from '@tabler/icons-react'
 import { cn } from '../../../utils/cn'
 import { WorkbenchButton } from '../../../design'
+import { isKnownVendor } from '../../../config/knownVendors'
+import { setPendingCustomCallIntent } from '../../../ui/onboarding/customCallIntent'
+import { isComfyuiVendorKey } from '../runner/comfyuiTaskControl'
+import { nodeSelectedModelAddress } from './controls/parameterControlModel'
 import { classifyGenerationError } from '../runner/generationRunController'
 import { narrateErrorActionLabel, type GenerationErrorAction } from '../../observability/narrate'
 
@@ -22,9 +26,39 @@ const ACTION_ICON: Record<GenerationErrorAction, typeof IconRefresh> = {
  *
  * 分类仍走 runner 的 `classifyGenerationError`（唯一真相源），UI 不自己解析错误。
  */
-export function NodeErrorReport({ message, onRetry }: { message: string; onRetry?: () => void }): JSX.Element {
+/** 报文对不上那几类：hint 行末尾给「自定义调用」小入口（主按钮结构不动，2026-07-30 拍板守住）。 */
+const CUSTOM_CALL_HINT_KINDS = new Set(['model-config', 'image-route-disabled', 'model-unavailable-upstream'])
+
+export function NodeErrorReport({
+  message,
+  onRetry,
+  meta,
+}: {
+  message: string
+  onRetry?: () => void
+  /** 节点 meta（内部经 nodeSelectedModelAddress 取双键寻址，防同名 modelKey 误路由）。 */
+  meta?: Record<string, unknown>
+}): JSX.Element {
   const { t } = useTranslation()
   const report = React.useMemo(() => classifyGenerationError(message), [message])
+  // 自定义调用入口目标：节点当前模型属于「自定义/中转家」才给（内置家各有专属通道，不添噪音）。
+  const customCallTarget = React.useMemo(() => {
+    const { modelKey, vendorKey } = nodeSelectedModelAddress(meta)
+    if (!modelKey || !vendorKey || !CUSTOM_CALL_HINT_KINDS.has(report.kind)) return null
+    if (isKnownVendor(vendorKey)) return null
+    if (vendorKey === 'dreamina' || vendorKey === 'codex-local' || isComfyuiVendorKey(vendorKey)) return null
+    return { vendorKey, modelKey, label: modelKey }
+  }, [meta, report.kind])
+
+  const handleOpenCustomCall = React.useCallback(
+    (event: React.MouseEvent) => {
+      event.stopPropagation()
+      if (!customCallTarget) return
+      setPendingCustomCallIntent({ vendorKey: customCallTarget.vendorKey, modelKey: customCallTarget.modelKey })
+      window.dispatchEvent(new CustomEvent('nomi-open-model-catalog'))
+    },
+    [customCallTarget],
+  )
   const [showRaw, setShowRaw] = React.useState(false)
   const [copied, setCopied] = React.useState(false)
   const rootRef = React.useRef<HTMLDivElement>(null)
@@ -105,8 +139,20 @@ export function NodeErrorReport({ message, onRetry }: { message: string; onRetry
           内容短时它照旧撑满剩余高度，按钮仍贴底，视觉与旧版一致。
           onWheel 停冒泡：画布用 bubble 阶段的 wheel 缩放，不停的话在卡里滚 = 缩放画布。 */}
       <div className="mt-2 min-h-0 flex-1 overflow-y-auto" onWheel={(event) => event.stopPropagation()}>
-        {report.hint ? (
-          <p className="select-text cursor-text text-caption leading-relaxed text-nomi-ink-60">{report.hint}</p>
+        {report.hint || customCallTarget ? (
+          <p className="select-text cursor-text text-caption leading-relaxed text-nomi-ink-60">
+            {report.hint}
+            {customCallTarget ? (
+              <button
+                type="button"
+                onClick={handleOpenCustomCall}
+                aria-label={t('onboardingProviders.customCall.errorCardHintAria', { name: customCallTarget.label })}
+                className="ml-1 cursor-pointer text-nomi-accent hover:underline"
+              >
+                {t('onboardingProviders.customCall.errorCardHint')}
+              </button>
+            ) : null}
+          </p>
         ) : null}
         {/* 服务商真实原话——提到可见区，别再让用户去折叠的「技术详情」里挖（一脸懵逼的根源）。
             break-words 不能省：上游原话常是一整串没有空格的 JSON/URL（如方舟的

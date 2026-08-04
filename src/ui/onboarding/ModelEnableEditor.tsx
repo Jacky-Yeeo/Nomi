@@ -7,7 +7,7 @@
  */
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import { IconSearch, IconTrash, IconCheck } from '@tabler/icons-react'
+import { IconSearch, IconTrash, IconCheck, IconCode } from '@tabler/icons-react'
 import { cn } from '../../utils/cn'
 import type { ChipModel } from './ModelChipGroups'
 import { groupModelsByKind, MODEL_CHIP_KIND_LABEL } from './modelChipGrouping'
@@ -19,11 +19,13 @@ type ModelEnableEditorProps = {
   onToggle: (rows: ChipModel[], enabled: boolean) => void
   /** 彻底删除（不可逆，需重拉）。单删=1 行；批删=多行。父层弹一次确认框后一次删 + 一次 refresh。 */
   onDelete: (rows: ChipModel[]) => void
+  /** 传入则每行显示「自定义调用」动作（仅中转/自定义家用；已设脚本=图标点亮+角标）。 */
+  onCustomCall?: (row: ChipModel) => void
 }
 
 const PILL = 'h-6 px-2.5 rounded-full border text-micro inline-flex items-center gap-1'
 
-export function ModelEnableEditor({ models, onToggle, onDelete }: ModelEnableEditorProps): JSX.Element {
+export function ModelEnableEditor({ models, onToggle, onDelete, onCustomCall }: ModelEnableEditorProps): JSX.Element {
   const { t } = useTranslation()
   const [query, setQuery] = React.useState('')
   const [selectMode, setSelectMode] = React.useState(false)
@@ -211,6 +213,28 @@ export function ModelEnableEditor({ models, onToggle, onDelete }: ModelEnableEdi
                     >
                       {m.labelZh}
                     </button>
+                    {onCustomCall ? (
+                      <button
+                        type="button"
+                        aria-label={t(
+                          m.hasCustomCall
+                            ? 'onboardingProviders.customCall.rowSetAria'
+                            : 'onboardingProviders.customCall.rowAria',
+                          { name: m.labelZh },
+                        )}
+                        title={t(m.hasCustomCall ? 'onboardingProviders.customCall.rowSetTitle' : 'onboardingProviders.customCall.rowTitle')}
+                        onClick={() => onCustomCall(m)}
+                        className={cn(
+                          'relative shrink-0 p-1',
+                          m.hasCustomCall ? 'text-nomi-accent' : 'text-nomi-ink-30 hover:text-nomi-ink-60',
+                        )}
+                      >
+                        <IconCode size={13} stroke={1.8} />
+                        {m.hasCustomCall ? (
+                          <span className="absolute right-[1px] top-[1px] size-[6px] rounded-full bg-nomi-accent" />
+                        ) : null}
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       aria-label={t('onboardingProviders.modelControls.deleteModelAria', { name: m.labelZh })}
