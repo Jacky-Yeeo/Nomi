@@ -14,7 +14,10 @@ import type { AssetRef } from './assetTypes'
  */
 export function AssetVideoCover({ asset, className }: { asset: AssetRef; className?: string }): JSX.Element {
   // 已有封面就不抽（传空串给 hook = 不排队）
-  const filmstrip = useFilmstrip(asset.thumbUrl ? '' : asset.renderUrl)
+  const filmstrip = useFilmstrip(
+    asset.thumbUrl ? '' : asset.renderUrl,
+    asset.origin.source === 'project' ? asset.origin.projectId : undefined,
+  )
 
   if (asset.thumbUrl) {
     return <NomiImage className={cn('h-full w-full object-cover', className)} src={asset.thumbUrl} alt={asset.name} />

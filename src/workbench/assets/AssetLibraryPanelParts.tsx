@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../design'
 import { AssetThumb } from './AssetTile'
 import { AssetVideoCover } from './AssetVideoCover'
 import type { AssetKind, AssetRef } from './assetTypes'
+import { isAssetGridActivationKey, type AssetGridActivationEvent } from './assetLibraryUsage'
 import { ASSET_KIND_FILTER_VALUES, FILTER_OPTIONS, type FilterValue } from './assetLibraryPanelFilters'
 
 const KIND_LABEL_KEY: Record<AssetKind, string> = {
@@ -116,6 +117,7 @@ export function FolderGridCell({
   label,
   count,
   compact = false,
+  manageable = true,
   onOpen,
   onDelete,
   onDropAssets,
@@ -124,6 +126,7 @@ export function FolderGridCell({
   label: string
   count: number
   compact?: boolean
+  manageable?: boolean
   onOpen: (folderId: string) => void
   onDelete: (folderId: string) => void
   onDropAssets: (folderId: string, event: React.DragEvent<HTMLDivElement>) => void
@@ -147,12 +150,14 @@ export function FolderGridCell({
         if (event.key === 'Enter' || event.key === ' ') onOpen(id)
       }}
       onDragOver={(event) => {
+        if (!manageable) return
         event.preventDefault()
         event.dataTransfer.dropEffect = 'copy'
         setDragOver(true)
       }}
       onDragLeave={() => setDragOver(false)}
       onDrop={(event) => {
+        if (!manageable) return
         setDragOver(false)
         onDropAssets(id, event)
       }}
@@ -160,7 +165,7 @@ export function FolderGridCell({
       <IconFolder size={compact ? 22 : 26} stroke={1.6} className={cn(dragOver ? 'text-nomi-accent' : 'text-nomi-ink-45')} aria-hidden="true" />
       <span className="max-w-[90%] truncate text-caption text-nomi-ink">{label}</span>
       <span className="text-micro tabular-nums text-nomi-ink-40">{count}</span>
-      <button
+      {manageable ? <button
         type="button"
         className={cn(
           'absolute right-1.5 top-1.5 grid size-6 place-items-center rounded-nomi-sm border-0 bg-transparent',
@@ -175,7 +180,7 @@ export function FolderGridCell({
         }}
       >
         <IconTrash size={13} stroke={2} aria-hidden="true" />
-      </button>
+      </button> : null}
     </div>
   )
 }
@@ -232,7 +237,7 @@ export const AssetGridCell = React.memo(function AssetGridCell({
   selectable?: boolean
   draggable?: boolean
   dragHint?: string
-  onSelect?: (asset: AssetRef, event: React.MouseEvent<HTMLDivElement>) => void
+  onSelect?: (asset: AssetRef, event: AssetGridActivationEvent) => void
   onDragStartAsset?: (asset: AssetRef, event: React.DragEvent<HTMLDivElement>) => void
   /** 双击放大预览（#52）；缺省则不响应双击。 */
   onPreview?: (asset: AssetRef) => void
@@ -247,6 +252,16 @@ export const AssetGridCell = React.memo(function AssetGridCell({
   }, [asset, draggable, onDragStartAsset])
   const handleClick = React.useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     onSelect?.(asset, event)
+  }, [asset, onSelect])
+  const handleKeyDown = React.useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!onSelect || !isAssetGridActivationKey(event.key)) return
+    event.preventDefault()
+    onSelect(asset, {
+      metaKey: event.metaKey,
+      ctrlKey: event.ctrlKey,
+      shiftKey: event.shiftKey,
+      detail: 1,
+    })
   }, [asset, onSelect])
   const handleDoubleClick = React.useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     event.stopPropagation()
@@ -275,7 +290,8 @@ export const AssetGridCell = React.memo(function AssetGridCell({
         {compact ? (
           <div
             draggable={draggable}
-            onClick={selectable ? handleClick : undefined}
+            onClick={onSelect ? handleClick : undefined}
+            onKeyDown={onSelect ? handleKeyDown : undefined}
             onDoubleClick={onPreview ? handleDoubleClick : undefined}
             onDragStart={handleDragStart}
             className={cn(
@@ -286,7 +302,10 @@ export const AssetGridCell = React.memo(function AssetGridCell({
               selected && 'border-nomi-accent shadow-nomi-md ring-2 ring-nomi-accent ring-offset-1 ring-offset-nomi-paper',
             )}
             style={{ breakInside: 'avoid' }}
-            aria-selected={selected}
+            role={onSelect ? 'button' : undefined}
+            tabIndex={onSelect ? 0 : undefined}
+            aria-label={onSelect ? asset.name : undefined}
+            aria-selected={selectable ? selected : undefined}
           >
             <div className="relative overflow-hidden bg-nomi-ink-05">
               {asset.kind === 'image' ? (
@@ -311,7 +330,8 @@ export const AssetGridCell = React.memo(function AssetGridCell({
         ) : (
           <div
             draggable={draggable}
-            onClick={selectable ? handleClick : undefined}
+            onClick={onSelect ? handleClick : undefined}
+            onKeyDown={onSelect ? handleKeyDown : undefined}
             onDoubleClick={onPreview ? handleDoubleClick : undefined}
             onDragStart={handleDragStart}
             className={cn(
@@ -319,7 +339,10 @@ export const AssetGridCell = React.memo(function AssetGridCell({
               draggable ? 'cursor-grab active:cursor-grabbing' : selectable ? 'cursor-pointer' : 'cursor-default',
               selected && 'border-nomi-accent ring-2 ring-nomi-accent ring-offset-1 ring-offset-nomi-paper',
             )}
-            aria-selected={selected}
+            role={onSelect ? 'button' : undefined}
+            tabIndex={onSelect ? 0 : undefined}
+            aria-label={onSelect ? asset.name : undefined}
+            aria-selected={selectable ? selected : undefined}
           >
             <AssetThumb asset={asset} />
             <AssetKindBadge kind={asset.kind} />

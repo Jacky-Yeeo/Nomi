@@ -18,7 +18,7 @@ import { useAssetPool } from './useAssetPool'
 import { useAllProjectAssets } from './useAllProjectAssets'
 import { assetsForFolderScope, folderCountsForAssets, useAssetFolderInteractions, useAssetFolders } from './useAssetFolders'
 import { filterAssets, type AssetKind, type AssetRef } from './assetTypes'
-import { ASSET_LIBRARY_DRAG_MIME, serializeAssetLibraryDrag, type AssetLibraryDragPayload } from './assetLibraryDrag'
+import { ASSET_LIBRARY_DRAG_MIME, serializeAssetLibraryDrag } from './assetLibraryDrag'
 import { importAudioFilesToLibrary, type AudioImportResult } from './importAudioToLibrary'
 import type { GenerationAssetImportResult } from '../generationCanvas/adapters/assetImportAdapter'
 import { useGenerationCanvasStore } from '../generationCanvas/store/generationCanvasStore'
@@ -35,6 +35,18 @@ import {
 import { AssetPreviewDialog } from './AssetPreviewDialog'
 import { ASSET_KIND_FILTER_VALUES, FILTER_OPTIONS, type FilterValue } from './assetLibraryPanelFilters'
 import { buildAssetLibraryDeletePlan, filterImageVideoAssets, filterPlayableAssets } from './assetLibrarySources'
+import { addAssetToTimelineEnd } from '../timeline/addAssetToTimeline'
+import {
+  assetToDragPayload,
+  assetsForLibraryDrag,
+  canManageAssetFolders,
+  resolveAssetLibraryItemAction,
+  shouldRunAssetItemAction,
+  sourceOptionsForUsage,
+  type AssetLibrarySourceFilter,
+  type AssetLibraryUsageContext,
+  type AssetGridActivationEvent,
+} from './assetLibraryUsage'
 
 const DEFAULT_GRID_COLS = 3
 const ESTIMATED_ROW_HEIGHT = 121
@@ -89,37 +101,6 @@ function reportAudioImport(result: AudioImportResult): void {
   if (skipped.length) toast(i18n.t('assetLibrary.skippedSummary', { items: skipped.join(i18n.t('assetLibrary.listSeparator')) }), result.failedCount ? 'error' : 'warning')
 }
 
-type SourceFilterValue = 'all' | 'project' | 'smart'
-
-const SOURCE_OPTIONS: { value: SourceFilterValue; labelKey: string }[] = [
-  { value: 'all', labelKey: 'assetLibrary.allAssets' },
-  { value: 'project', labelKey: 'assetLibrary.projectAssets' },
-  // 找素材并入素材库（2026-07-13 ③）：AI 自动分组是素材库的一个视图，不再独占左栏一格。
-  { value: 'smart', labelKey: 'assetLibrary.smartGroups' },
-]
-
-function assetToDragPayload(asset: AssetRef, dragAnchor?: AssetLibraryDragPayload['dragAnchor']): AssetLibraryDragPayload {
-  return {
-    kind: asset.kind,
-    name: asset.name,
-    renderUrl: asset.renderUrl,
-    origin: asset.origin,
-    ...(dragAnchor ? { dragAnchor } : {}),
-  }
-}
-
-export function assetsForLibraryDrag(
-  visibleAssets: readonly AssetRef[],
-  selectedIds: ReadonlySet<string>,
-  draggedAsset: AssetRef,
-): AssetRef[] {
-  if (!selectedIds.has(draggedAsset.id)) return [draggedAsset]
-  return [
-    draggedAsset,
-    ...visibleAssets.filter((asset) => asset.id !== draggedAsset.id && selectedIds.has(asset.id)),
-  ]
-}
-
 type AssetLibraryContentProps = {
   projectId: string | null
   compact?: boolean
@@ -130,6 +111,8 @@ type AssetLibraryContentProps = {
    * 时间轴那句「拖音频到此当配乐」等于无源（唯一现实路径是画布音频节点走节点把手）。
    */
   includeAudio?: boolean
+  /** Explicit consumer semantics: asset management on canvas, direct placement in Preview. */
+  usageContext?: AssetLibraryUsageContext
   onClose?: () => void
   className?: string
 }
@@ -139,6 +122,7 @@ export function AssetLibraryContent({
   compact = false,
   showHeader = true,
   includeAudio = false,
+  usageContext = 'canvas',
   onClose,
   className,
 }: AssetLibraryContentProps): JSX.Element {
@@ -147,7 +131,7 @@ export function AssetLibraryContent({
   const filterButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const filterMenuRef = React.useRef<HTMLDivElement | null>(null)
   const [previewAsset, setPreviewAsset] = React.useState<AssetRef | null>(null)
-  const [sourceFilter, setSourceFilter] = React.useState<SourceFilterValue>('all')
+  const [sourceFilter, setSourceFilter] = React.useState<AssetLibrarySourceFilter>('all')
   const [visibleKinds, setVisibleKinds] = React.useState<Set<AssetKind>>(() => new Set(ASSET_KIND_FILTER_VALUES))
   const [filterOpen, setFilterOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
@@ -158,6 +142,7 @@ export function AssetLibraryContent({
   const lastSelectedIdRef = React.useRef<string | null>(null)
   const selectedIdsRef = React.useRef(selectedIds)
   selectedIdsRef.current = selectedIds
+  const sourceOptions = sourceOptionsForUsage(usageContext)
 
   const {
     canvasAssets,
@@ -204,9 +189,14 @@ export function AssetLibraryContent({
     () => filterBaseAssets.filter((asset) => visibleKinds.has(asset.kind)),
     [filterBaseAssets, visibleKinds],
   )
-  const projectSelectionEnabled = sourceFilter === 'project'
+  const itemAction = resolveAssetLibraryItemAction(
+    usageContext,
+    sourceFilter === 'project' ? 'project' : 'all',
+  )
+  const projectSelectionEnabled = itemAction === 'select'
+  const folderManagementEnabled = canManageAssetFolders(usageContext)
   // 文件夹作用域：项目素材 tab + 无搜索词时生效（root=未分类;夹内=归属素材;搜索=全量平铺）。
-  const folderViewActive = projectSelectionEnabled && query.trim() === ''
+  const folderViewActive = sourceFilter === 'project' && query.trim() === ''
   const scopedAssets = React.useMemo(
     () => (folderViewActive ? assetsForFolderScope(visible, folderApi.state.assignments, activeFolderId) : visible),
     [activeFolderId, folderApi.state.assignments, folderViewActive, visible],
@@ -332,7 +322,7 @@ export function AssetLibraryContent({
     if (lastSelectedIdRef.current && !visibleIdSet.has(lastSelectedIdRef.current)) lastSelectedIdRef.current = null
   }, [visibleIds])
 
-  const selectAsset = React.useCallback((asset: AssetRef, event: React.MouseEvent<HTMLDivElement>): void => {
+  const selectAsset = React.useCallback((asset: AssetRef, event: AssetGridActivationEvent): void => {
     const visibleAssets = visibleAssetsRef.current
     const additive = event.metaKey || event.ctrlKey
     const anchorId = lastSelectedIdRef.current
@@ -359,6 +349,19 @@ export function AssetLibraryContent({
     })
     lastSelectedIdRef.current = asset.id
   }, [])
+
+  const activateAsset = React.useCallback((asset: AssetRef, event: AssetGridActivationEvent): void => {
+    if (!shouldRunAssetItemAction(itemAction, event.detail)) return
+    if (itemAction === 'append') {
+      void addAssetToTimelineEnd(asset)
+      return
+    }
+    if (itemAction === 'preview') {
+      setPreviewAsset(asset)
+      return
+    }
+    selectAsset(asset, event)
+  }, [itemAction, selectAsset])
 
   const showAllAssetKinds = React.useCallback((): void => {
     setVisibleKinds(new Set(ASSET_KIND_FILTER_VALUES))
@@ -404,6 +407,13 @@ export function AssetLibraryContent({
     setActiveFolderId,
     collectSelection: assetsForLibraryDrag,
   })
+  const assetDragHint = usageContext === 'timeline'
+    ? t('timelineEditor.dragToTimeline')
+    : projectSelectionEnabled
+      ? t('assetLibrary.dragHintFolder')
+      : undefined
+  const assetPreviewAction = itemAction === 'select' ? setPreviewAsset : undefined
+  const assetDragStartAction = projectSelectionEnabled ? handleFolderAssignDragStart : handleAssetDragStart
 
   const deleteSelectedProjectAssets = React.useCallback(async (): Promise<void> => {
     if (!projectId) {
@@ -523,7 +533,7 @@ export function AssetLibraryContent({
       role="tablist"
       aria-label={t('assetLibrary.sourceFilter')}
     >
-      {SOURCE_OPTIONS.map((option) => {
+      {sourceOptions.map((option) => {
         const active = sourceFilter === option.value
         return (
           <button
@@ -670,13 +680,13 @@ export function AssetLibraryContent({
                   'cursor-pointer text-caption text-nomi-accent transition-colors duration-[var(--nomi-transition-fast)] hover:bg-nomi-ink-05',
                 )}
                 aria-label={t('assetLibrary.backToAllAssets')}
-                title={t('assetLibrary.backDropToRemove')}
+                title={t(folderManagementEnabled ? 'assetLibrary.backDropToRemove' : 'assetLibrary.backToAllAssets')}
                 onClick={() => setActiveFolderId(null)}
-                onDragOver={(event) => {
+                onDragOver={folderManagementEnabled ? (event) => {
                   event.preventDefault()
                   event.dataTransfer.dropEffect = 'copy'
-                }}
-                onDrop={(event) => handleFolderDropAssets(null, event)}
+                } : undefined}
+                onDrop={folderManagementEnabled ? (event) => handleFolderDropAssets(null, event) : undefined}
               >
                 <IconChevronLeft size={14} stroke={2} aria-hidden="true" />
                 {t('common.back')}
@@ -705,6 +715,7 @@ export function AssetLibraryContent({
                   id={folder.id}
                   label={folder.label}
                   count={folderCounts.get(folder.id) ?? 0}
+                  manageable={folderManagementEnabled}
                   onOpen={setActiveFolderId}
                   onDelete={handleDeleteFolder}
                   onDropAssets={(folderId, event) => handleFolderDropAssets(folderId, event)}
@@ -730,13 +741,13 @@ export function AssetLibraryContent({
                   key={asset.id}
                   asset={asset}
                   compact
-                  selectable
+                  selectable={projectSelectionEnabled}
                   draggable
                   selected={selectedIds.has(asset.id)}
-                  dragHint={projectSelectionEnabled ? t('assetLibrary.dragHintFolder') : undefined}
-                  onSelect={selectAsset}
-                  onPreview={setPreviewAsset}
-                  onDragStartAsset={projectSelectionEnabled ? handleFolderAssignDragStart : handleAssetDragStart}
+                  dragHint={assetDragHint}
+                  onSelect={activateAsset}
+                  onPreview={assetPreviewAction}
+                  onDragStartAsset={assetDragStartAction}
                 />
               ))}
             </div>
@@ -764,13 +775,13 @@ export function AssetLibraryContent({
                       <AssetGridCell
                         key={asset.id}
                         asset={asset}
-                        selectable
+                        selectable={projectSelectionEnabled}
                         draggable
                         selected={selectedIds.has(asset.id)}
-                        dragHint={projectSelectionEnabled ? t('assetLibrary.dragHintFolder') : undefined}
-                        onSelect={selectAsset}
-                        onPreview={setPreviewAsset}
-                        onDragStartAsset={projectSelectionEnabled ? handleFolderAssignDragStart : handleAssetDragStart}
+                        dragHint={assetDragHint}
+                        onSelect={activateAsset}
+                        onPreview={assetPreviewAction}
+                        onDragStartAsset={assetDragStartAction}
                       />
                     ))}
                   </div>
@@ -787,4 +798,3 @@ export function AssetLibraryContent({
     </TooltipProvider>
   )
 }
-

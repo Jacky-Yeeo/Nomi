@@ -4,8 +4,8 @@ import type { AssetRef } from './assetTypes'
 import {
   buildAssetLibraryDeletePlan,
   filterImageVideoAssets,
-  parseNomiLocalAssetUrl,
 } from './assetLibrarySources'
+import { parseNomiLocalAssetUrl } from '../../media/nomiLocalAssetUrl'
 
 function projectAsset(input: {
   id: string

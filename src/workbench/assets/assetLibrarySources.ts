@@ -1,5 +1,6 @@
 import type { GenerationCanvasNode } from '../generationCanvas/model/generationCanvasTypes'
 import type { AssetRef } from './assetTypes'
+import { parseNomiLocalAssetUrl } from '../../media/nomiLocalAssetUrl'
 
 export type AssetFileDeleteTarget = {
   projectId: string
@@ -18,22 +19,6 @@ export function filterImageVideoAssets(assets: readonly AssetRef[]): AssetRef[] 
 /** 图/视频/音频都放行——剪辑页左栏用（音频=配乐来源，见 AssetLibraryContent 的 includeAudio）。 */
 export function filterPlayableAssets(assets: readonly AssetRef[]): AssetRef[] {
   return assets.filter((asset) => asset.kind === 'image' || asset.kind === 'video' || asset.kind === 'audio')
-}
-
-export function parseNomiLocalAssetUrl(url: unknown): AssetFileDeleteTarget | null {
-  if (typeof url !== 'string') return null
-  const prefix = 'nomi-local://asset/'
-  if (!url.startsWith(prefix)) return null
-  const pathPart = url.slice(prefix.length).split(/[?#]/, 1)[0]
-  const segments = pathPart.split('/').filter(Boolean)
-  if (segments.length < 2) return null
-  try {
-    const projectId = decodeURIComponent(segments[0]).trim()
-    const relativePath = segments.slice(1).map((segment) => decodeURIComponent(segment)).join('/').trim()
-    return projectId && relativePath ? { projectId, relativePath } : null
-  } catch {
-    return null
-  }
 }
 
 function record(value: unknown): Record<string, unknown> | null {

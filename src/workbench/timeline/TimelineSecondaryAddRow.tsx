@@ -5,7 +5,7 @@ import { useWorkbenchStore } from '../workbenchStore'
 import { cn } from '../../utils/cn'
 import { WorkbenchButton } from '../../design'
 import { ASSET_LIBRARY_DRAG_MIME } from '../assets/assetLibraryDrag'
-import { addAudioAssetToTimeline, tryAddAudioAssetFromDragData } from './dropAudioAssetToTimeline'
+import { addAssetToTimeline, tryAddAssetFromDragData } from './addAssetToTimeline'
 import AssetPicker from '../assets/AssetPicker'
 import AssetPickerPopover from '../assets/AssetPickerPopover'
 import { getActiveWorkbenchProjectId } from '../project/workbenchProjectSession'
@@ -42,7 +42,11 @@ export function TimelineSecondaryAddRow({
     if (!showAudio) return
     const playhead = useWorkbenchStore.getState().timeline.playheadFrame
     if (
-      tryAddAudioAssetFromDragData(event.dataTransfer.getData(ASSET_LIBRARY_DRAG_MIME), { fps, startFrame: playhead })
+      tryAddAssetFromDragData(event.dataTransfer.getData(ASSET_LIBRARY_DRAG_MIME), {
+        fps,
+        startFrame: playhead,
+        targetTrackType: 'audio',
+      })
     )
       event.preventDefault()
   }
@@ -66,7 +70,7 @@ export function TimelineSecondaryAddRow({
             projectId={getActiveWorkbenchProjectId()}
             accept={['audio']}
             onPick={(asset) => {
-              addAudioAssetToTimeline(asset, {
+              void addAssetToTimeline(asset, {
                 fps,
                 startFrame: useWorkbenchStore.getState().timeline.playheadFrame,
               })

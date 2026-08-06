@@ -176,7 +176,13 @@ export default function PreviewSourcePanel(): JSX.Element {
           <ShotGrid />
         ) : (
           <React.Suspense fallback={null}>
-            <AssetLibraryContent projectId={projectId} compact showHeader={false} includeAudio />
+            <AssetLibraryContent
+              projectId={projectId}
+              compact
+              showHeader={false}
+              includeAudio
+              usageContext="timeline"
+            />
           </React.Suspense>
         )}
       </div>

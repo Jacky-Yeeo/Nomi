@@ -5,7 +5,7 @@ import { useGenerationCanvasStore } from '../generationCanvas/store/generationCa
 import { cn } from '../../utils/cn'
 import { buildClipFromGenerationNode } from '../generationCanvas/model/buildClipFromGenerationNode'
 import { buildGenerationNodeTimelineClip } from './buildGenerationNodeTimelineClip'
-import { tryAddAudioAssetFromDragData } from './dropAudioAssetToTimeline'
+import { tryAddAssetFromDragData } from './addAssetToTimeline'
 import { ASSET_LIBRARY_DRAG_MIME } from '../assets/assetLibraryDrag'
 import { clientXToFrame, frameToPixel } from './timelineEdit'
 import { findAppendFrame } from './timelineMath'
@@ -54,14 +54,14 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
     [scale],
   )
 
-  // 接受拖入的类型：生成节点（任意轨）或素材库音频（仅音频轨）。dragover 时只能读 types 不能读 data。
+  // 接受拖入的类型：生成节点或素材库三类媒体。dragover 时只能读 types 不能读 payload，
+  // 具体 kind 与轨道匹配在 drop 时校验。
   const acceptsDragTypes = React.useCallback(
     (types: readonly string[]) => {
       if (types.includes(TIMELINE_GENERATION_NODE_DRAG_MIME)) return true
-      if (track.type === 'audio' && types.includes(ASSET_LIBRARY_DRAG_MIME)) return true
-      return false
+      return types.includes(ASSET_LIBRARY_DRAG_MIME)
     },
-    [track.type],
+    [],
   )
 
   // L3 落点语义：默认贴尾追加（免思考串片）；按住 ⌥ 用光标处自由落点（精排）
@@ -99,28 +99,35 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
     [resolveDesiredStart, fps, scale, track],
   )
 
-  // 素材库音频拖到音频轨：payload 同步可读，时长离屏探测后落 clip（核心逻辑共用 dropAudioAssetToTimeline）。
-  const handleAssetAudioDrop = React.useCallback(
+  // 素材库三类素材：拖拽本身就是精排，直接使用光标落点；时长探测/clip 构建走统一 action。
+  const handleAssetDrop = React.useCallback(
     (event: React.DragEvent<HTMLDivElement>): boolean => {
-      if (track.type !== 'audio') return false
-      const result = tryAddAudioAssetFromDragData(event.dataTransfer.getData(ASSET_LIBRARY_DRAG_MIME), {
+      const result = tryAddAssetFromDragData(event.dataTransfer.getData(ASSET_LIBRARY_DRAG_MIME), {
         fps,
-        startFrame: resolveDesiredStart(event),
+        startFrame: resolveFrame(event.clientX),
+        targetTrackType: track.type,
       })
       if (!result) return false
       event.preventDefault()
       setDragPreview(null)
       setIsDragHovering(false)
       setDropCaretFrame(null)
-      if (result === 'reject') toast(t('timelineEditor.track.audioOnly'), 'warning')
+      if (result.status === 'reject') {
+        const expectedTrack = result.expectedTrack === 'image'
+          ? t('timelineEditor.track.imageLabel')
+          : result.expectedTrack === 'video'
+            ? t('timelineEditor.track.videoLabel')
+            : t('timelineEditor.track.audioLabel')
+        toast(t('timelineEditor.track.wrongType', { track: expectedTrack }), 'warning')
+      }
       return true
     },
-    [track.type, resolveDesiredStart, fps, t],
+    [track.type, resolveFrame, fps, t],
   )
 
   const handleDrop = React.useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
-      if (handleAssetAudioDrop(event)) return
+      if (handleAssetDrop(event)) return
       const preview = resolveDropPreview(event) || dragPreview
       if (!preview) return
       event.preventDefault()
@@ -150,7 +157,7 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
         addTimelineClipAtFrame(nextClip, getTrackTypeForClipType(nextClip.type), preview.startFrame)
       })
     },
-    [handleAssetAudioDrop, addTimelineClipAtFrame, dragPreview, resolveDropPreview, fps, t],
+    [handleAssetDrop, addTimelineClipAtFrame, dragPreview, resolveDropPreview, fps, t],
   )
 
   return (
@@ -252,7 +259,11 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
           if (!acceptsDragTypes(event.dataTransfer.types)) return
           event.preventDefault()
           event.dataTransfer.dropEffect = 'copy'
-          setDropCaretFrame(resolveDesiredStart(event))
+          setDropCaretFrame(
+            event.dataTransfer.types.includes(ASSET_LIBRARY_DRAG_MIME)
+              ? resolveFrame(event.clientX)
+              : resolveDesiredStart(event),
+          )
         }}
         onDrop={(event) => {
           setIsDragHovering(false)

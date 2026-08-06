@@ -1,6 +1,7 @@
 import React from 'react'
 import { getDesktopBridge } from '../desktop/bridge'
 import { getActiveWorkbenchProjectId } from '../workbench/project/workbenchProjectSession'
+import { parseNomiLocalAssetUrl } from './nomiLocalAssetUrl'
 
 /**
  * 视频胶片条（16 帧横向拼图）懒加载，跨面共享的媒体基建。
@@ -58,10 +59,45 @@ function request(key: string, videoUrl: string, projectId: string): void {
   pump()
 }
 
-export function useFilmstrip(videoUrl: string | null | undefined): FilmstripEntry | null {
+export type FilmstripRequest = {
+  videoUrl: string
+  projectId: string
+  key: string
+}
+
+/**
+ * Resolve the project that is allowed to read/extract this video.
+ *
+ * "All assets" can show a video from project A while project B is open. The
+ * old hook always sent project B to the main process, so its project boundary
+ * check correctly rejected A and every cross-project video stayed a blank
+ * placeholder. A local URL already carries authoritative ownership; explicit
+ * context and the active project are only fallbacks for URLs without it.
+ */
+export function resolveFilmstripRequest(
+  videoUrl: string | null | undefined,
+  project: { explicitProjectId?: string | null; activeProjectId?: string | null },
+): FilmstripRequest | null {
   const url = typeof videoUrl === 'string' ? videoUrl.trim() : ''
-  const projectId = getActiveWorkbenchProjectId() || ''
-  const key = url && projectId ? `${projectId}::${url}` : ''
+  if (!url) return null
+  const urlProjectId = parseNomiLocalAssetUrl(url)?.projectId ?? ''
+  const explicitProjectId = typeof project.explicitProjectId === 'string' ? project.explicitProjectId.trim() : ''
+  const activeProjectId = typeof project.activeProjectId === 'string' ? project.activeProjectId.trim() : ''
+  const projectId = urlProjectId || explicitProjectId || activeProjectId
+  return projectId ? { videoUrl: url, projectId, key: `${projectId}::${url}` } : null
+}
+
+export function useFilmstrip(
+  videoUrl: string | null | undefined,
+  explicitProjectId?: string | null,
+): FilmstripEntry | null {
+  const resolved = resolveFilmstripRequest(videoUrl, {
+    explicitProjectId,
+    activeProjectId: getActiveWorkbenchProjectId(),
+  })
+  const url = resolved?.videoUrl ?? ''
+  const projectId = resolved?.projectId ?? ''
+  const key = resolved?.key ?? ''
 
   const subscribe = React.useCallback((onStoreChange: () => void) => {
     listeners.add(onStoreChange)
