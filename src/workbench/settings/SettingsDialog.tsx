@@ -11,6 +11,7 @@ import { ThemeToggleButton } from '../../ui/theme/ThemeToggleButton'
 import { ScreenshotHotkeySection } from './ScreenshotHotkeySection'
 import { CanvasGestureSection } from './CanvasGestureSection'
 import { AboutSection } from './AboutSection'
+import { ProjectLocationSection } from './ProjectLocationSection'
 
 // 语言用「母语名」直读，不随界面语言翻译——换语言时两个名字都稳定可认（沿用 PR#50 的判断）。
 const LOCALE_LABEL_KEY: Record<AppLocale, string> = { 'zh-CN': 'common.chinese', en: 'common.english' }
@@ -147,13 +148,7 @@ export function SettingsDialog({ onClose, onReplaySplash }: { onClose: () => voi
                   </div>
                 </div>
 
-                <div className="border-t border-nomi-line pt-4">
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <span className="text-body-sm text-nomi-ink-60">{t('settings.file.saveRoot')}</span>
-                    <span className="rounded-nomi-sm bg-nomi-ink-05 px-2 py-0.5 text-micro text-nomi-ink-40">{t('settings.file.laterTag')}</span>
-                  </div>
-                  <div className="text-caption leading-relaxed text-nomi-ink-40">{t('settings.file.saveRootHint')}</div>
-                </div>
+                <ProjectLocationSection />
               </div>
             ) : tab === 'general' ? (
               <div>
