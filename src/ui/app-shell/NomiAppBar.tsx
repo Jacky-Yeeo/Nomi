@@ -8,6 +8,7 @@ import { TaskCenterButton } from '../../workbench/taskCenter/TaskCenterButton'
 import { useGenerationCanvasStore } from '../../workbench/generationCanvas/store/generationCanvasStore'
 import { cn } from '../../utils/cn'
 import { handleWindowTitlebarDoubleClick } from './windowTitlebarDoubleClick'
+import { APP_BAR_ACTION_GROUPS } from './appBarActionGroups'
 
 // 平台分流：win32 下品牌/关于 + 上手清单都让位给 WorkbenchShell 的自绘标题栏（windowbar），
 // 本栏不重复渲染；非 win32（mac/Linux）保持原生窗口，品牌与清单仍住这里——两平台都有家、不丢失、不重复。
@@ -179,8 +180,7 @@ export default function NomiAppBar({
         <NomiStepper value={workspaceMode} onChange={onWorkspaceModeChange} />
       </div>
 
-      {/* 右簇分 3 组（§1.5「分组」）：在跑什么｜工具与环境｜主线。主行动永远在最右。
-          改前是 7 个平铺、7 类心智、只靠 gap-2 排排坐，「切语言」和「导出成片」权重几乎一样。 */}
+      {/* 右簇按用户意图分组：任务｜创作辅助｜配置｜唯一主行动。 */}
       <div
         className={cn(
           'nomi-appbar__right',
@@ -191,11 +191,12 @@ export default function NomiAppBar({
         role="toolbar"
         aria-label={t('appBar.globalActions')}
       >
-        {/* 组 1 · 在跑什么：任务入口常驻。空闲时是安静的 ghost 图标；有任务时自己显示数量和状态色。 */}
+        {/* 任务：无历史时整组隐藏，分隔线也不留下。 */}
         <span
           className={cn(
             'nomi-appbar__group nomi-appbar__group--tasks',
             'inline-flex items-center gap-2.5',
+            '[&:not(:has(button))]:hidden',
           )}
         >
           <TaskCenterButton
@@ -207,19 +208,72 @@ export default function NomiAppBar({
           <span className={cn('nomi-appbar__divider', 'w-px h-[18px] bg-workbench-border')} aria-hidden="true" />
         </span>
 
-        {/* 组 2 · 工具与环境：上手引导 · 浏览器 · 设置。
-            win32 下上手/浏览器住 WorkbenchShell 自绘标题栏，这里只剩设置——不重复渲染。
-            整组也可能全空（win32 且宿主没给 onOpenSettings），同样让分隔线跟着一起藏。 */}
+        {/* 创作辅助：上手与浏览器。win32 下二者住自绘窗口栏，这组自然隐藏。 */}
         <span
+          data-actions={APP_BAR_ACTION_GROUPS.assist.join(' ')}
           className={cn(
-            'nomi-appbar__group nomi-appbar__group--tools',
+            'nomi-appbar__group nomi-appbar__group--assist',
             'inline-flex items-center gap-2.5',
             '[&:not(:has(button))]:hidden',
           )}
         >
-        <span className={cn('nomi-appbar__group', 'inline-flex items-center gap-1')}>
-          {!isWindows ? <OnboardingChecklist /> : null}
-          {!isWindows ? (
+          <span className="inline-flex items-center gap-1">
+            {!isWindows ? <OnboardingChecklist /> : null}
+            {!isWindows ? (
+              <WorkbenchButton
+                className={cn(
+                  'nomi-appbar__ghost',
+                  'app-no-drag',
+                  'inline-flex items-center gap-1.5 h-[30px] px-2.5',
+                  'border border-transparent rounded-[var(--nomi-radius-sm)]',
+                  'bg-transparent text-[var(--nomi-ink-80)] font-inherit text-body-sm',
+                  'transition-[background,color] duration-[var(--nomi-transition-fast)]',
+                  'hover:bg-[var(--nomi-ink-05)] hover:text-[var(--nomi-ink)]',
+                  'max-[1400px]:w-[30px] max-[1400px]:h-[30px] max-[1400px]:justify-center max-[1400px]:p-0',
+                )}
+                aria-label={t('appBar.openBrowser')}
+                title={t('appBar.browser')}
+                onClick={openBrowser}
+              >
+                {/* 顶栏操作按钮统一解剖：图标 15/1.8 + 文字，窄屏一起收成 30px 方块。 */}
+                <IconBrowser size={15} stroke={1.8} />
+                <span className={cn('nomi-appbar__action-text', 'max-[1400px]:hidden')}>{t('appBar.browser')}</span>
+              </WorkbenchButton>
+            ) : null}
+          </span>
+          <span className={cn('nomi-appbar__divider', 'w-px h-[18px] bg-workbench-border')} aria-hidden="true" />
+        </span>
+
+        {/* 配置：系统设置与模型接入归在一起，不再让设置看起来像浏览器的附属按钮。 */}
+        <span
+          data-actions={APP_BAR_ACTION_GROUPS.config.join(' ')}
+          className={cn(
+            'nomi-appbar__group nomi-appbar__group--config',
+            'inline-flex items-center gap-2.5',
+            '[&:not(:has(button))]:hidden',
+          )}
+        >
+          <span className="inline-flex items-center gap-1">
+            {onOpenSettings ? (
+              <WorkbenchButton
+                className={cn(
+                  'nomi-appbar__ghost',
+                  'app-no-drag',
+                  'inline-flex items-center gap-1.5 h-[30px] px-2.5',
+                  'border border-transparent rounded-[var(--nomi-radius-sm)]',
+                  'bg-transparent text-[var(--nomi-ink-80)] font-inherit text-body-sm',
+                  'transition-[background,color] duration-[var(--nomi-transition-fast)]',
+                  'hover:bg-[var(--nomi-ink-05)] hover:text-[var(--nomi-ink)]',
+                  'max-[1400px]:w-[30px] max-[1400px]:h-[30px] max-[1400px]:justify-center max-[1400px]:p-0',
+                )}
+                aria-label={t('settings.title')}
+                title={t('settings.title')}
+                onClick={onOpenSettings}
+              >
+                <IconSettings size={15} stroke={1.8} />
+                <span className={cn('nomi-appbar__action-text', 'max-[1400px]:hidden')}>{t('settings.title')}</span>
+              </WorkbenchButton>
+            ) : null}
             <WorkbenchButton
               className={cn(
                 'nomi-appbar__ghost',
@@ -231,58 +285,22 @@ export default function NomiAppBar({
                 'hover:bg-[var(--nomi-ink-05)] hover:text-[var(--nomi-ink)]',
                 'max-[1400px]:w-[30px] max-[1400px]:h-[30px] max-[1400px]:justify-center max-[1400px]:p-0',
               )}
-              aria-label={t('appBar.openBrowser')}
-              title={t('appBar.browser')}
-              onClick={openBrowser}
+              aria-label={t('appBar.openModelAccess')}
+              title={t('appBar.modelAccess')}
+              onClick={handleOpenModelCatalog}
             >
-              {/* 顶栏操作按钮统一解剖：图标 15/1.8 + 文字，窄屏一起收成 30px 方块。 */}
-              <IconBrowser size={15} stroke={1.8} />
-              <span className={cn('nomi-appbar__action-text', 'max-[1400px]:hidden')}>{t('appBar.browser')}</span>
+              <IconPlugConnected size={15} stroke={1.8} />
+              <span className={cn('nomi-appbar__action-text', 'max-[1400px]:hidden')}>{t('appBar.modelAccess')}</span>
             </WorkbenchButton>
-          ) : null}
-          {onOpenSettings ? (
-            <WorkbenchButton
-              className={cn(
-                'nomi-appbar__ghost',
-                'app-no-drag',
-                'inline-flex items-center justify-center h-[30px] w-[30px] p-0',
-                'border border-transparent rounded-[var(--nomi-radius-sm)]',
-                'bg-transparent text-[var(--nomi-ink-80)]',
-                'transition-[background,color] duration-[var(--nomi-transition-fast)]',
-                'hover:bg-[var(--nomi-ink-05)] hover:text-[var(--nomi-ink)]',
-              )}
-              aria-label={t('settings.title')}
-              title={t('settings.title')}
-              onClick={onOpenSettings}
-            >
-              <IconSettings size={15} stroke={1.8} />
-            </WorkbenchButton>
-          ) : null}
-        </span>
+          </span>
           <span className={cn('nomi-appbar__divider', 'w-px h-[18px] bg-workbench-border')} aria-hidden="true" />
         </span>
 
-        {/* 组 3 · 主线：接模型 → 出片。 */}
-        <span className={cn('nomi-appbar__group', 'inline-flex items-center gap-1')}>
-          <WorkbenchButton
-            className={cn(
-              'nomi-appbar__ghost',
-              'app-no-drag',
-              'inline-flex items-center gap-1.5 h-[30px] px-2.5',
-              'border border-transparent rounded-[var(--nomi-radius-sm)]',
-              'bg-transparent text-[var(--nomi-ink-80)] font-inherit text-body-sm',
-              'transition-[background,color] duration-[var(--nomi-transition-fast)]',
-              'hover:bg-[var(--nomi-ink-05)] hover:text-[var(--nomi-ink)]',
-              'max-[1400px]:w-[30px] max-[1400px]:h-[30px] max-[1400px]:justify-center max-[1400px]:p-0',
-            )}
-            aria-label={t('appBar.openModelAccess')}
-            title={t('appBar.modelAccess')}
-            onClick={handleOpenModelCatalog}
-          >
-            <IconPlugConnected size={15} stroke={1.8} />
-            <span className={cn('nomi-appbar__action-text', 'max-[1400px]:hidden')}>{t('appBar.modelAccess')}</span>
-          </WorkbenchButton>
-
+        {/* 主动作：这里只放去出片。 */}
+        <span
+          data-actions={APP_BAR_ACTION_GROUPS.primary.join(' ')}
+          className="nomi-appbar__group nomi-appbar__group--primary inline-flex items-center"
+        >
           {/* 「导出」拆成两个诚实的词（§1.5「去重」+ 一功能一个家）：
               这颗在非预览页时只是**跳转**（原来却叫「导出」，点了什么也不导），故改叫「去出片」；
               到了预览页整颗隐藏 —— 那里控制条的「导出 MP4」才是真导出、且是唯一入口。 */}

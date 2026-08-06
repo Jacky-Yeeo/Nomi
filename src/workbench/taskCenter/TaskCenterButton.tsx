@@ -2,11 +2,10 @@
 // 正是「切到创作页就看不见生成跑到哪了」的解药。
 // 方案：docs/plan/2026-08-02-task-center-queue.md，样张 2026-08-02 拍板。
 //
-// **按钮本身就是进度指示器**：有活时 accent 底 + 数字，跑完有失败转提醒色，闲时是安静的 ghost 图标。
-// 不用点开就知道还有几个在跑。
+// 按钮同时表达“任务列表入口”和当前状态：名称常显，有活时 accent + 数字徽标，失败时转提醒色。
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import { IconProgress } from '@tabler/icons-react'
+import { IconListDetails } from '@tabler/icons-react'
 import { WorkbenchButton } from '../../design'
 import { cn } from '../../utils/cn'
 import { useGenerationCanvasStore } from '../generationCanvas/store/generationCanvasStore'
@@ -20,7 +19,7 @@ type Props = {
   onRevealNode?: (nodeId: string) => void
 }
 
-export function TaskCenterButton({ onRevealNode }: Props): JSX.Element {
+export function TaskCenterButton({ onRevealNode }: Props): JSX.Element | null {
   const { t } = useTranslation()
   const [opened, setOpened] = React.useState(false)
   const entries = useGenerationQueueStore((state) => state.entries)
@@ -49,6 +48,8 @@ export function TaskCenterButton({ onRevealNode }: Props): JSX.Element {
   const tone = resolveTaskButtonTone(summary)
   const pending = summary.running + summary.queued
 
+  if (entries.length === 0) return null
+
   return (
     <>
       <WorkbenchButton
@@ -67,11 +68,16 @@ export function TaskCenterButton({ onRevealNode }: Props): JSX.Element {
         )}
         aria-label={t('taskCenter.title')}
         title={t('taskCenter.title')}
+        data-task-center-trigger="true"
         onClick={() => setOpened((value) => !value)}
       >
-        {/* 顶栏操作按钮统一解剖：图标 15/1.8（与同栏设置/模型接入/导出一致）。 */}
-        <IconProgress size={15} stroke={1.8} />
-        {pending > 0 ? <span className="text-micro tabular-nums">{pending}</span> : null}
+        <IconListDetails size={15} stroke={1.8} />
+        <span className="max-[1400px]:hidden">{t('taskCenter.title')}</span>
+        {pending > 0 ? (
+          <span className="min-w-4 rounded-pill bg-nomi-paper px-1 text-center text-micro tabular-nums text-nomi-accent">
+            {pending}
+          </span>
+        ) : null}
       </WorkbenchButton>
       <TaskCenterPanel
         opened={opened}
