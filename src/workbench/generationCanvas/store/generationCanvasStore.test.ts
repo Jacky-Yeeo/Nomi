@@ -66,6 +66,43 @@ describe('connectToNode — 连一张图进图片节点自动切到「参考图/
     const dst = useGenerationCanvasStore.getState().nodes.find((n) => n.id === 'dst')
     expect((dst?.meta?.archetype as { modeId?: string } | undefined)?.modeId).toBe('edit')
   })
+
+  it('从目标左侧输入端起拖到源图 → 真边仍是源图→目标，并自动切到改图', () => {
+    useGenerationCanvasStore.getState().restoreSnapshot({
+      nodes: [node('src', 'shots'), archImageNode('dst', 't2i')],
+      edges: [],
+      selectedNodeIds: [],
+      groups: [],
+    })
+    useGenerationCanvasStore.getState().startConnection('dst', 'left')
+    const verdict = useGenerationCanvasStore.getState().connectToNode('src')
+    expect(verdict.ok).toBe(true)
+
+    const state = useGenerationCanvasStore.getState()
+    expect(state.edges).toMatchObject([{ source: 'src', target: 'dst' }])
+    const dst = state.nodes.find((n) => n.id === 'dst')
+    expect((dst?.meta?.archetype as { modeId?: string } | undefined)?.modeId).toBe('edit')
+  })
+})
+
+describe('边命令的唯一身份', () => {
+  it('同两点多语义边改标签时只改命中的那一条', () => {
+    useGenerationCanvasStore.getState().restoreSnapshot({
+      nodes: [node('src', 'shots'), node('dst', 'shots')],
+      edges: [],
+      selectedNodeIds: [],
+      groups: [],
+    })
+    const state = useGenerationCanvasStore.getState()
+    state.connectNodes('src', 'dst', 'first_frame')
+    state.connectNodes('src', 'dst', 'last_frame')
+    const [first, last] = useGenerationCanvasStore.getState().edges
+    expect(first?.id).not.toBe(last?.id)
+
+    useGenerationCanvasStore.getState().updateEdgeMode(last!.id, 'style_ref')
+
+    expect(useGenerationCanvasStore.getState().edges.map((edge) => edge.mode)).toEqual(['first_frame', 'style_ref'])
+  })
 })
 
 describe('generationCanvasStore snapshot normalization', () => {

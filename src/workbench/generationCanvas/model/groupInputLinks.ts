@@ -1,7 +1,8 @@
 /**
- * 组入参（group input link）——「把一根线连到组上」的**声明**层。
+ * 组连线声明层：既支持「一个来源喂给整组」，也支持「整组成员作为来源喂给一个目标」。
  *
- * 语义（一句话）：连到组 = ①给组内现有成员各连一根**真边** ②记下这条入参，**以后新进组的成员自动补一根**。
+ * 语义（一句话）：编组连接 = ①给组内现有成员各展开一根**真边** ②记下输入/输出声明，
+ * **以后新进组的成员自动补一根**。
  *
  * 为什么是「展开式」而不是让 edge.source/target 直接指向 group（拍板 2026-08-02）：
  * 后者会引入**平行的图语义**——`resolveReferenceSlots` / `buildDependencyWaves` /
@@ -9,8 +10,8 @@
  * 展开式下图结构完全不变，组只是**输入手势的语法糖**，所有既有读边逻辑零改动。
  *
  * 物化时机**只有两处，刻意不做持续对账**：建立入参时、成员加入/移出时。
- * 用户手删了其中一条展开出来的边，就该一直保持删掉——不能被系统悄悄加回来（那才是静默 bug）。
- * 代价是「手删的边在成员变动时不会复活」，可接受且可预期。
+ * 用户在边菜单点“断开”时，store 按这次编组声明的语义范围撤掉全部展开边和声明；
+ * 不会出现“删了一根，其余重叠线还在，视觉像没反应”，也不留会给新成员复活连线的幽灵声明。
  *
  * 撤边靠 `edge.viaGroupId` 溯源，不靠 (source,target) 猜：
  * 用户**手工**连过的同一对节点边没有 viaGroupId，成员移出组时绝不会被误删。
@@ -27,6 +28,11 @@ import type { EdgeSkipReason } from '../agent/referenceEdgeCapability'
 export type GroupInputLink = {
   sourceNodeId: string
   mode?: GenerationCanvasEdgeMode
+}
+
+/** 编组作为来源时指向的目标节点。真边仍展开为每个成员 source → target。 */
+export type GroupOutputLink = {
+  targetNodeId: string
 }
 
 export type GroupLinkEdgePlan = {
@@ -103,7 +109,9 @@ export function removeGroupLinkEdgesForMember(
   groupId: string,
   memberNodeId: string,
 ): GenerationCanvasEdge[] {
-  const next = edges.filter((edge) => !(edge.viaGroupId === groupId && edge.target === memberNodeId))
+  const next = edges.filter((edge) => !(
+    edge.viaGroupId === groupId && (edge.source === memberNodeId || edge.target === memberNodeId)
+  ))
   return next.length === edges.length ? [...edges] : next
 }
 
@@ -117,5 +125,15 @@ export function upsertGroupInputLink(
   if (existing.some((link) => link.sourceNodeId === next.sourceNodeId && link.mode === mode)) {
     return [...existing]
   }
+  return [...existing, next]
+}
+
+/** 去重后的组出参列表（同一 target 只留一条）。 */
+export function upsertGroupOutputLink(
+  links: readonly GroupOutputLink[] | undefined,
+  next: GroupOutputLink,
+): GroupOutputLink[] {
+  const existing = links ?? []
+  if (existing.some((link) => link.targetNodeId === next.targetNodeId)) return [...existing]
   return [...existing, next]
 }

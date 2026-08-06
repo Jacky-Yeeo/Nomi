@@ -9,6 +9,7 @@ import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../../utils/cn'
 import type { NodeGroup } from '../model/generationCanvasTypes'
+import type { ConnectionAnchorSide } from '../store/canvasStoreTypes'
 
 export type CanvasGroupBox = {
   group: NodeGroup
@@ -27,6 +28,7 @@ export type GroupFrameProps = {
    * 此时**不能**再走拖动 handle，否则一拖就把组挪走了。
    */
   pendingConnection?: boolean
+  pendingConnectionSide?: ConnectionAnchorSide
   onConnectToGroup?: (groupId: string) => void
 }
 
@@ -50,11 +52,16 @@ export default function GroupFrame({
   box,
   onPointerDown,
   pendingConnection,
+  pendingConnectionSide,
   onConnectToGroup,
 }: GroupFrameProps): JSX.Element {
   const { t } = useTranslation()
   const groupColor = box.group.color || undefined
   const connectable = Boolean(pendingConnection && onConnectToGroup && box.memberCount > 0)
+  const groupIsSource = connectable && pendingConnectionSide === 'left'
+  const connectionLabel = groupIsSource
+    ? t('generationCommon.canvas.group.connectFromHere', { name: box.group.name, count: box.memberCount })
+    : t('generationCommon.canvas.group.connectHere', { name: box.group.name, count: box.memberCount })
   return (
     <div
       className={cn(
@@ -80,12 +87,12 @@ export default function GroupFrame({
       data-group-id={box.group.id}
       aria-label={
         connectable
-          ? t('generationCommon.canvas.group.connectHere', { name: box.group.name, count: box.memberCount })
+          ? connectionLabel
           : t('generationCommon.canvas.group.dragNamed', { name: box.group.name })
       }
       title={
         connectable
-          ? t('generationCommon.canvas.group.connectHere', { name: box.group.name, count: box.memberCount })
+          ? connectionLabel
           : t('generationCommon.canvas.group.drag')
       }
       onPointerDown={(event) => {
@@ -126,6 +133,7 @@ export type GroupFrameListProps = {
   boxes: readonly CanvasGroupBox[]
   onPointerDown: (event: React.PointerEvent<HTMLDivElement>, groupId: string) => void
   pendingConnection?: boolean
+  pendingConnectionSide?: ConnectionAnchorSide
   onConnectToGroup?: (groupId: string) => void
 }
 
@@ -133,6 +141,7 @@ export function GroupFrameList({
   boxes,
   onPointerDown,
   pendingConnection,
+  pendingConnectionSide,
   onConnectToGroup,
 }: GroupFrameListProps): JSX.Element {
   return (
@@ -143,6 +152,7 @@ export function GroupFrameList({
           box={box}
           onPointerDown={onPointerDown}
           pendingConnection={pendingConnection}
+          pendingConnectionSide={pendingConnectionSide}
           onConnectToGroup={onConnectToGroup}
         />
       ))}

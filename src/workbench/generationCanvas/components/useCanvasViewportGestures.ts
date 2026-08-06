@@ -215,10 +215,12 @@ export function useCanvasViewportGestures({
       beginPan(event)
       return
     }
-    // 旧逻辑：点空白处时收起已激活的连线高亮
+    // 只有真空白处才收起激活边。边菜单也在 stage 里，而这是 capture 阶段：
+    // 子按钮的 stopPropagation 来不及拦。若不在此豁免，pointerdown 会先卸载菜单，
+    // 后续 click 无目标，表现为“改标签 / 断开都没反应”。
     if (!activeEdgeId) return
     const target = event.target instanceof Element ? event.target : null
-    if (target?.closest('.generation-canvas-v2__edge-hit, .generation-canvas-v2__edge-cut')) return
+    if (target?.closest('.generation-canvas-v2__edge-hit, .generation-canvas-v2__edge-cut, .generation-canvas-v2__edge-control, [role="menu"], [role="menuitem"], [role="menuitemradio"]')) return
     setActiveEdge(null)
   }, [activeEdgeId, beginPan, setActiveEdge])
 

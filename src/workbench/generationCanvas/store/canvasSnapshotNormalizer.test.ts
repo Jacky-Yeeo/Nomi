@@ -47,3 +47,23 @@ describe('normalizeStoreSnapshot — 重启收敛卡住的 mid-flight 节点', (
     expect(snap.nodes.find((n) => n.id === 'bad')?.status).toBe('error')
   })
 })
+
+describe('normalizeStoreSnapshot — 连线身份修复', () => {
+  it('旧快照中同两点多语义边的重复 id 会被确定性拆开', () => {
+    const snapshot = normalizeStoreSnapshot({
+      nodes: [
+        { id: 'src', kind: 'image', title: 'src', position: { x: 0, y: 0 } },
+        { id: 'dst', kind: 'video', title: 'dst', position: { x: 400, y: 0 } },
+      ],
+      edges: [
+        { id: 'edge-src-dst', source: 'src', target: 'dst', mode: 'first_frame', order: 0 },
+        { id: 'edge-src-dst', source: 'src', target: 'dst', mode: 'last_frame', order: 1 },
+      ],
+      groups: [],
+    })
+
+    expect(snapshot.edges).toHaveLength(2)
+    expect(new Set(snapshot.edges.map((edge) => edge.id)).size).toBe(2)
+    expect(snapshot.edges.map((edge) => edge.mode)).toEqual(['first_frame', 'last_frame'])
+  })
+})

@@ -250,24 +250,6 @@
   opacity: 1;
 }
 
-.generation-canvas-v2__edge-tag {
-  opacity: 1;
-  transition: opacity 140ms ease;
-}
-
-/* 密集区（同 target 有标签边超阈值）默认收起标签，hover 该边 / 边激活时才显——避免标签糊一片。 */
-.generation-canvas-v2__edge[data-dense='true'] .generation-canvas-v2__edge-tag {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.generation-canvas-v2__edge:hover .generation-canvas-v2__edge-tag,
-.generation-canvas-v2__edge[data-incident='true'] .generation-canvas-v2__edge-tag,
-.generation-canvas-v2__edge[data-active='true'] .generation-canvas-v2__edge-tag {
-  opacity: 1;
-  pointer-events: auto;
-}
-
 .generation-canvas-v2__edge-hit {
   fill: none;
   stroke: rgba(18, 24, 38, 0.001);

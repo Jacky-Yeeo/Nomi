@@ -128,6 +128,10 @@ export const nodeGroupSchema = z.object({
     sourceNodeId: z.string().min(1),
     mode: generationCanvasEdgeModeSchema.optional(),
   })).optional(),
+  // 组出参声明：编组作为来源时，每个成员都向 target 物化普通真边；旧快照无 → undefined。
+  outputLinks: z.array(z.object({
+    targetNodeId: z.string().min(1),
+  })).optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
 })
@@ -139,7 +143,7 @@ export const generationCanvasEdgeSchema = z.object({
   mode: generationCanvasEdgeModeSchema.optional(),
   // 落入同一 target 的放入顺序（数组参考 character1..N 的真相源；旧快照无 → undefined，排序退化为原序）。
   order: z.number().optional(),
-  // 溯源：由哪个组的组入参物化而来（只用于撤边时不误伤手工边）。
+  // 溯源：由哪个组的输入/输出声明物化而来（只用于撤边时不误伤手工边）。
   viaGroupId: z.string().optional(),
 })
 

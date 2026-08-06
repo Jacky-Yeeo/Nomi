@@ -67,6 +67,7 @@ export function normalizeStoreSnapshot(input: unknown): GenerationCanvasSnapshot
       })
     : []
   const nodeIds = new Set(nodes.map((node) => node.id))
+  const usedEdgeIds = new Set<string>()
   const edges = Array.isArray(raw.edges)
     ? raw.edges.flatMap((item): GenerationCanvasEdge[] => {
         if (!item || typeof item !== 'object') return []
@@ -75,7 +76,20 @@ export function normalizeStoreSnapshot(input: unknown): GenerationCanvasSnapshot
         const source = typeof edge.source === 'string' ? edge.source.trim() : ''
         const target = typeof edge.target === 'string' ? edge.target.trim() : ''
         if (!id || !source || !target || !nodeIds.has(source) || !nodeIds.has(target)) return []
-        return [{ ...(edge as GenerationCanvasEdge), id, source, target }]
+        let uniqueId = id
+        // 2026-08-07 之前 createEdgeId 只含 source+target，同两点多标签边会撞 id，
+        // React key / 命中 / 改标签 / 断开都变得歧义。恢复时仅修复重复项，首条保持旧 id；
+        // suffix 由快照顺序确定，同一快照多次恢复结果一致。
+        if (usedEdgeIds.has(uniqueId)) {
+          let suffix = typeof edge.order === 'number' && Number.isFinite(edge.order) ? edge.order : usedEdgeIds.size
+          uniqueId = `${id}::${suffix}`
+          while (usedEdgeIds.has(uniqueId)) {
+            suffix += 1
+            uniqueId = `${id}::${suffix}`
+          }
+        }
+        usedEdgeIds.add(uniqueId)
+        return [{ ...(edge as GenerationCanvasEdge), id: uniqueId, source, target }]
       })
     : []
   const selectedNodeIds = Array.isArray(raw.selectedNodeIds)

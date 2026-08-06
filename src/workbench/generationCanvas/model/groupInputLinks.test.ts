@@ -1,7 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import type { GenerationCanvasNode, NodeGroup } from './generationCanvasTypes'
-import { planGroupLinkEdges, removeGroupLinkEdgesForMember, upsertGroupInputLink } from './groupInputLinks'
+import { planGroupLinkEdges, removeGroupLinkEdgesForMember, upsertGroupInputLink, upsertGroupOutputLink } from './groupInputLinks'
+import { resolveReferenceSlots } from '../runner/referenceSlots'
+import { setCanvasEventSinkForTests, type CanvasShadowEvent } from '../events/canvasEventEmitter'
+import { applyCanvasEvent, type CanvasProjection } from '../events/canvasEventReducer'
 
 // 组入参 = 声明，真边 = 物化（展开式，图结构不变）。这里既测纯函数，也用**真 store** 走一遍
 // connectToGroup / moveNodeToGroup / removeNodeFromGroup，因为「动态」那半条命就住在成员变动的钩子里。
@@ -16,6 +19,12 @@ function textNode(id: string): GenerationCanvasNode {
   return {
     id, kind: 'text', title: id, position: { x: 0, y: 0 }, prompt: '', categoryId: 'shots',
     contentJson: { type: 'doc', content: [] },
+  } as GenerationCanvasNode
+}
+function referenceTarget(id: string): GenerationCanvasNode {
+  return {
+    id, kind: 'image', title: id, position: { x: 400, y: 0 }, prompt: '', categoryId: 'shots',
+    meta: { archetype: { id: 'nano-banana', modeId: 't2i' } },
   } as GenerationCanvasNode
 }
 function group(id: string, nodeIds: string[], inputLinks?: NodeGroup['inputLinks']): NodeGroup {
@@ -40,6 +49,16 @@ function seed(nodes: GenerationCanvasNode[], groups: NodeGroup[] = []) {
 const edgesTo = (id: string) => store().edges.filter((edge) => edge.target === id)
 
 beforeEach(() => seed([]))
+afterEach(() => setCanvasEventSinkForTests(null))
+
+function currentProjection(): CanvasProjection {
+  const state = store()
+  return structuredClone({ nodes: state.nodes, edges: state.edges, groups: state.groups })
+}
+
+function replayFrom(base: CanvasProjection, events: readonly CanvasShadowEvent[]): CanvasProjection {
+  return events.reduce((projection, event) => applyCanvasEvent(projection, event), base)
+}
 
 describe('planGroupLinkEdges — 纯函数', () => {
   it('给每个成员各排一条边，跳过源节点自己', () => {
@@ -105,6 +124,13 @@ describe('upsertGroupInputLink', () => {
   })
 })
 
+describe('upsertGroupOutputLink', () => {
+  it('同 target 只留一条', () => {
+    const once = upsertGroupOutputLink(undefined, { targetNodeId: 'dst' })
+    expect(upsertGroupOutputLink(once, { targetNodeId: 'dst' })).toHaveLength(1)
+  })
+})
+
 describe('connectToGroup — 真 store', () => {
   it('连到组 = 组内每个成员一根真边 + 记下组入参', () => {
     seed([imageNode('src', 'https://x/a.png'), imageNode('m1'), imageNode('m2')], [group('g1', ['m1', 'm2'])])
@@ -158,6 +184,80 @@ describe('connectToGroup — 真 store', () => {
     expect(store().connectToGroup('g1')).toMatchObject({ connected: 1 })
     expect(edgesTo('m2')).toHaveLength(0)
   })
+
+  it('从目标左输入端连编组 = 组内两张图都成为目标参考，并自动切到改图模式', () => {
+    seed(
+      [imageNode('a', 'https://x/a.png'), imageNode('b', 'https://x/b.png'), referenceTarget('dst')],
+      [group('g1', ['a', 'b'])],
+    )
+    store().startConnection('dst', 'left')
+    expect(store().connectToGroup('g1')).toMatchObject({ ok: true, connected: 2, skipped: 0 })
+
+    const state = store()
+    expect(edgesTo('dst').map((edge) => edge.source)).toEqual(['a', 'b'])
+    expect(state.groups[0]?.outputLinks).toEqual([{ targetNodeId: 'dst' }])
+    const target = state.nodes.find((node) => node.id === 'dst')!
+    expect((target.meta?.archetype as { modeId?: string } | undefined)?.modeId).toBe('edit')
+    expect(resolveReferenceSlots(target, state.nodes, state.edges)[0]?.fills.map((fill) => fill.url)).toEqual([
+      'https://x/a.png',
+      'https://x/b.png',
+    ])
+  })
+
+  it('组物化边写入事件日志时保留完整 viaGroupId，回放与 store 等价', () => {
+    seed([imageNode('a', 'https://x/a.png'), referenceTarget('dst')], [group('g1', ['a'])])
+    const base = currentProjection()
+    const events: CanvasShadowEvent[] = []
+    setCanvasEventSinkForTests((batch) => events.push(...batch))
+    store().startConnection('dst', 'left')
+    store().connectToGroup('g1')
+
+    expect(replayFrom(base, events).edges).toEqual(store().edges)
+    expect(store().edges[0]?.viaGroupId).toBe('g1')
+  })
+
+  it('编组作为来源时，点任一展开边的“断开”会撤掉整次编组连接与幽灵声明', () => {
+    seed(
+      [imageNode('a', 'https://x/a.png'), imageNode('b', 'https://x/b.png'), referenceTarget('dst')],
+      [group('g1', ['a', 'b'])],
+    )
+    store().startConnection('dst', 'left')
+    store().connectToGroup('g1')
+    expect(edgesTo('dst')).toHaveLength(2)
+
+    store().disconnectEdge(edgesTo('dst')[0]!.id)
+
+    expect(edgesTo('dst')).toHaveLength(0)
+    expect(store().groups[0]?.outputLinks).toBeUndefined()
+  })
+
+  it('一个来源连入整组时，断开任一展开边同样撤掉该组入参和全部展开边', () => {
+    seed([imageNode('src', 'https://x/a.png'), imageNode('m1'), imageNode('m2')], [group('g1', ['m1', 'm2'])])
+    store().startConnection('src')
+    store().connectToGroup('g1')
+    expect(store().edges).toHaveLength(2)
+
+    store().disconnectEdge(store().edges[0]!.id)
+
+    expect(store().edges).toHaveLength(0)
+    expect(store().groups[0]?.inputLinks).toBeUndefined()
+  })
+
+  it('编组断开的全部展开边和声明均进事件日志，回放与 store 等价', () => {
+    seed(
+      [imageNode('a', 'https://x/a.png'), imageNode('b', 'https://x/b.png'), referenceTarget('dst')],
+      [group('g1', ['a', 'b'])],
+    )
+    store().startConnection('dst', 'left')
+    store().connectToGroup('g1')
+    const base = currentProjection()
+    const events: CanvasShadowEvent[] = []
+    setCanvasEventSinkForTests((batch) => events.push(...batch))
+
+    store().disconnectEdge(store().edges[0]!.id)
+
+    expect(replayFrom(base, events)).toEqual(currentProjection())
+  })
 })
 
 describe('动态：成员变动自动补/撤边', () => {
@@ -178,6 +278,62 @@ describe('动态：成员变动自动补/撤边', () => {
     expect(edgesTo('m1')).toHaveLength(1)
     store().removeNodeFromGroup('m1')
     expect(edgesTo('m1')).toHaveLength(0)
+  })
+
+  it('编组作为来源后，新成员自动补到共同目标；成员移出只撤自己的组输出边', () => {
+    seed(
+      [imageNode('a', 'https://x/a.png'), imageNode('b', 'https://x/b.png'), referenceTarget('dst')],
+      [group('g1', ['a'])],
+    )
+    store().startConnection('dst', 'left')
+    store().connectToGroup('g1')
+    expect(edgesTo('dst').map((edge) => edge.source)).toEqual(['a'])
+
+    store().moveNodeToGroup('b', 'g1')
+    expect(edgesTo('dst').map((edge) => edge.source)).toEqual(['a', 'b'])
+    expect(edgesTo('dst').every((edge) => edge.viaGroupId === 'g1')).toBe(true)
+
+    store().removeNodeFromGroup('a')
+    expect(edgesTo('dst').map((edge) => edge.source)).toEqual(['b'])
+  })
+
+  it('编组输出动态补边/撤边均进入事件日志，逐步回放始终与 store 等价', () => {
+    seed(
+      [imageNode('a', 'https://x/a.png'), imageNode('b', 'https://x/b.png'), referenceTarget('dst')],
+      [group('g1', ['a'])],
+    )
+    store().startConnection('dst', 'left')
+    store().connectToGroup('g1')
+
+    let base = currentProjection()
+    let events: CanvasShadowEvent[] = []
+    setCanvasEventSinkForTests((batch) => events.push(...batch))
+    store().moveNodeToGroup('b', 'g1')
+    expect(replayFrom(base, events).edges).toEqual(store().edges)
+
+    base = currentProjection()
+    events = []
+    store().removeNodeFromGroup('a')
+    expect(replayFrom(base, events).edges).toEqual(store().edges)
+  })
+
+  it('新成员加入编组后的输出边可随 undo/redo 完整撤回和恢复', () => {
+    seed(
+      [imageNode('a', 'https://x/a.png'), imageNode('b', 'https://x/b.png'), referenceTarget('dst')],
+      [group('g1', ['a'])],
+    )
+    store().startConnection('dst', 'left')
+    store().connectToGroup('g1')
+    store().moveNodeToGroup('b', 'g1')
+    expect(edgesTo('dst').map((edge) => edge.source)).toEqual(['a', 'b'])
+
+    store().undo()
+    expect(edgesTo('dst').map((edge) => edge.source)).toEqual(['a'])
+    expect(store().nodes.find((node) => node.id === 'b')?.groupId).toBeUndefined()
+
+    store().redo()
+    expect(edgesTo('dst').map((edge) => edge.source)).toEqual(['a', 'b'])
+    expect(store().nodes.find((node) => node.id === 'b')?.groupId).toBe('g1')
   })
 
   it('改投别的组 → 撤旧组的、补新组的，不会同时挂两组参考', () => {

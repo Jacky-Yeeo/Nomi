@@ -59,6 +59,7 @@ function CanvasEdgeLayer({
 }: CanvasEdgeLayerProps): JSX.Element {
   const { t } = useTranslation()
   const activeEdgeId = activeEdge?.id ?? null
+  const [hoveredEdgeId, setHoveredEdgeId] = React.useState<string | null>(null)
   // 密度判定：按 target 统计「有类型标签」（非泛 reference）入边数，超阈值的 target 其标签默认收起。
   const labeledCountByTarget = React.useMemo(() => {
     const counts = new Map<string, number>()
@@ -101,22 +102,21 @@ function CanvasEdgeLayer({
     [edges, nodeById],
   )
   return (
+    <>
     <svg className="generation-canvas-v2__edges" aria-label={t('generationCommon.canvas.edge.aria')}>
       {edgeGeoms.map(({ edge, source, target, endX, endY, midX, midY, path, mode, isTyped }) => {
         // 视口裁剪：两端都在可见集外的边不渲染（大图性能，B3）
         if (visibleNodeIds && !visibleNodeIds.has(edge.source) && !visibleNodeIds.has(edge.target)) return null
         const isActiveEdge = activeEdgeId === edge.id
-        const cutPosition = isActiveEdge && activeEdge?.position ? activeEdge.position : { x: midX, y: midY }
         const isDense = (labeledCountByTarget.get(edge.target) || 0) > EDGE_TAG_DENSE_THRESHOLD
         const isIncident = focusedNodeId != null && (edge.source === focusedNodeId || edge.target === focusedNodeId)
         const renderInteractiveEdge = !lightweight || isActiveEdge || isIncident
-        const modeLabel = t(`generationCommon.canvas.edge.modes.${mode}`)
-        const selectableModes = isActiveEdge ? availableEdgeModes(source, target) : []
         return (
           <g
             key={edge.id}
             className="generation-canvas-v2__edge"
             data-mode={mode}
+            data-edge-id={edge.id}
             data-active={isActiveEdge ? 'true' : undefined}
             data-incident={isIncident ? 'true' : undefined}
             data-dense={isTyped && isDense ? 'true' : undefined}
@@ -142,128 +142,14 @@ function CanvasEdgeLayer({
                     position: getCanvasPointFromClientPoint(event.clientX, event.clientY) ?? { x: midX, y: midY },
                   })
                 }}
+                onPointerEnter={() => setHoveredEdgeId(edge.id)}
+                onPointerLeave={() => setHoveredEdgeId((current) => current === edge.id ? null : current)}
                 onKeyDown={(event) => {
                   if (event.key !== 'Enter' && event.key !== ' ') return
                   event.preventDefault()
                   onSetActiveEdge({ id: edge.id })
                 }}
               />
-            ) : null}
-            {renderInteractiveEdge && isTyped && !isActiveEdge ? (
-              <g className="generation-canvas-v2__edge-tag" transform={`translate(${midX} ${midY}) scale(${tagScale})`}>
-                <foreignObject x={-58} y={-13} width={116} height={26} style={{ overflow: 'visible' }}>
-                  <div className="flex h-full w-full items-center justify-center pointer-events-auto">
-                    {readOnly ? (
-                      <span className="generation-canvas-v2__edge-tag-pill inline-flex h-6 items-center rounded-pill border border-nomi-accent/40 bg-nomi-paper px-2 text-caption font-semibold leading-none whitespace-nowrap text-nomi-accent shadow-nomi-sm">
-                        {modeLabel}
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="generation-canvas-v2__edge-tag-pill inline-flex h-6 items-center gap-1 rounded-pill border border-nomi-accent/40 bg-nomi-paper px-2 text-caption font-semibold leading-none whitespace-nowrap text-nomi-accent shadow-nomi-sm cursor-pointer"
-                        aria-label={t('generationCommon.canvas.edge.changeMode', { mode: modeLabel })}
-                        onPointerDown={(event) => event.stopPropagation()}
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          onSetActiveEdge({ id: edge.id, position: { x: midX, y: midY } })
-                        }}
-                      >
-                        {modeLabel}
-                        <IconChevronDown size={12} stroke={1.8} aria-hidden="true" />
-                      </button>
-                    )}
-                  </div>
-                </foreignObject>
-              </g>
-            ) : null}
-            {isActiveEdge && !readOnly ? (
-              <g
-                className="generation-canvas-v2__edge-tag generation-canvas-v2__edge-mode-control"
-                transform={`translate(${cutPosition.x} ${cutPosition.y}) scale(${tagScale})`}
-              >
-                <foreignObject x={-92} y={-15} width={184} height={260} style={{ overflow: 'visible' }}>
-                  <div
-                    className="relative flex w-full justify-center pointer-events-auto"
-                    onPointerDown={(event) => event.stopPropagation()}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Escape') onSetActiveEdge(null)
-                    }}
-                  >
-                    <button
-                      type="button"
-                      className="generation-canvas-v2__edge-tag-pill inline-flex h-6 items-center gap-1 rounded-pill border border-nomi-accent/40 bg-nomi-paper px-2 text-caption font-semibold leading-none whitespace-nowrap text-nomi-accent shadow-nomi-sm cursor-pointer"
-                      aria-haspopup="menu"
-                      aria-expanded="true"
-                      aria-label={t('generationCommon.canvas.edge.changeMode', { mode: modeLabel })}
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        onSetActiveEdge(null)
-                      }}
-                    >
-                      {modeLabel}
-                      <IconChevronDown size={12} stroke={1.8} className="rotate-180" aria-hidden="true" />
-                    </button>
-                    <div
-                      className={cn(
-                        'absolute top-8 left-1/2 z-[2] w-44 -translate-x-1/2 p-1',
-                        'rounded-nomi border border-nomi-line bg-nomi-paper shadow-nomi-md',
-                      )}
-                      role="menu"
-                      aria-label={t('generationCommon.canvas.edge.modeMenu')}
-                    >
-                      {selectableModes.map((candidateMode) => {
-                        const candidateLabel = t(`generationCommon.canvas.edge.modes.${candidateMode}`)
-                        const selected = candidateMode === mode
-                        return (
-                          <button
-                            key={candidateMode}
-                            type="button"
-                            role="menuitemradio"
-                            aria-checked={selected}
-                            className={cn(
-                              'flex h-8 w-full items-center gap-2 rounded-nomi-sm border-0 px-2.5',
-                              'text-left text-caption cursor-pointer',
-                              selected
-                                ? 'bg-nomi-accent-soft text-nomi-accent'
-                                : 'bg-transparent text-nomi-ink-80 hover:bg-nomi-ink-05 hover:text-nomi-ink',
-                            )}
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              onUpdateEdgeMode(edge.id, candidateMode)
-                              onSetActiveEdge(null)
-                            }}
-                          >
-                            <span className="flex-1">{candidateLabel}</span>
-                            {selected ? <IconCheck size={14} stroke={2} aria-hidden="true" /> : null}
-                          </button>
-                        )
-                      })}
-                      <div className="my-1 h-px bg-nomi-line" aria-hidden="true" />
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className={cn(
-                          'flex h-8 w-full items-center gap-2 rounded-nomi-sm border-0 bg-transparent px-2.5',
-                          'text-caption text-workbench-danger cursor-pointer hover:bg-workbench-danger-soft',
-                        )}
-                        aria-label={t('generationCommon.canvas.edge.disconnect', {
-                          source: source.title,
-                          target: target.title,
-                        })}
-                        title={t('generationCommon.canvas.edge.disconnectMode', { mode: modeLabel })}
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          onDisconnectEdge(edge.id)
-                          onSetActiveEdge(null)
-                        }}
-                      >
-                        <IconScissors size={14} stroke={1.8} aria-hidden="true" />
-                        {t('generationCommon.canvas.edge.disconnectAction')}
-                      </button>
-                    </div>
-                  </div>
-                </foreignObject>
-              </g>
             ) : null}
           </g>
         )
@@ -288,6 +174,73 @@ function CanvasEdgeLayer({
         )
       })()}
     </svg>
+    <div className="absolute inset-0 z-[4] overflow-visible pointer-events-none" aria-hidden={readOnly && !edgeGeoms.some((geom) => geom.isTyped) ? 'true' : undefined}>
+      {edgeGeoms.map(({ edge, source, target, midX, midY, mode, isTyped }) => {
+        if (visibleNodeIds && !visibleNodeIds.has(edge.source) && !visibleNodeIds.has(edge.target)) return null
+        const isActiveEdge = activeEdgeId === edge.id
+        const isIncident = focusedNodeId != null && (edge.source === focusedNodeId || edge.target === focusedNodeId)
+        const renderInteractiveEdge = !lightweight || isActiveEdge || isIncident
+        if (!isActiveEdge && (!renderInteractiveEdge || !isTyped)) return null
+        const modeLabel = t(`generationCommon.canvas.edge.modes.${mode}`)
+        const position = isActiveEdge && activeEdge?.position ? activeEdge.position : { x: midX, y: midY }
+        const isDense = isTyped && (labeledCountByTarget.get(edge.target) || 0) > EDGE_TAG_DENSE_THRESHOLD
+        const isHovered = hoveredEdgeId === edge.id
+        const selectableModes = isActiveEdge ? availableEdgeModes(source, target) : []
+        const controlStyle: React.CSSProperties = {
+          left: position.x,
+          top: position.y,
+          transform: `translate(-50%, -50%) scale(${tagScale})`,
+          transformOrigin: 'center',
+        }
+        if (!isActiveEdge) {
+          return (
+            <div
+              key={edge.id}
+              className={cn(
+                'generation-canvas-v2__edge-control absolute pointer-events-auto opacity-100 transition-opacity duration-150',
+                isDense && !isIncident && !isHovered && 'opacity-0 pointer-events-none',
+              )}
+              style={controlStyle}
+              data-edge-id={edge.id}
+              onPointerEnter={() => setHoveredEdgeId(edge.id)}
+              onPointerLeave={() => setHoveredEdgeId((current) => current === edge.id ? null : current)}
+            >
+              {readOnly ? (
+                <span className="generation-canvas-v2__edge-tag-pill inline-flex h-6 items-center rounded-pill border border-nomi-accent/40 bg-nomi-paper px-2 text-caption font-semibold leading-none whitespace-nowrap text-nomi-accent shadow-nomi-sm">{modeLabel}</span>
+              ) : (
+                <button type="button" className="generation-canvas-v2__edge-tag-pill inline-flex h-6 items-center gap-1 rounded-pill border border-nomi-accent/40 bg-nomi-paper px-2 text-caption font-semibold leading-none whitespace-nowrap text-nomi-accent shadow-nomi-sm cursor-pointer" aria-label={t('generationCommon.canvas.edge.changeMode', { mode: modeLabel })} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onSetActiveEdge({ id: edge.id, position: { x: midX, y: midY } }) }}>
+                  {modeLabel}<IconChevronDown size={12} stroke={1.8} aria-hidden="true" />
+                </button>
+              )}
+            </div>
+          )
+        }
+        if (readOnly) return null
+        return (
+          <div key={edge.id} className="generation-canvas-v2__edge-control generation-canvas-v2__edge-mode-control absolute flex w-[184px] justify-center pointer-events-auto" style={controlStyle} data-edge-id={edge.id} data-active="true" onPointerDown={(event) => event.stopPropagation()} onKeyDown={(event) => { if (event.key === 'Escape') onSetActiveEdge(null) }}>
+            <button type="button" className="generation-canvas-v2__edge-tag-pill inline-flex h-6 items-center gap-1 rounded-pill border border-nomi-accent/40 bg-nomi-paper px-2 text-caption font-semibold leading-none whitespace-nowrap text-nomi-accent shadow-nomi-sm cursor-pointer" aria-haspopup="menu" aria-expanded="true" aria-label={t('generationCommon.canvas.edge.changeMode', { mode: modeLabel })} onClick={(event) => { event.stopPropagation(); onSetActiveEdge(null) }}>
+              {modeLabel}<IconChevronDown size={12} stroke={1.8} className="rotate-180" aria-hidden="true" />
+            </button>
+            <div className={cn('absolute top-8 left-1/2 z-[2] w-44 -translate-x-1/2 p-1', 'rounded-nomi border border-nomi-line bg-nomi-paper shadow-nomi-md')} role="menu" aria-label={t('generationCommon.canvas.edge.modeMenu')}>
+              {selectableModes.map((candidateMode) => {
+                const candidateLabel = t(`generationCommon.canvas.edge.modes.${candidateMode}`)
+                const selected = candidateMode === mode
+                return (
+                  <button key={candidateMode} type="button" role="menuitemradio" aria-checked={selected} className={cn('flex h-8 w-full items-center gap-2 rounded-nomi-sm border-0 px-2.5', 'text-left text-caption cursor-pointer', selected ? 'bg-nomi-accent-soft text-nomi-accent' : 'bg-transparent text-nomi-ink-80 hover:bg-nomi-ink-05 hover:text-nomi-ink')} onClick={(event) => { event.stopPropagation(); onUpdateEdgeMode(edge.id, candidateMode); onSetActiveEdge(null) }}>
+                    <span className="flex-1">{candidateLabel}</span>{selected ? <IconCheck size={14} stroke={2} aria-hidden="true" /> : null}
+                  </button>
+                )
+              })}
+              <div className="my-1 h-px bg-nomi-line" aria-hidden="true" />
+              <button type="button" role="menuitem" className={cn('flex h-8 w-full items-center gap-2 rounded-nomi-sm border-0 bg-transparent px-2.5', 'text-caption text-workbench-danger cursor-pointer hover:bg-workbench-danger-soft')} aria-label={t('generationCommon.canvas.edge.disconnect', { source: source.title, target: target.title })} title={t('generationCommon.canvas.edge.disconnectMode', { mode: modeLabel })} onClick={(event) => { event.stopPropagation(); onDisconnectEdge(edge.id); onSetActiveEdge(null) }}>
+                <IconScissors size={14} stroke={1.8} aria-hidden="true" />{t('generationCommon.canvas.edge.disconnectAction')}
+              </button>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+    </>
   )
 }
 

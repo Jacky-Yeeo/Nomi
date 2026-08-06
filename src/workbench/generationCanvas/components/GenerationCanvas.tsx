@@ -658,6 +658,13 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
                 aria-hidden="true"
               />
             ) : null}
+            {/* 分层不变量：组框(z0) < 连线(z2) < 节点(z3)；组框不再放 nodes(z3) 里盖住边命中区。 */}
+            <GroupFrameList
+              boxes={groupBoxes}
+              onPointerDown={handleGroupFramePointerDown}
+              pendingConnection={!readOnly && Boolean(pendingConnectionSourceId)} pendingConnectionSide={pendingConnectionSourceSide}
+              onConnectToGroup={handleConnectToGroup}
+            />
             <CanvasEdgeLayer
               edges={edgesForRender}
               nodeById={nodeById}
@@ -676,13 +683,6 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
               getCanvasPointFromClientPoint={getCanvasPointFromClientPoint}
             />
             <div className={cn('generation-canvas-v2__nodes', 'absolute top-0 left-0 w-full h-full')} data-tidying={isTidying ? 'true' : undefined}>
-              {/* E.2C-30: GroupFrame 抽离为独立组件 */}
-              <GroupFrameList
-                boxes={groupBoxes}
-                onPointerDown={handleGroupFramePointerDown}
-                pendingConnection={!readOnly && Boolean(pendingConnectionSourceId)}
-                onConnectToGroup={handleConnectToGroup}
-              />
               <React.Suspense fallback={null}>
                 {visibleNodesForRender.map((node) => {
                   const selected = selectedSet.has(node.id)

@@ -191,6 +191,11 @@ export type NodeGroup = {
    * 作用是让「以后新进组的成员自动补一根同款边」有据可依。旧快照无此字段 → optional。
    */
   inputLinks?: { sourceNodeId: string; mode?: GenerationCanvasEdgeMode }[]
+  /**
+   * 组出参：把这个组作为输入源的目标节点。每个当前/未来成员各物化一条 member→target 真边。
+   * 旧快照无此字段 → optional。
+   */
+  outputLinks?: { targetNodeId: string }[]
   createdAt: number
   updatedAt: number
 }
@@ -209,7 +214,7 @@ export type GenerationCanvasEdge = {
    */
   order?: number
   /**
-   * 溯源：这条边是由哪个组的「组入参」物化出来的（见 model/groupInputLinks.ts）。
+   * 溯源：这条边是由哪个组的输入或输出声明物化出来的（见 model/groupInputLinks.ts）。
    * 只用于**撤边时不误伤手工边**——成员移出组时只撤 viaGroupId 命中的那些。
    * 手动连的边恒无此字段。不参与任何读边/落槽逻辑。
    */

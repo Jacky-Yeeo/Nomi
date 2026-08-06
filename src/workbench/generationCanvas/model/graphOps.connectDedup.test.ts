@@ -13,6 +13,7 @@ describe('connectNodes — 去重按 (source,target,mode)（治「同两点连�
     const next = connectNodes(base, 'a', 'b', 'last_frame')
     expect(next).toHaveLength(2)
     expect(next[1]).toMatchObject({ source: 'a', target: 'b', mode: 'last_frame' })
+    expect(new Set(next.map((edge) => edge.id)).size).toBe(2)
   })
 
   it('自连接 / 空端点 → no-op', () => {
@@ -46,6 +47,17 @@ describe('connectNodes — order 字段（数组参考 character1..N 的真相�
     expect(nextEdgeOrderForTarget(edges, 'dst')).toBe(1)
     expect(nextEdgeOrderForTarget(edges, 'other')).toBe(1)
     expect(nextEdgeOrderForTarget(edges, 'none')).toBe(0)
+  })
+
+  it('删掉中间边后继续连线，order 和 id 仍向前走，不与存量边撞身份', () => {
+    let edges: GenerationCanvasEdge[] = []
+    edges = connectNodes(edges, 'a', 'dst', 'first_frame')
+    edges = connectNodes(edges, 'b', 'dst', 'reference')
+    edges = edges.filter((edge) => edge.source !== 'a')
+    edges = connectNodes(edges, 'c', 'dst', 'last_frame')
+
+    expect(edges.map((edge) => edge.order)).toEqual([1, 2])
+    expect(new Set(edges.map((edge) => edge.id)).size).toBe(2)
   })
 })
 
