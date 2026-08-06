@@ -5,6 +5,7 @@ import { app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import type { WorkspaceRepositoryDeps } from "./workspace/workspaceRepository";
+import { readProjectLocationSettings } from "./settings/projectLocationSettings";
 export { getSettingsRoot, SETTINGS_ROOT_ENV } from "./settings/settingsRoot";
 import { getSettingsRoot } from "./settings/settingsRoot";
 
@@ -13,9 +14,21 @@ export const PROJECT_ROOT_ENV = "NOMI_PROJECTS_DIR";
 export const CATALOG_FILE = "model-catalog.json";
 export const SKILLS_ROOT_ENV = "NOMI_SKILLS_DIR";
 
-export function getProjectsRoot(): string {
+export type ProjectLocationSource = "environment" | "custom" | "default";
+export type ProjectLocationState = { path: string; source: ProjectLocationSource };
+
+export function getProjectLocationState(): ProjectLocationState {
   const configured = String(process.env[PROJECT_ROOT_ENV] || "").trim();
-  return configured || path.join(app.getPath("documents"), "Nomi Projects");
+  if (configured) return { path: configured, source: "environment" };
+
+  const customRoot = readProjectLocationSettings().projectsRoot;
+  if (customRoot) return { path: customRoot, source: "custom" };
+
+  return { path: path.join(app.getPath("documents"), "Nomi Projects"), source: "default" };
+}
+
+export function getProjectsRoot(): string {
+  return getProjectLocationState().path;
 }
 
 export function getWorkspaceRepositoryDeps(): WorkspaceRepositoryDeps {
