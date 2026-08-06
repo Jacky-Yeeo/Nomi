@@ -3,10 +3,19 @@ import path from "node:path";
 import { readJsonFile, writeJsonFileAtomic } from "../jsonFile";
 import { migrateLegacyProjectFolder } from "./legacyProjectMigration";
 import { initializeWorkspace, readWorkspaceManifest, writeWorkspaceManifest } from "./workspaceManifest";
-import { listRecentWorkspaces, rememberWorkspace, removeWorkspaceReference } from "./workspaceRegistry";
+import {
+  backfillWorkspaceOrigins,
+  findRecentWorkspace,
+  listRecentWorkspaces,
+  rememberWorkspace,
+  removeWorkspaceReference,
+} from "./workspaceRegistry";
 import {
   normalizeWorkspaceProjectRecord,
   workspaceProjectRecordSchema,
+  type RecentWorkspaceEntry,
+  type WorkspaceOrigin,
+  type WorkspaceProjectSource,
   type WorkspaceProjectRecordV2,
 } from "./workspaceTypes";
 import {
@@ -103,9 +112,7 @@ export function recoverWorkspaceProject(
   return recovered;
 }
 
-// 项目来源：'native' = 在默认根（~/Documents/Nomi Projects）里新建的原生项目；
-// 'folder' = 用「打开文件夹」绑定到外部目录的项目。靠目录位置派生，存量项目也能判，无需 schema 迁移。
-export type WorkspaceProjectSource = "native" | "folder";
+export type { WorkspaceProjectSource } from "./workspaceTypes";
 
 export type WorkspaceProjectSummary = Omit<WorkspaceProjectRecordV2, "payload"> & {
   rootPath: string;
@@ -120,12 +127,8 @@ export type WorkspaceProjectSummary = Omit<WorkspaceProjectRecordV2, "payload"> 
   coverVideoUrl?: string;
 };
 
-// rootPath 在默认根内 → native；否则 → folder（外部目录）。比较前 resolve + 规范化分隔符。
-function deriveProjectSource(rootPath: string, defaultProjectsRoot: string): WorkspaceProjectSource {
-  const resolvedRoot = path.resolve(defaultProjectsRoot);
-  const resolvedPath = path.resolve(rootPath);
-  if (resolvedPath === resolvedRoot) return "native";
-  return resolvedPath.startsWith(`${resolvedRoot}${path.sep}`) ? "native" : "folder";
+function persistedProjectSource(entry: RecentWorkspaceEntry): WorkspaceProjectSource {
+  return entry.source === "native" && entry.nativeRootPath ? "native" : "folder";
 }
 
 export type ProjectCover = {
@@ -240,10 +243,9 @@ function readManifestOrMigrateLegacy(rootPath: string): WorkspaceProjectRecordV2
 }
 
 export function createWorkspaceProject(
-  input: { rootPath: string; record: unknown },
+  input: { rootPath: string; record: unknown; origin?: WorkspaceOrigin },
   deps: WorkspaceRepositoryDeps,
 ): WorkspaceProjectRecordV2 {
-  void deps.defaultProjectsRoot;
   const rootPath = path.resolve(input.rootPath);
   const raw = asRecordInput(input.record);
   const initialized = initializeWorkspace(rootPath, {
@@ -259,13 +261,19 @@ export function createWorkspaceProject(
   });
   writeWorkspaceManifest(rootPath, record);
   backupWorkspaceProject(rootPath, record);
-  rememberWorkspace(deps.settingsRoot, record);
+  const defaultRoot = path.resolve(deps.defaultProjectsRoot);
+  const fallbackOrigin: WorkspaceOrigin =
+    rootPath !== defaultRoot && rootPath.startsWith(`${defaultRoot}${path.sep}`)
+      ? { source: "native", nativeRootPath: defaultRoot }
+      : { source: "folder" };
+  rememberWorkspace(deps.settingsRoot, record, input.origin ?? fallbackOrigin);
   return record;
 }
 
 export function listWorkspaceProjects(deps: WorkspaceRepositoryDeps): WorkspaceProjectSummary[] {
+  backfillWorkspaceOrigins(deps.settingsRoot, deps.defaultProjectsRoot);
   return listRecentWorkspaces(deps.settingsRoot).map((entry) => {
-    const source = deriveProjectSource(entry.rootPath, deps.defaultProjectsRoot);
+    const source = persistedProjectSource(entry);
     if (entry.missing) {
       return withoutPayload(
         normalizeWorkspaceProjectRecord({
@@ -389,15 +397,16 @@ export function deleteWorkspaceProject(
   projectId: string,
   deps: WorkspaceRepositoryDeps,
 ): { id: string; deleted: boolean } {
+  backfillWorkspaceOrigins(deps.settingsRoot, deps.defaultProjectsRoot);
+  const entry = findRecentWorkspace(deps.settingsRoot, projectId);
   const dir = resolveWorkspaceProjectDir(projectId, deps); // 解析必须在解绑引用之前
   removeWorkspaceReference(deps.settingsRoot, projectId);
-  if (!dir) return { id: projectId, deleted: false };
-  const root = path.resolve(deps.defaultProjectsRoot);
+  if (!dir || entry?.source !== "native" || !entry.nativeRootPath) {
+    return { id: projectId, deleted: false };
+  }
   const resolved = path.resolve(dir);
-  const isNative =
-    deriveProjectSource(resolved, deps.defaultProjectsRoot) === "native" &&
-    resolved !== root &&
-    resolved.startsWith(`${root}${path.sep}`);
+  const nativeRoot = path.resolve(entry.nativeRootPath);
+  const isNative = resolved !== nativeRoot && resolved.startsWith(`${nativeRoot}${path.sep}`);
   if (!isNative) return { id: projectId, deleted: false }; // 外部文件夹：只解绑，不删用户内容
   fs.rmSync(resolved, { recursive: true, force: true });
   return { id: projectId, deleted: true };

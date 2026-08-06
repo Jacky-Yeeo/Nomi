@@ -1,9 +1,12 @@
 import { dialog, ipcMain, shell } from "electron";
 import type { OpenDialogOptions } from "electron";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { ensureDir, getProjectLocationState, type ProjectLocationState } from "../runtimePaths";
+import { backfillWorkspaceOrigins } from "../workspace/workspaceRegistry";
 import { writeProjectsRoot } from "./projectLocationSettings";
+import { getSettingsRoot } from "./settingsRoot";
 
 export type ProjectLocationError =
   | "not-directory"
@@ -29,12 +32,48 @@ export type ProjectLocationRevealDeps = {
 
 export function validateProjectLocationRoot(rootPath: string): ProjectLocationError | null {
   const resolved = path.resolve(rootPath);
+  let probePath = "";
+  let probeFd: number | undefined;
   try {
     if (fs.existsSync(resolved) && !fs.statSync(resolved).isDirectory()) return "not-directory";
     ensureDir(resolved);
     if (!fs.statSync(resolved).isDirectory()) return "not-directory";
-    fs.accessSync(resolved, fs.constants.W_OK);
+    probePath = path.join(
+      resolved,
+      `.nomi-write-probe-${process.pid}-${crypto.randomUUID()}`,
+    );
+    probeFd = fs.openSync(probePath, "wx");
+    fs.closeSync(probeFd);
+    probeFd = undefined;
+    fs.unlinkSync(probePath);
+    probePath = "";
     return null;
+  } catch {
+    return "not-writable";
+  } finally {
+    if (probeFd !== undefined) {
+      try {
+        fs.closeSync(probeFd);
+      } catch {
+        // 校验失败，保留原设置；清理继续尽力而为。
+      }
+    }
+    if (probePath) {
+      try {
+        fs.unlinkSync(probePath);
+      } catch {
+        // probe 未成功创建或目录已不可访问。
+      }
+    }
+  }
+}
+
+function ensureProjectLocationDirectory(rootPath: string): ProjectLocationError | null {
+  const resolved = path.resolve(rootPath);
+  try {
+    if (fs.existsSync(resolved) && !fs.statSync(resolved).isDirectory()) return "not-directory";
+    ensureDir(resolved);
+    return fs.statSync(resolved).isDirectory() ? null : "not-directory";
   } catch {
     return "not-writable";
   }
@@ -64,14 +103,17 @@ export async function pickProjectLocation(
   const validationError = (deps.validateRoot || validateProjectLocationRoot)(selectedRoot);
   if (validationError) return { ok: false, error: validationError };
 
+  backfillWorkspaceOrigins(getSettingsRoot(), current.path);
   writeProjectsRoot(selectedRoot);
   return getProjectLocationResponse();
 }
 
 export function resetProjectLocation(): ProjectLocationResult {
-  if (getProjectLocationState().source === "environment") {
+  const current = getProjectLocationState();
+  if (current.source === "environment") {
     return { ok: false, error: "managed-by-environment" };
   }
+  backfillWorkspaceOrigins(getSettingsRoot(), current.path);
   writeProjectsRoot(null);
   return getProjectLocationResponse();
 }
@@ -80,7 +122,7 @@ export async function revealProjectLocation(
   deps: ProjectLocationRevealDeps = { openPath: (rootPath) => shell.openPath(rootPath) },
 ): Promise<ProjectLocationResult> {
   const location = getProjectLocationState();
-  const validationError = validateProjectLocationRoot(location.path);
+  const validationError = ensureProjectLocationDirectory(location.path);
   if (validationError) return { ok: false, error: validationError };
 
   try {

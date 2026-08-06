@@ -15,7 +15,9 @@ fs.mkdirSync(outDir, { recursive: true })
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'nomi-project-location-walk-'))
 const settingsRoot = path.join(tempRoot, 'settings')
 const customProjectsRoot = path.join(tempRoot, 'projects-on-another-drive')
+const defaultDocumentsRoot = path.join(tempRoot, 'documents')
 fs.mkdirSync(settingsRoot, { recursive: true })
+fs.mkdirSync(defaultDocumentsRoot, { recursive: true })
 fs.writeFileSync(
   path.join(settingsRoot, 'project-location.json'),
   `${JSON.stringify({ projectsRoot: customProjectsRoot }, null, 2)}\n`,
@@ -34,6 +36,7 @@ const app = await electron.launch({
     NOMI_SETTINGS_DIR: settingsRoot,
   },
 })
+await app.evaluate(({ app }, documentsRoot) => app.setPath('documents', documentsRoot), defaultDocumentsRoot)
 
 let win = await app.firstWindow()
 const currentWindow = () => {
@@ -88,11 +91,25 @@ try {
   await currentWindow().evaluate(() => document.documentElement.setAttribute('data-mantine-color-scheme', 'light'))
 
   await dialog().locator('button[aria-label*="关闭"], button[aria-label*="Close"]').click()
+  await currentWindow().evaluate(() => localStorage.setItem('nomi:locale:v1', 'en'))
+  await currentWindow().reload()
+  await currentWindow().waitForLoadState('domcontentloaded')
+  await currentWindow().waitForTimeout(1200)
+  await currentWindow().locator('button[aria-label*="Settings"]').first().click({ timeout: 8000 })
+  await dialog().waitFor({ state: 'visible', timeout: 8000 })
+  const englishSectionText = await dialog().locator('[data-settings-project-location]').innerText()
+  check(
+    '英文设置文案完整',
+    ['Default location for new projects', 'Change', 'Open folder', 'Restore default'].every((text) => englishSectionText.includes(text)),
+    englishSectionText,
+  )
+  await dialog().locator('button[aria-label*="Close"]').click()
   await currentWindow().getByRole('button', { name: /新建空白项目|New blank project/ }).first().click({ timeout: 8000 })
   await currentWindow().waitForTimeout(1800)
 
   const manifests = findProjectManifests(customProjectsRoot)
   check('新项目落到自定义目录', manifests.length === 1, JSON.stringify(manifests))
+  const customProject = JSON.parse(fs.readFileSync(manifests[0], 'utf8'))
 
   await currentWindow().locator('button[aria-label*="设置"], button[aria-label*="Settings"]').first().click({ timeout: 8000 })
   await dialog().waitFor({ state: 'visible', timeout: 8000 })
@@ -103,6 +120,23 @@ try {
     '恢复默认动作仅在自定义状态出现',
     await dialog().getByRole('button', { name: /恢复默认|Restore default/ }).count() === 0,
   )
+
+  await dialog().locator('button[aria-label*="关闭"], button[aria-label*="Close"]').click()
+  await currentWindow().getByText(/项目库|Projects/, { exact: true }).first().click({ timeout: 8000 })
+  await currentWindow().waitForTimeout(1200)
+  const oldCard = currentWindow().locator('[data-project-card="true"]', { hasText: customProject.name }).first()
+  await oldCard.waitFor({ state: 'visible', timeout: 8000 })
+  await oldCard.click({ position: { x: 20, y: 20 } })
+  await currentWindow().waitForTimeout(1200)
+  check('恢复默认后旧项目仍能从项目库重新打开', currentWindow().url().includes(customProject.id), currentWindow().url())
+
+  await currentWindow().getByText(/项目库|Projects/, { exact: true }).first().click({ timeout: 8000 })
+  await currentWindow().getByRole('button', { name: /新建空白项目|New blank project/ }).first().click({ timeout: 8000 })
+  await currentWindow().waitForTimeout(1800)
+  const defaultProjectsRoot = path.join(defaultDocumentsRoot, 'Nomi Projects')
+  const defaultManifests = findProjectManifests(defaultProjectsRoot)
+  check('恢复默认后新项目落到 Documents 默认目录', defaultManifests.length === 1, JSON.stringify(defaultManifests))
+  check('恢复默认和新建均未搬动旧项目', manifests.every((file) => fs.existsSync(file)))
 
   console.log(`\n截图目录：${outDir}`)
 } catch (error) {

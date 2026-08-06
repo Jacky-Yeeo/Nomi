@@ -22,8 +22,11 @@ import {
   registerProjectLocationIpc,
   resetProjectLocation,
   revealProjectLocation,
+  validateProjectLocationRoot,
 } from "./projectLocationIpc";
 import { readProjectLocationSettings, writeProjectsRoot } from "./projectLocationSettings";
+import { findRecentWorkspace, rememberWorkspace } from "../workspace/workspaceRegistry";
+import type { WorkspaceProjectRecordV2 } from "../workspace/workspaceTypes";
 
 let settingsRoot = "";
 const previousSettingsRoot = process.env.NOMI_SETTINGS_DIR;
@@ -37,6 +40,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   fs.rmSync(settingsRoot, { recursive: true, force: true });
   if (previousSettingsRoot === undefined) delete process.env.NOMI_SETTINGS_DIR;
   else process.env.NOMI_SETTINGS_DIR = previousSettingsRoot;
@@ -125,6 +129,63 @@ describe("project location IPC", () => {
     expect(readProjectLocationSettings().projectsRoot).toBe(selectedRoot);
   });
 
+  it("uses an actual create-and-delete probe to verify write access", () => {
+    const selectedRoot = path.join(settingsRoot, "probe-target");
+    const openSpy = vi.spyOn(fs, "openSync");
+    const unlinkSpy = vi.spyOn(fs, "unlinkSync");
+
+    expect(validateProjectLocationRoot(selectedRoot)).toBeNull();
+
+    expect(openSpy).toHaveBeenCalledWith(expect.stringContaining(".nomi-write-probe-"), "wx");
+    expect(unlinkSpy).toHaveBeenCalledWith(expect.stringContaining(".nomi-write-probe-"));
+    expect(fs.readdirSync(selectedRoot)).toEqual([]);
+    openSpy.mockRestore();
+    unlinkSpy.mockRestore();
+  });
+
+  it("rejects the directory when the real write probe cannot be created", () => {
+    const selectedRoot = path.join(settingsRoot, "acl-blocked-target");
+    const originalOpenSync = fs.openSync.bind(fs);
+    vi.spyOn(fs, "openSync").mockImplementation(((filePath, flags, ...args) => {
+      if (String(filePath).includes(".nomi-write-probe-")) {
+        const error = new Error("permission denied") as NodeJS.ErrnoException;
+        error.code = "EACCES";
+        throw error;
+      }
+      return originalOpenSync(filePath, flags, ...args);
+    }) as typeof fs.openSync);
+
+    expect(validateProjectLocationRoot(selectedRoot)).toBe("not-writable");
+  });
+
+  it("freezes legacy project origins before changing the default location", async () => {
+    const oldRoot = path.join(settingsRoot, "old-default");
+    const oldProjectRoot = path.join(oldRoot, "old-project");
+    const newRoot = path.join(settingsRoot, "new-default");
+    fs.mkdirSync(oldProjectRoot, { recursive: true });
+    writeProjectsRoot(oldRoot);
+    const legacyRecord: WorkspaceProjectRecordV2 = {
+      id: "old-project",
+      name: "Old project",
+      version: 2,
+      createdAt: 1,
+      updatedAt: 1,
+      savedAt: 1,
+      revision: 0,
+      lastKnownRootPath: oldProjectRoot,
+    };
+    rememberWorkspace(settingsRoot, legacyRecord);
+
+    await pickProjectLocation({
+      showOpenDialog: vi.fn(async () => ({ canceled: false, filePaths: [newRoot] })),
+    });
+
+    expect(findRecentWorkspace(settingsRoot, legacyRecord.id)).toMatchObject({
+      source: "native",
+      nativeRootPath: path.resolve(oldRoot),
+    });
+  });
+
   it("restores the documents default without touching any project folders", () => {
     const customRoot = path.join(settingsRoot, "custom");
     fs.mkdirSync(customRoot);
@@ -148,6 +209,21 @@ describe("project location IPC", () => {
     expect(result).toEqual({ ok: true, location: { path: customRoot, source: "custom" } });
     expect(fs.statSync(customRoot).isDirectory()).toBe(true);
     expect(openPath).toHaveBeenCalledWith(customRoot);
+  });
+
+  it("reveals an existing read-only location without running the write probe", async () => {
+    const customRoot = path.join(settingsRoot, "read-only-root");
+    fs.mkdirSync(customRoot);
+    writeProjectsRoot(customRoot);
+    const openPath = vi.fn(async () => "");
+    const openSpy = vi.spyOn(fs, "openSync");
+
+    const result = await revealProjectLocation({ openPath });
+
+    expect(result).toEqual({ ok: true, location: { path: customRoot, source: "custom" } });
+    expect(openPath).toHaveBeenCalledWith(customRoot);
+    expect(openSpy).not.toHaveBeenCalled();
+    openSpy.mockRestore();
   });
 
   it("does not pretend a saved choice can override the environment", async () => {

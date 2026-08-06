@@ -12,11 +12,23 @@ function settingsPath(): string {
   return path.join(getSettingsRoot(), PROJECT_LOCATION_FILE);
 }
 
+export function isStableAbsolutePath(
+  value: string,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  if (platform !== "win32") return path.posix.isAbsolute(value);
+  if (!path.win32.isAbsolute(value)) return false;
+  return (
+    /^[A-Za-z]:[\\/]/.test(value) ||
+    /^\\\\[^\\/]+[\\/][^\\/]+(?:[\\/]|$)/.test(value) ||
+    /^\\\\\?\\(?:[A-Za-z]:\\|UNC\\[^\\]+\\[^\\]+(?:\\|$))/.test(value)
+  );
+}
+
 function normalizeAbsolutePath(value: unknown): string | null {
   if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed || !path.isAbsolute(trimmed)) return null;
-  return path.normalize(trimmed);
+  if (!value.trim() || !isStableAbsolutePath(value)) return null;
+  return path.normalize(value);
 }
 
 export function readProjectLocationSettings(): ProjectLocationSettings {

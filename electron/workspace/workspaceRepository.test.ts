@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createWorkspaceProject,
+  deleteWorkspaceProject,
   gcEmptyDraftWorkspaceProjects,
   diagnoseWorkspaceProject,
   listWorkspaceProjects,
@@ -45,6 +46,56 @@ function deps(): WorkspaceRepositoryDeps {
 }
 
 describe("workspace repository", () => {
+  it("keeps projects under a previous default root native after the default location changes", () => {
+    const settingsRoot = makeTempDir("nomi-workspace-repository-settings-");
+    const oldDefaultRoot = makeTempDir("nomi-workspace-old-default-");
+    const newDefaultRoot = makeTempDir("nomi-workspace-new-default-");
+    const oldProjectRoot = path.join(oldDefaultRoot, "old-project");
+    const originalDeps: WorkspaceRepositoryDeps = {
+      settingsRoot,
+      defaultProjectsRoot: oldDefaultRoot,
+    };
+    const changedDeps: WorkspaceRepositoryDeps = {
+      settingsRoot,
+      defaultProjectsRoot: newDefaultRoot,
+    };
+    const created = createWorkspaceProject(
+      {
+        rootPath: oldProjectRoot,
+        record: { name: "Old native project" },
+        origin: { source: "native", nativeRootPath: oldDefaultRoot },
+      },
+      originalDeps,
+    );
+
+    expect(listWorkspaceProjects(changedDeps)[0]).toMatchObject({ id: created.id, source: "native" });
+    expect(deleteWorkspaceProject(created.id, changedDeps)).toEqual({ id: created.id, deleted: true });
+    expect(fs.existsSync(oldProjectRoot)).toBe(false);
+  });
+
+  it("never reclassifies an external project when its ancestor becomes the new default root", () => {
+    const settingsRoot = makeTempDir("nomi-workspace-repository-settings-");
+    const oldDefaultRoot = makeTempDir("nomi-workspace-old-default-");
+    const newDefaultRoot = makeTempDir("nomi-workspace-new-default-");
+    const externalRoot = path.join(newDefaultRoot, "existing-external-project");
+    const marker = path.join(externalRoot, "keep-me.txt");
+    const originalDeps: WorkspaceRepositoryDeps = { settingsRoot, defaultProjectsRoot: oldDefaultRoot };
+    const changedDeps: WorkspaceRepositoryDeps = { settingsRoot, defaultProjectsRoot: newDefaultRoot };
+    const created = createWorkspaceProject(
+      {
+        rootPath: externalRoot,
+        record: { name: "External project" },
+        origin: { source: "folder" },
+      },
+      originalDeps,
+    );
+    fs.writeFileSync(marker, "must survive", "utf8");
+
+    expect(listWorkspaceProjects(changedDeps)[0]).toMatchObject({ id: created.id, source: "folder" });
+    expect(deleteWorkspaceProject(created.id, changedDeps)).toEqual({ id: created.id, deleted: false });
+    expect(fs.readFileSync(marker, "utf8")).toBe("must survive");
+  });
+
   it("creates a project in the selected root path", () => {
     const selectedRoot = makeTempDir();
     const repoDeps = deps();

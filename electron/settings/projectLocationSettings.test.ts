@@ -7,7 +7,11 @@ vi.mock("electron", () => ({
   app: { getPath: () => os.tmpdir(), getAppPath: () => process.cwd() },
 }));
 
-import { readProjectLocationSettings, writeProjectsRoot } from "./projectLocationSettings";
+import {
+  isStableAbsolutePath,
+  readProjectLocationSettings,
+  writeProjectsRoot,
+} from "./projectLocationSettings";
 
 let settingsRoot = "";
 const previousSettingsRoot = process.env.NOMI_SETTINGS_DIR;
@@ -51,5 +55,19 @@ describe("project location settings", () => {
   it("rejects attempts to persist a relative root", () => {
     expect(() => writeProjectsRoot("relative/projects")).toThrow("absolute");
     expect(readProjectLocationSettings()).toEqual({ projectsRoot: null });
+  });
+
+  it("preserves legal leading and trailing spaces in a selected POSIX directory", () => {
+    const selectedRoot = path.join(settingsRoot, " Nomi Projects ");
+
+    writeProjectsRoot(selectedRoot);
+
+    expect(readProjectLocationSettings()).toEqual({ projectsRoot: selectedRoot });
+  });
+
+  it("rejects Windows current-drive-root paths while accepting stable drive and UNC roots", () => {
+    expect(isStableAbsolutePath("\\Nomi Projects", "win32")).toBe(false);
+    expect(isStableAbsolutePath("C:\\Nomi Projects", "win32")).toBe(true);
+    expect(isStableAbsolutePath("\\\\server\\share\\Nomi Projects", "win32")).toBe(true);
   });
 });
