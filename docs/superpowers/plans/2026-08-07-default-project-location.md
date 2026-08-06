@@ -30,7 +30,7 @@ expect(readProjectLocationSettings()).toEqual({ projectsRoot: null })
 
 - [ ] **Step 2: Run the test and verify RED**
 
-Run: `pnpm vitest run electron/settings/projectLocationSettings.test.ts`  
+Run: `pnpm vitest run electron/settings/projectLocationSettings.test.ts`
 Expected: FAIL because `projectLocationSettings.ts` does not exist.
 
 - [ ] **Step 3: Implement the minimal settings module**
@@ -47,7 +47,7 @@ Normalize with `path.resolve`, but only accept already-absolute non-empty values
 
 - [ ] **Step 4: Run the test and verify GREEN**
 
-Run: `pnpm vitest run electron/settings/projectLocationSettings.test.ts`  
+Run: `pnpm vitest run electron/settings/projectLocationSettings.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -79,7 +79,7 @@ Also test `getProjectLocationState()` returns `{ path, source: 'environment' | '
 
 - [ ] **Step 2: Run the test and verify RED**
 
-Run: `pnpm vitest run electron/runtimePaths.test.ts`  
+Run: `pnpm vitest run electron/runtimePaths.test.ts`
 Expected: FAIL because the saved preference and state function are not consulted.
 
 - [ ] **Step 3: Implement the single resolver**
@@ -96,7 +96,7 @@ Preserve `NOMI_PROJECTS_DIR` as the highest-priority test/developer override.
 
 - [ ] **Step 4: Run the tests and verify GREEN**
 
-Run: `pnpm vitest run electron/runtimePaths.test.ts electron/settings/projectLocationSettings.test.ts`  
+Run: `pnpm vitest run electron/runtimePaths.test.ts electron/settings/projectLocationSettings.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -129,7 +129,7 @@ Inject dialog, shell, and filesystem effects. Verify:
 
 - [ ] **Step 2: Run the test and verify RED**
 
-Run: `pnpm vitest run electron/settings/projectLocationIpc.test.ts`  
+Run: `pnpm vitest run electron/settings/projectLocationIpc.test.ts`
 Expected: FAIL because the IPC module does not exist.
 
 - [ ] **Step 3: Implement and register four async operations**
@@ -146,7 +146,7 @@ Register `nomi:settings:project-location-get`, `-pick`, `-reset`, and `-reveal`.
 
 - [ ] **Step 4: Run tests and typecheck**
 
-Run: `pnpm vitest run electron/settings/projectLocationIpc.test.ts electron/runtimePaths.test.ts electron/settings/projectLocationSettings.test.ts && pnpm run typecheck`  
+Run: `pnpm vitest run electron/settings/projectLocationIpc.test.ts electron/runtimePaths.test.ts electron/settings/projectLocationSettings.test.ts && pnpm run typecheck`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -170,7 +170,7 @@ Launch with an isolated `NOMI_SETTINGS_DIR` whose `project-location.json` points
 
 - [ ] **Step 2: Build and run the journey to verify RED**
 
-Run: `pnpm run build && node tests/ux/project-location-settings.walk.mjs`  
+Run: `pnpm run build && node tests/ux/project-location-settings.walk.mjs`
 Expected: FAIL because the current UI still renders the “Later” placeholder.
 
 - [ ] **Step 3: Implement the focused section**
@@ -190,7 +190,7 @@ When `source === 'environment'`, show a concise managed-environment hint and dis
 
 - [ ] **Step 4: Run the journey and focused tests to verify GREEN**
 
-Run: `pnpm run build && node tests/ux/project-location-settings.walk.mjs && pnpm vitest run electron/settings/projectLocationSettings.test.ts electron/runtimePaths.test.ts electron/settings/projectLocationIpc.test.ts`  
+Run: `pnpm run build && node tests/ux/project-location-settings.walk.mjs && pnpm vitest run electron/settings/projectLocationSettings.test.ts electron/runtimePaths.test.ts electron/settings/projectLocationIpc.test.ts`
 Expected: PASS with light/dark screenshots saved under `docs/design/mockups/2026-08-07-project-location/`.
 
 - [ ] **Step 5: Commit**
@@ -207,7 +207,7 @@ git commit -m "feat(settings): choose new project location"
 
 - [ ] **Step 1: Run the complete project gate**
 
-Run: `pnpm run gates`  
+Run: `pnpm run gates`
 Expected: all file-size, token, dangling-token, archetype, secret, i18n, control, site, lint, typecheck, test, and build checks pass.
 
 - [ ] **Step 2: Inspect screenshots against the approved design**
@@ -216,10 +216,10 @@ Read both light and dark screenshots. Confirm the path is legible, actions do no
 
 - [ ] **Step 3: Verify the final diff and commits**
 
-Run: `git diff origin/main...HEAD --check && git status --short && git log --oneline origin/main..HEAD`  
+Run: `git diff origin/main...HEAD --check && git status --short && git log --oneline origin/main..HEAD`
 Expected: only this feature's source, tests, spec, plan, and verification screenshots are present; `node_modules` remains untracked and is not staged.
 
 - [ ] **Step 4: Push the detached worktree commits to main**
 
-Run: `git push origin HEAD:main`  
+Run: `git push origin HEAD:main`
 Expected: push succeeds without force. If remote main advanced, fetch and replay only these commits in a fresh detached worktree, rerun the gates, then push.
