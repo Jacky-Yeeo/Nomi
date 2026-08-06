@@ -209,12 +209,11 @@ export default function NomiAppBar({
           role="toolbar"
           aria-label={t('appBar.globalActions')}
         >
-        {/* 任务：无历史时整组隐藏，分隔线也不留下。 */}
+        {/* 任务：入口常驻；空闲时安静显示，有任务时由按钮表达数量和状态。 */}
         <span
           className={cn(
             'nomi-appbar__group nomi-appbar__group--tasks',
             'inline-flex items-center gap-2.5',
-            '[&:not(:has(button))]:hidden',
           )}
         >
           <TaskCenterButton

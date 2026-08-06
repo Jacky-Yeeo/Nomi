@@ -3,7 +3,11 @@ import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
 import {
   anchorNodePosition,
   buildAspectRatioNodePatch,
+  didComposerAvailableSpaceChange,
+  getUnobstructedComposerSpaceBelow,
   resolveAreaPreservingSize,
+  shouldAllowComposerAttachmentRecompute,
+  shouldPreserveComposerAttachmentOnRatioChange,
 } from './nodeSizing'
 
 const bounds = {
@@ -55,6 +59,108 @@ describe('anchorNodePosition', () => {
 
     expect(anchored.x + next.width / 2).toBe(position.x + current.width / 2)
     expect(anchored.y).toBe(position.y)
+  })
+})
+
+describe('shouldPreserveComposerAttachmentOnRatioChange', () => {
+  it('keeps the current attachment side while the ratio itself is changing', () => {
+    expect(shouldPreserveComposerAttachmentOnRatioChange('1:1', '21:9')).toBe(true)
+    expect(shouldPreserveComposerAttachmentOnRatioChange('21:9', '9:16')).toBe(true)
+  })
+
+  it('allows normal placement on mount and when the ratio is unchanged', () => {
+    expect(shouldPreserveComposerAttachmentOnRatioChange(null, '1:1')).toBe(false)
+    expect(shouldPreserveComposerAttachmentOnRatioChange('', '1:1')).toBe(false)
+    expect(shouldPreserveComposerAttachmentOnRatioChange('1:1', '1:1')).toBe(false)
+  })
+})
+
+describe('didComposerAvailableSpaceChange', () => {
+  const measured = {
+    anchor: { width: 472, height: 228 },
+    stage: { width: 1600, height: 900 },
+  }
+
+  it('releases attachment preservation when the composer or stage size changes', () => {
+    expect(
+      didComposerAvailableSpaceChange(measured, {
+        ...measured,
+        anchor: { ...measured.anchor, height: 260 },
+      }),
+    ).toBe(true)
+    expect(
+      didComposerAvailableSpaceChange(measured, {
+        ...measured,
+        stage: { ...measured.stage, height: 700 },
+      }),
+    ).toBe(true)
+  })
+
+  it('keeps preservation when available-space inputs are unchanged', () => {
+    expect(didComposerAvailableSpaceChange(measured, measured)).toBe(false)
+  })
+})
+
+describe('shouldAllowComposerAttachmentRecompute', () => {
+  it('keeps ratio switching stable when no available boundary changed', () => {
+    expect(
+      shouldAllowComposerAttachmentRecompute({
+        preserveForRatioChange: true,
+        availableSpaceChanged: false,
+        obstacleChanged: false,
+        attachmentObstructed: false,
+      }),
+    ).toBe(false)
+  })
+
+  it('releases ratio preservation when the timeline obstacle changes', () => {
+    expect(
+      shouldAllowComposerAttachmentRecompute({
+        preserveForRatioChange: true,
+        availableSpaceChanged: false,
+        obstacleChanged: true,
+        attachmentObstructed: false,
+      }),
+    ).toBe(true)
+  })
+
+  it('never preserves an attachment that is already off-screen or obstructed', () => {
+    expect(
+      shouldAllowComposerAttachmentRecompute({
+        preserveForRatioChange: true,
+        availableSpaceChanged: false,
+        obstacleChanged: false,
+        attachmentObstructed: true,
+      }),
+    ).toBe(true)
+  })
+})
+
+describe('getUnobstructedComposerSpaceBelow', () => {
+  const stage = { left: 0, right: 1600, top: 0, bottom: 900 }
+  const node = { left: 610, right: 990, top: 360, bottom: 740 }
+  const timelineHandle = { left: 690, right: 910, top: 850, bottom: 886 }
+
+  it('reserves the floating timeline handle when it crosses the composer footprint', () => {
+    expect(
+      getUnobstructedComposerSpaceBelow({
+        stage,
+        node,
+        composer: { left: 560, right: 1040 },
+        obstacles: [timelineHandle],
+      }),
+    ).toBe(110)
+  })
+
+  it('uses the full stage when the bottom obstacle is horizontally clear', () => {
+    expect(
+      getUnobstructedComposerSpaceBelow({
+        stage,
+        node,
+        composer: { left: 1000, right: 1480 },
+        obstacles: [timelineHandle],
+      }),
+    ).toBe(160)
   })
 })
 

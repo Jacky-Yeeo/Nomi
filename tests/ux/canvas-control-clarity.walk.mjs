@@ -110,6 +110,39 @@ async function ensureParameterPanel(composer) {
     trigger = composer.getByRole('button', { name: '生成参数', exact: true }).first()
   }
   await trigger.waitFor({ timeout: 5000 })
+  const hitTest = await trigger.evaluate((element) => {
+    const box = (rect) => ({
+      x: Math.round(rect.x * 10) / 10,
+      y: Math.round(rect.y * 10) / 10,
+      width: Math.round(rect.width * 10) / 10,
+      height: Math.round(rect.height * 10) / 10,
+    })
+    const rect = element.getBoundingClientRect()
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+    const composer = element.closest('.generation-canvas-v2-node__composer')
+    const stage = composer?.closest('.generation-canvas-v2__stage')
+    const composerRect = composer?.getBoundingClientRect()
+    const stageRect = stage?.getBoundingClientRect()
+    const handle = document.querySelector('.workbench-generation__timeline-handle')
+    const handleRect = handle?.getBoundingClientRect()
+    const overlapWidth = handleRect ? Math.min(rect.right, handleRect.right) - Math.max(rect.left, handleRect.left) : 0
+    const overlapHeight = handleRect ? Math.min(rect.bottom, handleRect.bottom) - Math.max(rect.top, handleRect.top) : 0
+    return {
+      clear: hit === element || Boolean(hit && element.contains(hit)),
+      overlapsTimeline: overlapWidth > 0 && overlapHeight > 0,
+      flipped: composer?.getAttribute('data-flipped'),
+      composerWithinStage: Boolean(
+        composerRect && stageRect && composerRect.top >= stageRect.top && composerRect.bottom <= stageRect.bottom,
+      ),
+      workspaceFound: Boolean(composer?.closest('.workbench-generation__canvas')),
+      trigger: box(rect),
+      handle: handleRect ? box(handleRect) : null,
+      hitLabel: hit?.getAttribute('aria-label') || hit?.textContent?.trim().slice(0, 24) || hit?.tagName || 'none',
+    }
+  })
+  assert(hitTest.clear, '生成参数按钮不被底部时间轴遮挡', JSON.stringify(hitTest))
+  assert(!hitTest.overlapsTimeline, '生成参数按钮与底部时间轴没有视觉重叠', JSON.stringify(hitTest))
+  assert(hitTest.flipped === 'false' && hitTest.composerWithinStage, '新建节点的编辑框在下方完整可见', JSON.stringify(hitTest))
   await trigger.click()
   const panel = getWin().getByRole('group', { name: '生成参数面板', exact: true }).first()
   await panel.waitFor({ timeout: 5000 })
@@ -259,7 +292,7 @@ try {
   assert(actionGroups.assist === 'onboarding browser', '上手与浏览器归入创作辅助组')
   assert(actionGroups.config === 'settings modelAccess', '设置与模型接入归入配置组')
   assert(actionGroups.primary === 'goToProduce', '去出片是唯一主动作')
-  assert(!actionGroups.idleTaskVisible, '完全无任务历史时任务组不留空按钮')
+  assert(actionGroups.idleTaskVisible, '完全无任务历史时仍保留“任务”入口')
 
   const nodeId = await node.getAttribute('data-node-id')
   const queueReady = await getWin().evaluate(() => Boolean(window.__nomiQueueStore))

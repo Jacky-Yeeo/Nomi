@@ -403,7 +403,7 @@ import { IconListDetails } from '@tabler/icons-react'
 ) : null}
 ```
 
-没有 entries/batches 时返回 `null`；有历史但 pending=0 时保留“任务”且无徽标。紧凑宽度仍有 `aria-label` 和 title。
+“任务”入口始终常驻；没有 entries/batches 或 pending=0 时只是不显示数量徽标。紧凑宽度仍有 `aria-label` 和 Tooltip，用户随时能打开任务面板与通知设置。
 
 - [ ] **Step 2: 把右簇拆成四组**
 

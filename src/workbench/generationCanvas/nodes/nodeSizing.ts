@@ -38,6 +38,77 @@ export type NodeSizeBounds = {
     maxHeight: number;
 };
 export type ComposerAttachmentSide = "top" | "bottom";
+
+/**
+ * 比例切换会同时改节点尺寸和位置；这类同一用户动作不应顺带把 composer 翻到节点另一侧。
+ * 首次挂载或比例未变时仍允许正常的视口避让逻辑决定连接侧。
+ */
+export function shouldPreserveComposerAttachmentOnRatioChange(
+    previousRatio: string | null,
+    nextRatio: string,
+): boolean {
+    return previousRatio !== null && previousRatio !== "" && nextRatio !== "" && previousRatio !== nextRatio;
+}
+
+export type ComposerAvailableSpaceMeasurement = {
+    anchor: { width: number; height: number };
+    stage: { width: number; height: number };
+};
+
+type ComposerObstacleRect = {
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+};
+
+/**
+ * 返回 composer 朝下展开时真正可用的屏幕高度。
+ * 折叠时间轴把手等浮层虽然不改变 stage 尺寸，却会盖住同一水平区间内的 composer；
+ * 因此它们的顶边也必须成为下边界，不能只看 stage.bottom。
+ */
+export function getUnobstructedComposerSpaceBelow(input: {
+    stage: ComposerObstacleRect;
+    node: ComposerObstacleRect;
+    composer: Pick<ComposerObstacleRect, "left" | "right">;
+    obstacles: ComposerObstacleRect[];
+}): number {
+    const boundary = input.obstacles.reduce((current, obstacle) => {
+        const isBelowNode = obstacle.top >= input.node.bottom;
+        const overlapsComposer = obstacle.left < input.composer.right && obstacle.right > input.composer.left;
+        return isBelowNode && overlapsComposer ? Math.min(current, obstacle.top) : current;
+    }, input.stage.bottom);
+
+    return Math.max(0, boundary - input.node.bottom);
+}
+
+/** composer 或舞台尺寸改变时，可用空间已经不同，必须解除比例切换期间的连接侧保持。 */
+export function didComposerAvailableSpaceChange(
+    previous: ComposerAvailableSpaceMeasurement,
+    next: ComposerAvailableSpaceMeasurement,
+): boolean {
+    return (
+        previous.anchor.width !== next.anchor.width ||
+        previous.anchor.height !== next.anchor.height ||
+        previous.stage.width !== next.stage.width ||
+        previous.stage.height !== next.stage.height
+    );
+}
+
+/** 比例切换只在边界完全没变时保持原连接侧；真实空间或浮层障碍变化必须重新避让。 */
+export function shouldAllowComposerAttachmentRecompute(input: {
+    preserveForRatioChange: boolean;
+    availableSpaceChanged: boolean;
+    obstacleChanged: boolean;
+    attachmentObstructed: boolean;
+}): boolean {
+    return (
+        !input.preserveForRatioChange ||
+        input.availableSpaceChanged ||
+        input.obstacleChanged ||
+        input.attachmentObstructed
+    );
+}
 // 非媒体节点（含 text）自由缩放时的 min/max。媒体（图/视频）走比例锁定分支，
 // 仍用上面的 MIN/MAX_NODE_*，故此处只为「自由拉伸」路径按 kind 取边界。
 export function getNodeSizeBounds(kind: GenerationCanvasNode["kind"]): NodeSizeBounds {

@@ -162,6 +162,18 @@ try {
     return { dividers, groups, labels }
   })
   note('studio 顶栏右簇', rightCluster ? `按钮 ${rightCluster.labels.length} 个 / 分隔线 ${rightCluster.dividers} / 分组 ${rightCluster.groups}：${rightCluster.labels.join(' | ')}` : '未找到')
+
+  const taskTrigger = getWin().locator('[data-task-center-trigger="true"]').first()
+  await taskTrigger.hover({ timeout: 4000 }).catch(() => {})
+  await getWin().waitForTimeout(450)
+  const taskTooltipVisible = await getWin().locator('[role="tooltip"]', { hasText: /^任务$/ }).first().isVisible().catch(() => false)
+  note('任务入口悬浮名称', taskTooltipVisible ? '任务' : '未显示')
+  await taskTrigger.click({ timeout: 4000 }).catch(() => {})
+  await getWin().waitForTimeout(250)
+  const taskPanelVisible = await getWin().locator('[role="dialog"][aria-label="任务"]').first().isVisible().catch(() => false)
+  note('任务面板可打开', taskPanelVisible ? '是' : '否')
+  await getWin().keyboard.press('Escape').catch(() => {})
+  await getWin().waitForTimeout(200)
   await snapTopBar('04-studio-topbar-generate.png')
 
   // ========== ⑤ 预览页：顶栏「去出片」消失，控制条「导出 MP4」唯一 ==========
@@ -188,7 +200,10 @@ try {
     ['设置·关于含版本号', /当前版本|Version/.test(aboutTexts)],
     // 任务入口必须常驻：否则重启后内存队列为空，用户连任务面板和通知设置都找不到。
     ['无任务时仍有「任务」入口', (rightCluster?.labels || []).some((l) => /^任务$/.test(l))],
-    ['任务常驻时可见分隔线 = 2', rightCluster?.dividers === 2],
+    // 当前右簇按「任务｜创作辅助｜配置｜主行动」分成 4 组，因此组间应恰有 3 条分隔线。
+    ['任务常驻时可见分隔线 = 3', rightCluster?.dividers === 3],
+    ['悬浮任务入口显示名称', taskTooltipVisible],
+    ['点击任务入口打开面板', taskPanelVisible],
     ['studio 顶栏主行动叫「去出片」', (rightCluster?.labels || []).some((l) => /去出片/.test(l))],
     ['预览页顶栏无「去出片」', !(previewState.topLabels || []).some((l) => /去出片/.test(l))],
     ['全页导出入口恰好 1 个', previewState.exportButtons.length === 1],

@@ -110,13 +110,13 @@ export default function GenerationWorkspace({
         )}
       >
         {canvas}
-        {/* 折叠态：底部悬浮把手——画布吃满高度，把手给一眼可见的成片摘要 + 拉起入口。 */}
+        {/* 折叠态：右下悬浮把手——避开节点与 composer 的中央编辑通道。 */}
         {timelineCollapsed ? (
           <button
             type="button"
             className={cn(
               'workbench-generation__timeline-handle',
-              'absolute bottom-3 left-1/2 z-[8] -translate-x-1/2',
+              'absolute bottom-3 right-3 z-[8]',
               'inline-flex items-center gap-2 rounded-full px-3 py-1.5',
               'border border-[var(--workbench-border)] bg-nomi-paper shadow-workbench-pop',
               'text-body-sm font-medium text-nomi-ink',

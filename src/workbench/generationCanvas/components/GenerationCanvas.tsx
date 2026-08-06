@@ -383,7 +383,8 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
     () => {
       const rect = stageRef.current?.getBoundingClientRect()
       const viewportAnchor = rect
-        ? { x: rect.width * 0.38, y: rect.height * 0.42 }
+        // 生成节点默认落在上半区：下方要留出完整 composer，比例切换才能保持同一连接侧且不出屏。
+        ? { x: rect.width * 0.38, y: rect.height * 0.28 }
         : { x: 360, y: 280 }
       return {
         x: Math.round((viewportAnchor.x - offset.x) / zoom),
@@ -566,7 +567,7 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
 
   // 项目/分类首次加载时自动适应视图（含「历史视口框不住任何节点」的自愈式适应，
   // 防止图都在视口外、用户误以为「图消失」）。逻辑抽到 useAutoFitOnLoad（防巨壳）。
-  useAutoFitOnLoad({ nodes, activeCategoryId, categoryViewports, fitView, stageRef, zoomRef, offsetRef })
+  useAutoFitOnLoad({ nodes, selectedNodeIds, activeCategoryId, categoryViewports, fitView, stageRef, zoomRef, offsetRef })
 
   // 一次性「请适应视图」信号（落画布等批量加节点场景，见 store.requestCanvasFit）。
   // useAutoFitOnLoad 只在首次加载/切分类触发，加新节点不重跑——这里补「显式动作后揭示新内容」。

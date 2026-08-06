@@ -42,6 +42,7 @@ import {
   parseGenerationVariantCount,
   type GenerationVariantCount,
 } from './generationVariantCount'
+import { useComposerViewportPlacement } from './useComposerViewportPlacement'
 
 // C5 P2：文本节点的三种生成模式（label 由 composer.append/rewrite/replace 在渲染处翻译）。
 const TEXT_GEN_MODES: { value: TextGenMode; labelKey: string }[] = [
@@ -55,8 +56,6 @@ const TEXT_MODE_PLACEHOLDER_KEY: Record<TextGenMode, string> = {
   replace: 'composer.replacePlaceholder',
 }
 
-// 翻转滞回带（屏幕 px）：已翻上后要等下方明显够放才切回朝下，杜绝边界反复横跳（用户反馈①）。
-const FLIP_HYSTERESIS = 48
 const PROMPT_PICKER_WIDTH = 245
 const PROMPT_PICKER_MIN_WIDTH = 240
 const PROMPT_PICKER_MAX_HEIGHT = 310
@@ -457,64 +456,11 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
     else await confirmAndRunNode(node.id)
   }
 
-  // 遮挡防线（audit 2026-06-12 bug C）：composer 默认朝下展开时，靠近画布底部的节点
-  // 会把参数行/生成钮伸进时间轴的屏幕区域，被盖住点不到（elementFromPoint 实证）。
-  // 屏幕坐标下实测节点上下可用空间，决定是否翻转朝上。
-  // 订阅 zoom/offset/node.position：平移、缩放、拖节点都会重算。
-  // 用户反馈①：默认稳定朝下，仅「下方真放不下且上方更宽裕」才翻上；已翻上后要等下方
-  // 明显够放（+滞回带 FLIP_HYSTERESIS）才切回 → 杜绝节点贴边界时反复横跳。
-  // 面板已反向缩放成恒定屏幕尺寸（见 anchor transform），故所需高度≈ offsetHeight（不再 ×zoom）。
-  const canvasZoom = useGenerationCanvasStore((state) => state.canvasZoom)
-  const canvasOffset = useGenerationCanvasStore((state) => state.canvasOffset)
-  const anchorRef = React.useRef<HTMLDivElement>(null)
-  const [flipUp, setFlipUp] = React.useState(false)
-  // 翻上时要避让的「节点上方图片编辑工具条」高度（节点坐标系 px）。否则参数框会压住那条
-  // 浮动工具条（用户反馈：浮动条看不见/遮挡）。无工具条（如未生成、视频节点）则为 0。
-  const [aboveClearance, setAboveClearance] = React.useState(0)
-  // 横向视口夹取（屏幕 px）：内容驱动的卡变宽后，靠画布左右边的节点会让卡溢出视口被裁（用户反馈
-  // 2026-06-16「参数遮挡/很丑」）。算出卡左右沿对 stage 视口的越界量，整体平移把它拉回视口内
-  // （卡比视口还宽时左对齐——参数从左起，优先露出左侧）。与竖向 flip 同源：都按屏幕几何避让。
-  const [shiftX, setShiftX] = React.useState(0)
-  React.useLayoutEffect(() => {
-    const anchor = anchorRef.current
-    const stage = anchor?.closest('.generation-canvas-v2__stage')
-    const nodeEl = anchor?.parentElement
-    if (!anchor || !stage || !nodeEl) return
-    const recompute = () => {
-      const stageRect = stage.getBoundingClientRect()
-      const nodeRect = nodeEl.getBoundingClientRect()
-      const neededScreenHeight = (anchor.offsetHeight || 280) + composerLayout.gap * canvasZoom
-      const spaceBelow = stageRect.bottom - nodeRect.bottom
-      const spaceAbove = nodeRect.top - stageRect.top
-      setFlipUp((prev) =>
-        prev
-          ? !(spaceBelow > neededScreenHeight + FLIP_HYSTERESIS)
-          : spaceBelow < neededScreenHeight && spaceAbove > spaceBelow,
-      )
-      // 工具条也恒定屏幕尺寸（counter-scaled）→ 实测其屏幕高换回节点坐标（/zoom）+ 它距节点的 18px。
-      const toolbarEl = nodeEl.querySelector('.generation-canvas-v2-node__panorama-toolbar')
-      const toolbarScreenH = toolbarEl ? toolbarEl.getBoundingClientRect().height : 0
-      setAboveClearance(toolbarScreenH > 0 ? toolbarScreenH / (canvasZoom || 1) + 18 : 0)
-      // 横向夹取：卡净 scale=1（画布 scale(zoom)×卡 counter-scale(1/zoom)）→ 屏幕宽 = offsetWidth。
-      // 默认锚在节点中心（left-1/2 + translateX(-50%)）。算越界，整体平移回视口内。
-      const MARGIN = 12
-      const cardScreenW = anchor.offsetWidth
-      const centerX = nodeRect.left + nodeRect.width / 2
-      const wouldLeft = centerX - cardScreenW / 2
-      const wouldRight = centerX + cardScreenW / 2
-      const minLeft = stageRect.left + MARGIN
-      const maxRight = stageRect.right - MARGIN
-      let next = 0
-      if (wouldRight > maxRight) next = maxRight - wouldRight // 右溢出 → 左移（负）
-      if (wouldLeft + next < minLeft) next = minLeft - wouldLeft // 左溢出（或比视口宽）→ 左对齐
-      setShiftX(Math.round(next))
-    }
-    recompute()
-    // 卡宽随模型/参数变（model 切换不在下方 deps 里）→ ResizeObserver 兜住宽度变化重算横向夹取。
-    const ro = new ResizeObserver(recompute)
-    ro.observe(anchor)
-    return () => ro.disconnect()
-  }, [canvasZoom, canvasOffset, node.position?.x, node.position?.y, visualSize.width, visualSize.height, composerLayout.gap, node.result?.url, flipUp])
+  const { anchorRef, canvasZoom, flipUp, aboveClearance, shiftX } = useComposerViewportPlacement({
+    node,
+    visualSize,
+    gap: composerLayout.gap,
+  })
 
   // 卡宽 = **内容驱动**（用户拍板 2026-06-16，推翻 06-13 的「按最宽模型恒定宽」）：
   // 卡片 **w-max**（max-content）跟着当前模型的「底栏一行」(锁+参数+生成钮)自然撑开。参数已主次分层
