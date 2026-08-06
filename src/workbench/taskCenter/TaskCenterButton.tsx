@@ -20,7 +20,7 @@ type Props = {
   onRevealNode?: (nodeId: string) => void
 }
 
-export function TaskCenterButton({ onRevealNode }: Props): JSX.Element | null {
+export function TaskCenterButton({ onRevealNode }: Props): JSX.Element {
   const { t } = useTranslation()
   const [opened, setOpened] = React.useState(false)
   const entries = useGenerationQueueStore((state) => state.entries)
@@ -48,9 +48,6 @@ export function TaskCenterButton({ onRevealNode }: Props): JSX.Element | null {
   )
   const tone = resolveTaskButtonTone(summary)
   const pending = summary.running + summary.queued
-
-  // 闲着且从没跑过 → 不占顶栏的位置（顶栏已经挤，见 onboarding-handbook-shipped 的教训）。
-  if (tone === 'idle' && entries.length === 0 && !opened) return null
 
   return (
     <>

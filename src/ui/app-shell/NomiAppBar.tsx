@@ -191,14 +191,11 @@ export default function NomiAppBar({
         role="toolbar"
         aria-label={t('appBar.globalActions')}
       >
-        {/* 组 1 · 在跑什么：任务中心闲着且没跑过时自己 return null。
-            分隔线跟它装在同一个壳里，并用 :has(button) 绑定它的**真实渲染**（不复制它的判定条件）——
-            否则任务钮一藏，右簇最左就挂着一条没有前件的悬空竖线（2026-08-02 真机走查抓到）。 */}
+        {/* 组 1 · 在跑什么：任务入口常驻。空闲时是安静的 ghost 图标；有任务时自己显示数量和状态色。 */}
         <span
           className={cn(
             'nomi-appbar__group nomi-appbar__group--tasks',
             'inline-flex items-center gap-2.5',
-            '[&:not(:has(button))]:hidden',
           )}
         >
           <TaskCenterButton

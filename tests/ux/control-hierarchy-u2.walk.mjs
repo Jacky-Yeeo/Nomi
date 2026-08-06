@@ -154,8 +154,7 @@ try {
   const rightCluster = await getWin().evaluate(() => {
     const right = document.querySelector('.nomi-appbar__right')
     if (!right) return null
-    // 只数**真正可见**的分隔线：任务中心闲时 return null，它那道线要跟着一起藏
-    // （CSS :has 藏的是 display，DOM 节点还在，直接 count 会数到看不见的那条）。
+    // 只数**真正可见**的分隔线，避免只数 DOM 把 CSS 隐藏的节点也算进去。
     const dividers = [...right.querySelectorAll('.nomi-appbar__divider')]
       .filter((el) => el.getClientRects().length > 0).length
     const groups = right.querySelectorAll('.nomi-appbar__group').length
@@ -187,8 +186,9 @@ try {
     ['设置·通用有语言分段 2 段', localeBtns === 2],
     ['设置·关于含「重看开屏动画」', /重看开屏动画/.test(aboutTexts)],
     ['设置·关于含版本号', /当前版本|Version/.test(aboutTexts)],
-    // 无任务在跑 → 任务组整个藏起来，可见分隔线应为 1（组2|组3 之间那道）。
-    ['无任务时可见分隔线 = 1（不挂悬空竖线）', rightCluster?.dividers === 1],
+    // 任务入口必须常驻：否则重启后内存队列为空，用户连任务面板和通知设置都找不到。
+    ['无任务时仍有「任务」入口', (rightCluster?.labels || []).some((l) => /^任务$/.test(l))],
+    ['任务常驻时可见分隔线 = 2', rightCluster?.dividers === 2],
     ['studio 顶栏主行动叫「去出片」', (rightCluster?.labels || []).some((l) => /去出片/.test(l))],
     ['预览页顶栏无「去出片」', !(previewState.topLabels || []).some((l) => /去出片/.test(l))],
     ['全页导出入口恰好 1 个', previewState.exportButtons.length === 1],
