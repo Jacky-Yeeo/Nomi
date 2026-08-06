@@ -14,7 +14,7 @@
 
 | 文件 | 责任 |
 |---|---|
-| `src/workbench/generationCanvas/nodes/nodeSizing.ts` | 面积守恒尺寸与 top/bottom 锚点纯计算 |
+| `src/workbench/generationCanvas/nodes/nodeSizing.ts` | 面积守恒尺寸、top/bottom 锚点与原子节点 patch 纯计算 |
 | `src/workbench/generationCanvas/nodes/nodeSizing.aspectRatio.test.ts` | 比例、面积、边界、锚点回归测试 |
 | `src/workbench/generationCanvas/nodes/parameterOptionPresentation.ts` | `auto` 值的本地化展示判断，保持内部值不变 |
 | `src/workbench/generationCanvas/nodes/parameterOptionPresentation.test.ts` | 中英文自动项与普通比例展示测试 |
@@ -113,6 +113,18 @@ export function anchorNodePosition(
     y: side === 'bottom' ? position.y + current.height - next.height : position.y,
   }
 }
+
+export function buildAspectRatioNodePatch(
+  node: GenerationCanvasNode,
+  nextMeta: Record<string, unknown>,
+  targetRatio: number | null,
+  side: ComposerAttachmentSide,
+): Partial<GenerationCanvasNode> {
+  if (!targetRatio || node.result?.url) return { meta: nextMeta }
+  const current = resolveNodeVisualSize(node)
+  const size = resolveAreaPreservingSize(current, targetRatio, getNodeSizeBounds(node.kind))
+  return { meta: nextMeta, size, position: anchorNodePosition(node.position, current, size, side) }
+}
 ```
 
 - [ ] **Step 4: 运行新测试与既有视觉尺寸测试**
@@ -138,7 +150,7 @@ git commit -m "feat(canvas): preserve node area across aspect ratios"
 
 - [ ] **Step 1: 扩充失败测试，覆盖一次 patch 所需结果**
 
-在测试中加入候选节点几何断言：用 `resolveNodeVisualSize` 取得 current，计算 next，再断言 `anchorNodePosition` 同时产出 size 与 position 所需的稳定底边/顶边。
+在测试中加入候选节点几何断言：用 `buildAspectRatioNodePatch` 取得一次 `updateNode` 所需的完整 meta/size/position patch，再断言连续切换不漂移。
 
 ```ts
 it('连续 1:1 → 21:9 → 9:16 时锚点不累积漂移', () => {
@@ -175,28 +187,18 @@ type NodeParameterControlsProps = {
 比例参数分支构造一次 patch：
 
 ```ts
-const updateAspectRatioMeta = (metaPatch: Record<string, unknown>) => {
+const updateAspectRatioMeta = (metaPatch: Record<string, unknown>, ratio: number | null) => {
   const latest = useGenerationCanvasStore.getState().nodes.find((candidate) => candidate.id === node.id)
   if (!latest) return
   const nextMeta = { ...(latest.meta || {}), ...metaPatch }
-  const ratio = readNodeAspectRatio({ ...latest, meta: nextMeta })
-  if (!ratio || latest.result?.url) {
-    updateNode(node.id, { meta: nextMeta })
-    return
-  }
-  const currentSize = resolveNodeVisualSize(latest)
-  const nextSize = resolveAreaPreservingSize(currentSize, ratio, getNodeSizeBounds(latest.kind))
-  const position = anchorNodePosition(
-    latest.position,
-    currentSize,
-    nextSize,
-    composerAttachmentSide ?? 'bottom',
+  updateNode(
+    node.id,
+    buildAspectRatioNodePatch(latest, nextMeta, ratio, composerAttachmentSide ?? 'bottom'),
   )
-  updateNode(node.id, { meta: nextMeta, size: nextSize, position })
 }
 ```
 
-`handleParameterControlChange` 和 `handleCatalogControlChange` 仅在 aspect key 时调用该入口，其他参数仍调用 `updateMeta`。
+`handleParameterControlChange` 和 `handleCatalogControlChange` 仅在 aspect key 时调用该入口，并把本次选项直接解析出的 ratio 传入；`auto` 传 `null`，保持当前几何且不会误读 meta 中旧模式遗留的比例。其他参数仍调用 `updateMeta`。
 
 - [ ] **Step 4: 删除旧冻结链并固定浮层中心**
 
