@@ -461,23 +461,6 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
   const canvasOffset = useGenerationCanvasStore((state) => state.canvasOffset)
   const anchorRef = React.useRef<HTMLDivElement>(null)
   const [flipUp, setFlipUp] = React.useState(false)
-  // ── 参数面板打开期间冻结 composer 位置（2026-07-17 用户第四轮反馈的终解）──
-  // 动的源头：改比例 → 节点按新比例变形 → composer（anchored 节点下方）被推走 → 调参的两个框
-  // 全在跑、要重新找。冻结 = 面板打开时记录「节点锚边的屏幕坐标」基准，节点**纯变形**（zoom/
-  // offset/position 未变）导致锚边位移时，用屏幕像素补偿把 composer 钉回原地；用户主动平移/
-  // 缩放/拖节点则重置基准正常跟随（那是他自己要移动视角）。面板关闭 → 补偿归零回真实位置。
-  const [paramPanelOpen, setParamPanelOpen] = React.useState(false)
-  const [freezeShift, setFreezeShift] = React.useState({ x: 0, y: 0 })
-  const freezeBaseRef = React.useRef<{
-    edgeY: number
-    centerX: number
-    zoom: number
-    offsetX: number
-    offsetY: number
-    posX: number
-    posY: number
-    flipUp: boolean
-  } | null>(null)
   // 翻上时要避让的「节点上方图片编辑工具条」高度（节点坐标系 px）。否则参数框会压住那条
   // 浮动工具条（用户反馈：浮动条看不见/遮挡）。无工具条（如未生成、视频节点）则为 0。
   const [aboveClearance, setAboveClearance] = React.useState(0)
@@ -493,39 +476,6 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
     const recompute = () => {
       const stageRect = stage.getBoundingClientRect()
       const nodeRect = nodeEl.getBoundingClientRect()
-      // 参数面板打开期间：冻结分支——不重算 flip/shiftX，只算「锚边位移补偿」把 composer 钉住。
-      if (paramPanelOpen) {
-        const base = freezeBaseRef.current
-        const centerX = nodeRect.left + nodeRect.width / 2
-        const sameView =
-          base &&
-          base.zoom === canvasZoom &&
-          base.offsetX === canvasOffset.x &&
-          base.offsetY === canvasOffset.y &&
-          base.posX === (node.position?.x ?? 0) &&
-          base.posY === (node.position?.y ?? 0)
-        const edgeY = (base?.flipUp ?? flipUp) ? nodeRect.top : nodeRect.bottom
-        if (!sameView) {
-          // 首次记录，或用户主动平移/缩放/拖节点 → 重置基准（composer 跟视角走），补偿归零。
-          freezeBaseRef.current = {
-            edgeY,
-            centerX,
-            zoom: canvasZoom,
-            offsetX: canvasOffset.x,
-            offsetY: canvasOffset.y,
-            posX: node.position?.x ?? 0,
-            posY: node.position?.y ?? 0,
-            flipUp,
-          }
-          setFreezeShift((prev) => (prev.x || prev.y ? { x: 0, y: 0 } : prev))
-          return
-        }
-        // 视角未变而锚边动了 = 节点纯变形 → 屏幕像素补偿，钉回原地。
-        setFreezeShift({ x: Math.round(base.centerX - centerX), y: Math.round(base.edgeY - edgeY) })
-        return
-      }
-      freezeBaseRef.current = null
-      setFreezeShift((prev) => (prev.x || prev.y ? { x: 0, y: 0 } : prev))
       const neededScreenHeight = (anchor.offsetHeight || 280) + composerLayout.gap * canvasZoom
       const spaceBelow = stageRect.bottom - nodeRect.bottom
       const spaceAbove = nodeRect.top - stageRect.top
@@ -557,7 +507,7 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
     const ro = new ResizeObserver(recompute)
     ro.observe(anchor)
     return () => ro.disconnect()
-  }, [canvasZoom, canvasOffset, node.position?.x, node.position?.y, visualSize.width, visualSize.height, composerLayout.gap, node.result?.url, paramPanelOpen, flipUp])
+  }, [canvasZoom, canvasOffset, node.position?.x, node.position?.y, visualSize.width, visualSize.height, composerLayout.gap, node.result?.url, flipUp])
 
   // 卡宽 = **内容驱动**（用户拍板 2026-06-16，推翻 06-13 的「按最宽模型恒定宽」）：
   // 卡片 **w-max**（max-content）跟着当前模型的「底栏一行」(锁+参数+生成钮)自然撑开。参数已主次分层
@@ -578,8 +528,7 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
         // 不缩这个参数框）。横向居中的 -translate-x-1/2 改写进 transform（否则被 scale 覆盖）。
         // transform-origin 贴住与节点相连的那条边（默认朝下=顶边、翻上=底边），缩放时锚点不漂移。
         // 最左的 translateX(shiftX px) 在屏幕空间生效（不被 scale 缩）→ 横向夹取把溢出视口的宽卡拉回。
-        // freezeShift 在最前（屏幕空间）：参数面板打开期间抵消节点变形位移，composer 钉在原地。
-        transform: `translate(${freezeShift.x}px, ${freezeShift.y}px) translateX(${shiftX}px) translateX(-50%) scale(${1 / (canvasZoom || 1)})`,
+        transform: `translateX(${shiftX}px) translateX(-50%) scale(${1 / (canvasZoom || 1)})`,
         transformOrigin: flipUp ? 'bottom center' : 'top center',
         ...(flipUp
           ? { bottom: `calc(100% + ${composerLayout.gap + aboveClearance}px)` }
@@ -709,7 +658,11 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
         {/* 锁从节点卡片移到这里（编辑面板底栏）：卡片预览保持干净，锁定/解锁在选中编辑时就近可达。
             selected 恒为真（composer 只在选中时挂载）→ 始终可见：未锁=描边开锁、已锁=实心锁。 */}
         <NodeLockBadge nodeId={node.id} locked={node.locked} selected />
-        <NodeParameterControls node={node} section="parameters" onParamPanelOpenChange={setParamPanelOpen} />
+        <NodeParameterControls
+          node={node}
+          section="parameters"
+          composerAttachmentSide={flipUp ? 'top' : 'bottom'}
+        />
         {/* 手动运镜（B1）：视频镜头才有 video_ref 槽——运镜芯片仅对 video-like 节点显示（AI 工具 create_camera_move 的第二道门，共用同一产路）。 */}
         {isVideoLikeGenerationNodeKind(node.kind) && !node.locked ? (
           <NodeCameraMoveControl node={node} />

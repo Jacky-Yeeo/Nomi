@@ -72,9 +72,14 @@ import InlineParameterBar from './InlineParameterBar'
 import { useNodeModelAutoSelect } from './useNodeModelAutoSelect'
 import { resolveArchetypeForOption, resolveRenderedControls } from './nodeModelArchetype'
 import {
+  buildAspectRatioNodePatch,
+  type ComposerAttachmentSide,
+} from './nodeSizing'
+import {
   ASPECT_RATIO_KEYS,
   collectInputAspectRatios,
   normalizeAspectRatioToWH,
+  parseAspectRatioValue,
   preferredVideoAspect,
 } from './aspectRatio'
 
@@ -86,15 +91,15 @@ type NodeParameterControlsProps = {
   section?: 'all' | 'references' | 'parameters' | 'model' | 'controls'
   /** 点参考 tile → 在描述框光标处插入 @ 引用 chip(主路径,由 composer 注入 editor 命令)。 */
   onInsertMention?: (url: string) => void
-  /** 参数面板开/合（透传给 InlineParameterBar → composer 冻结位置用）。 */
-  onParamPanelOpenChange?: (open: boolean) => void
+  /** 当前 composer 连在节点哪条边；比例切换用它保持同一连接锚点。 */
+  composerAttachmentSide?: ComposerAttachmentSide
 }
 
 export default function NodeParameterControls({
   node,
   section = 'all',
   onInsertMention,
-  onParamPanelOpenChange,
+  composerAttachmentSide = 'bottom',
 }: NodeParameterControlsProps): JSX.Element | null {
   const { t } = useTranslation()
   const nodes = useGenerationCanvasStore((state) => state.nodes)
@@ -161,6 +166,16 @@ export default function NodeParameterControls({
     updateNode(node.id, {
       meta: { ...getLatestMeta(), ...patch },
     })
+  }
+
+  const updateAspectRatioMeta = (patch: Record<string, unknown>, targetRatio: number | null) => {
+    const latest = useGenerationCanvasStore.getState().nodes.find((candidate) => candidate.id === node.id)
+    if (!latest) return
+    const nextMeta = { ...(latest.meta || {}), ...patch }
+    updateNode(
+      node.id,
+      buildAspectRatioNodePatch(latest, nextMeta, targetRatio, composerAttachmentSide),
+    )
   }
 
   const handleModelChange = (value: string, vendor?: string) => {
@@ -251,9 +266,11 @@ export default function NodeParameterControls({
     // 防止旧模式遗留的 stale aspect_ratio 遮蔽当前模式的比例选择（如 t2i→改图后 image_size 被旧值盖住）。
     if (ASPECT_RATIO_KEY_SET.has(control.key)) {
       const wh = normalizeAspectRatioToWH(parsed)
-      if (wh) patch.aspect_ratio = wh
+      patch.aspect_ratio = wh ?? (control.key === 'aspect_ratio' ? parsed : null)
       // 用户显式选过比例 → 打标记，连边联动不再自动改（用户选择优先于产品默认）。
       patch.aspect_ratio_user_set = true
+      updateAspectRatioMeta(patch, parseAspectRatioValue(parsed))
+      return
     }
     updateMeta(patch)
   }
@@ -261,10 +278,15 @@ export default function NodeParameterControls({
   const handleCatalogControlChange = (control: DynamicCatalogControl, value: string) => {
     const isAspect =
       control.binding === 'size' || control.binding === 'aspectRatio' || ASPECT_RATIO_KEY_SET.has(control.key)
-    updateMeta({
+    const patch = {
       ...defaultPatchForCatalogControl({ ...control, defaultValue: value }),
       ...(isAspect ? { aspect_ratio_user_set: true } : {}),
-    })
+    }
+    if (isAspect) {
+      updateAspectRatioMeta(patch, parseAspectRatioValue(value))
+      return
+    }
+    updateMeta(patch)
   }
 
   // 切生成方式：只改 modeId，参考值全局保留（切回照片还在）；互斥发生在传输投影。
@@ -658,7 +680,6 @@ export default function NodeParameterControls({
         variantChoices={showVariantBar ? variantChoices : []}
         activeVariantId={activeVariantId}
         onVariantSelect={handleVariantSwitch}
-        onParamPanelOpenChange={onParamPanelOpenChange}
       />
     )
   }
