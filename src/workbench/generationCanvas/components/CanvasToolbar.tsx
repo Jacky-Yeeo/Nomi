@@ -5,6 +5,8 @@ import { cn } from '../../../utils/cn'
 import type { GenerationNodeKind } from '../model/generationCanvasTypes'
 import { getQuickAddGenerationNodePlugins } from '../nodes/renderRegistry'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../design'
+import { CANVAS_TOOLBAR_NODE_GROUPS, canvasToolbarNodeKinds } from './canvasToolbarModel'
 
 const QUICK_ADD_NODE_ITEMS = getQuickAddGenerationNodePlugins()
 
@@ -14,10 +16,14 @@ const QUICK_ADD_NODE_ITEMS = getQuickAddGenerationNodePlugins()
 // manual add — keeping this list short de-clutters the right-click menu.
 // 2026-06-15：左侧栏瘦身为「纯创建节点」——复制/剪切走快捷键(⌘C/⌘X)、批量生成移到选中浮条、
 // 发送到时间轴删除(节点可直接拖入时间轴)。这里只保留可手动新建的节点种类（含新增的「声音」）。
-const PRIMARY_NODE_KINDS: GenerationNodeKind[] = ['text', 'image', 'video', 'audio', 'model3d', 'whiteboard', 'panorama', 'scene3d']
-const PRIMARY_ADD_ITEMS = PRIMARY_NODE_KINDS
+const PRIMARY_ADD_ITEMS = canvasToolbarNodeKinds()
   .map((kind) => QUICK_ADD_NODE_ITEMS.find((item) => item.kind === kind))
   .filter((item): item is (typeof QUICK_ADD_NODE_ITEMS)[number] => Boolean(item))
+const PRIMARY_ADD_GROUPS = CANVAS_TOOLBAR_NODE_GROUPS.map((kinds) =>
+  kinds
+    .map((kind) => PRIMARY_ADD_ITEMS.find((item) => item.kind === kind))
+    .filter((item): item is (typeof PRIMARY_ADD_ITEMS)[number] => Boolean(item)),
+)
 
 function nodeKindLabel(kind: GenerationNodeKind, t: TFunction): string {
   if (kind === 'text') return t('canvas.nodeKinds.text')
@@ -117,30 +123,42 @@ export default function CanvasToolbar({ getInsertionPosition, categoryId }: Canv
         'absolute top-1/2 left-4 z-[8] inline-flex flex-col items-center gap-1 p-[6px]',
         'border border-workbench-border rounded-nomi',
         'bg-nomi-paper shadow-workbench-md -translate-y-1/2',
+        'max-h-[calc(100%-32px)] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
       )}
       aria-label={t('canvas.toolbar')}
     >
-      {PRIMARY_ADD_ITEMS.map((item) => {
-        const Icon = item.icon
-        const label = nodeKindLabel(item.kind, t)
-        return (
-          <button
-            type="button"
-            key={item.kind}
-            className={cn(
-              'grid size-8 min-h-8 place-items-center rounded-nomi-sm border-0 bg-transparent p-0 text-nomi-ink-60 cursor-pointer',
-              'transition-colors hover:bg-nomi-ink-05 hover:text-nomi-ink',
-              '[&>svg]:size-[18px] [&>svg]:stroke-[1.8]',
-            )}
-            aria-label={t('canvas.addNode', { type: label })}
-            title={label}
-            onClick={() => handleAddNode(item.kind)}
-          >
-            <Icon size={18} stroke={1.6} />
-            <span className="hidden">{label}</span>
-          </button>
-        )
-      })}
+      <TooltipProvider delayDuration={250}>
+        {PRIMARY_ADD_GROUPS.map((items, groupIndex) => (
+          <React.Fragment key={CANVAS_TOOLBAR_NODE_GROUPS[groupIndex][0]}>
+            {groupIndex > 0 ? <span className="my-0.5 h-px w-5 shrink-0 bg-nomi-line" aria-hidden="true" /> : null}
+            {items.map((item) => {
+              const Icon = item.icon
+              const label = nodeKindLabel(item.kind, t)
+              return (
+                <Tooltip key={item.kind}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      data-node-kind={item.kind}
+                      className={cn(
+                        'grid size-8 min-h-8 shrink-0 place-items-center rounded-nomi-sm border-0 bg-transparent p-0 text-nomi-ink-60 cursor-pointer',
+                        'transition-colors hover:bg-nomi-ink-05 hover:text-nomi-ink',
+                        '[&>svg]:size-[18px] [&>svg]:stroke-[1.8]',
+                      )}
+                      aria-label={t('canvas.addNode', { type: label })}
+                      onClick={() => handleAddNode(item.kind)}
+                    >
+                      <Icon size={18} stroke={1.6} />
+                      <span className="hidden">{label}</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{label}</TooltipContent>
+                </Tooltip>
+              )
+            })}
+          </React.Fragment>
+        ))}
+      </TooltipProvider>
     </div>
   )
 }
