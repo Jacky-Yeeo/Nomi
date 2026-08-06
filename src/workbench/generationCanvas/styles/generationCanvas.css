@@ -2,7 +2,7 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-  /* 空白左键拖=平移（拖动中 data-panning 切 grabbing）；框选走 Shift+拖；空格按住切 grab */
+  /* 空白左键拖=框选；空格+左键/中键/右键拖=平移（data-panning 切 grabbing） */
   cursor: default;
   user-select: none;
   background:
@@ -23,7 +23,6 @@
    关闭后由 NodeMediaPreviewDialog 清掉 data 属性，原布局与交互自动恢复。 */
 .workbench-generation[data-media-preview-open='true'] .generation-canvas-v2-toolbar,
 .workbench-generation[data-media-preview-open='true'] .generation-canvas-v2__navigation-stack,
-.workbench-generation[data-media-preview-open='true'] .generation-canvas-v2__gesture-hint,
 .workbench-generation[data-media-preview-open='true'] .generation-canvas-v2__selection-toolbar,
 .workbench-generation[data-media-preview-open='true'] .generation-canvas-v2-node__composer,
 .workbench-generation[data-media-preview-open='true'] .generation-canvas-v2-node [role='toolbar'],

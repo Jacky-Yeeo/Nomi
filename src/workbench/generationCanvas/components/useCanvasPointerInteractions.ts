@@ -2,7 +2,7 @@
 // 把 useCanvasViewportGestures（平移/缩放）与 useMarqueeSelection（框选）组合成一组
 // stage handler，让 GenerationCanvas 只挂一处、不必关心二者分工：
 //   · capture 阶段：空格/中键/右键平移抢在节点之前（gestures）。
-//   · bubble 阶段：左键拖空白 → 平移；Shift+左键拖空白 → 框选。二者按 shiftKey 分工不抢。
+//   · bubble 阶段：空白左键统一进入框选；Shift 只切换追加模式。
 import React from 'react'
 import { useCanvasViewportGestures } from './useCanvasViewportGestures'
 import { useMarqueeSelection, type MarqueeRect } from './useMarqueeSelection'
@@ -17,8 +17,6 @@ type Args = {
   setViewport: React.Dispatch<React.SetStateAction<{ zoom: number; offset: Offset }>>
   activeCategoryId: string
   clearSelection: () => void
-  cancelConnection: () => void
-  pendingConnectionSourceId: string
   setContextNodeMenu: (value: null) => void
   setActiveEdge: (value: null) => void
   activeEdgeId: string | null
@@ -37,6 +35,7 @@ export type CanvasPointerInteractions = {
   onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void
   onPointerMove: (event: React.PointerEvent<HTMLDivElement>) => void
   onPointerUp: (event: React.PointerEvent<HTMLDivElement>) => void
+  onPointerCancel: (event: React.PointerEvent<HTMLDivElement>) => void
 }
 
 export function useCanvasPointerInteractions(args: Args): CanvasPointerInteractions {
@@ -46,9 +45,6 @@ export function useCanvasPointerInteractions(args: Args): CanvasPointerInteracti
     offsetRef: args.offsetRef,
     zoomRef: args.zoomRef,
     setViewport: args.setViewport,
-    clearSelection: args.clearSelection,
-    cancelConnection: args.cancelConnection,
-    pendingConnectionSourceId: args.pendingConnectionSourceId,
     setContextNodeMenu: args.setContextNodeMenu,
     setActiveEdge: args.setActiveEdge,
     activeEdgeId: args.activeEdgeId,
@@ -59,20 +55,28 @@ export function useCanvasPointerInteractions(args: Args): CanvasPointerInteracti
     offsetRef: args.offsetRef,
     zoomRef: args.zoomRef,
     activeCategoryId: args.activeCategoryId,
+    clearSelection: args.clearSelection,
     selectNodesInRect: args.selectNodesInRect,
   })
 
   const onPointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    gestures.handlePointerDown(event)
     marquee.handlePointerDown(event)
-  }, [gestures, marquee])
+  }, [marquee])
   const onPointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    gestures.handlePointerMove(event)
+    const panOwnsPointer = gestures.handlePointerMove(event)
+    if (panOwnsPointer) {
+      marquee.cancel()
+      return
+    }
     marquee.handlePointerMove(event)
   }, [gestures, marquee])
   const onPointerUp = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     gestures.handlePointerUp(event)
     marquee.handlePointerUp(event)
+  }, [gestures, marquee])
+  const onPointerCancel = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    gestures.handlePointerCancel(event)
+    marquee.handlePointerCancel(event)
   }, [gestures, marquee])
 
   return {
@@ -87,5 +91,6 @@ export function useCanvasPointerInteractions(args: Args): CanvasPointerInteracti
     onPointerDown,
     onPointerMove,
     onPointerUp,
+    onPointerCancel,
   }
 }

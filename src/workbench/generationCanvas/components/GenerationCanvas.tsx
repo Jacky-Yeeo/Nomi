@@ -28,10 +28,10 @@ import { GroupFrameList } from './GroupFrame'
 import { useAutoFitOnLoad } from './useAutoFitOnLoad'
 import { useCanvasShortcuts } from './useCanvasShortcuts'
 import { useCanvasPointerInteractions } from './useCanvasPointerInteractions'
+import { useCanvasContextNodeMenu } from './useCanvasContextNodeMenu'
 import { useDragToConnect } from './useDragToConnect'
 import { CanvasEmptyState } from './CanvasEmptyState'
 import { CanvasNavigationStack } from './CanvasNavigationStack'
-import { CanvasGestureHint } from './CanvasGestureHint'
 import { SelectionPromptSaveController } from './SelectionPromptSaveController'
 import { useNodeAppearTracking } from './useNodeAppearTracking'
 import { useTidyCanvas } from './useTidyCanvas'
@@ -160,12 +160,21 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
   // 出现动画：只让**新落点**节点弹入（add/paste/Agent），开项目时已有节点不齐闪（实现见 hook）。
   const appearNodeIds = useNodeAppearTracking(allNodes)
   const { isTidying, tidy } = useTidyCanvas(activeCategoryId)
-  const [contextNodeMenu, setContextNodeMenu] = React.useState<{
-    stageX: number
-    stageY: number
-    canvasX: number
-    canvasY: number
-  } | null>(null)
+  const {
+    contextNodeMenu,
+    setContextNodeMenu,
+    prepareContextMenuPointerDown,
+    handleContextMenuPointerMove,
+    finishContextMenuPointerUp,
+    handleStageContextMenu,
+  } = useCanvasContextNodeMenu({
+    readOnly,
+    stageRef,
+    offsetRef,
+    zoomRef,
+    pendingConnectionSourceId,
+    clearSelection,
+  })
   const [connectionCreateMenu, setConnectionCreateMenu] = React.useState<{
     sourceNodeId: string
     sourceSide: ConnectionAnchorSide
@@ -202,8 +211,6 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
     setViewport,
     activeCategoryId,
     clearSelection,
-    cancelConnection,
-    pendingConnectionSourceId,
     setContextNodeMenu,
     setActiveEdge,
     activeEdgeId,
@@ -286,7 +293,7 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('blur', closeMenu)
     }
-  }, [contextNodeMenu])
+  }, [contextNodeMenu, setContextNodeMenu])
 
   React.useEffect(() => {
     if (!connectionCreateMenu) return undefined
@@ -479,40 +486,24 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
     pointer.onPointerDown(event)
   }, [pointer, rememberPastePositionFromClientPoint])
 
+  const handleStagePointerDownCapture = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (prepareContextMenuPointerDown(event)) {
+      event.stopPropagation()
+      return
+    }
+    pointer.onPointerDownCapture(event)
+  }, [pointer, prepareContextMenuPointerDown])
+
   const handleStagePointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    handleContextMenuPointerMove(event)
     rememberPastePositionFromClientPoint(event.clientX, event.clientY)
     pointer.onPointerMove(event)
-  }, [pointer, rememberPastePositionFromClientPoint])
+  }, [handleContextMenuPointerMove, pointer, rememberPastePositionFromClientPoint])
 
-  const handleStageContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (readOnly || !stageRef.current) return
-    if (pointer.shouldSuppressContextMenu()) {
-      event.preventDefault()
-      return
-    }
-    const target = event.target instanceof Element ? event.target : null
-    if (target?.closest(
-      '.generation-canvas-v2-node, .generation-canvas-v2-toolbar, .generation-canvas-v2__zoom-bar, .generation-canvas-v2__selection-toolbar, .generation-canvas-v2__edge, .generation-canvas-v2__edge-preview, button, input, textarea, select, [role="menu"], [role="menuitem"]',
-    )) {
-      return
-    }
-    event.preventDefault()
-    event.stopPropagation()
-    clearSelection()
-    const rect = stageRef.current.getBoundingClientRect()
-    const stageX = event.clientX - rect.left
-    const stageY = event.clientY - rect.top
-    const canvasPoint = getCanvasPointFromClientPoint(event.clientX, event.clientY)
-    if (!canvasPoint) return
-    const menuWidth = 148
-    const menuHeight = 330
-    setContextNodeMenu({
-      stageX: clampNumber(stageX, 8, Math.max(8, rect.width - menuWidth - 8)),
-      stageY: clampNumber(stageY, 8, Math.max(8, rect.height - menuHeight - 8)),
-      canvasX: Math.round(canvasPoint.x),
-      canvasY: Math.round(canvasPoint.y),
-    })
-  }
+  const handleStagePointerUp = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    pointer.onPointerUp(event)
+    finishContextMenuPointerUp(event, event.button === 2 && pointer.shouldSuppressContextMenu())
+  }, [finishContextMenuPointerUp, pointer])
 
   const handleAddContextNode = (kind: GenerationNodeKind) => {
     if (!contextNodeMenu) return
@@ -621,10 +612,11 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
           ref={stageRef}
           data-panning={isPanning ? 'true' : undefined}
           data-space-pan={isSpaceHeld ? 'true' : undefined}
-          onPointerDownCapture={pointer.onPointerDownCapture}
+          onPointerDownCapture={handleStagePointerDownCapture}
           onPointerDown={handleStagePointerDown}
           onPointerMove={handleStagePointerMove}
-          onPointerUp={pointer.onPointerUp}
+          onPointerUp={handleStagePointerUp}
+          onPointerCancel={pointer.onPointerCancel}
           onContextMenu={handleStageContextMenu}
           onDragOver={(event) => {
             if (readOnly) return
@@ -769,7 +761,6 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
             />
           ) : null}
         </div>
-        {!readOnly ? <CanvasGestureHint /> : null}
         <CanvasNavigationStack
           readOnly={readOnly}
           nodes={nodes}

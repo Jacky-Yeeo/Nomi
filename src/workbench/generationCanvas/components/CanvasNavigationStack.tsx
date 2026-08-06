@@ -3,9 +3,11 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { IconEyeOff, IconFocusCentered, IconLayoutGrid, IconMap, IconRotate } from '@tabler/icons-react'
-import { WorkbenchButton } from '../../../design'
+import { TooltipProvider } from '../../../design'
 import { cn } from '../../../utils/cn'
 import { CanvasMinimap, MINIMAP_MIN_NODES } from './CanvasMinimap'
+import { CanvasControlsHelpPopover } from './CanvasControlsHelpPopover'
+import { CanvasNavigationTooltipButton } from './CanvasNavigationTooltipButton'
 import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
 
 type CanvasNavigationStackProps = {
@@ -76,57 +78,56 @@ export function CanvasNavigationStack({
         )}
         aria-label={t('generationCommon.navigation.zoomControls')}
       >
-        <WorkbenchButton
-          aria-label={t('generationCommon.navigation.fitView')}
-          title={
-            nodes.length === 0 ? t('generationCommon.navigation.emptyCanvas') : t('generationCommon.navigation.fitView')
-          }
-          disabled={nodes.length === 0}
-          onClick={onFitView}
-        >
-          <IconFocusCentered size={15} stroke={1.8} aria-hidden="true" />
-        </WorkbenchButton>
-        <WorkbenchButton
-          aria-label={t('generationCommon.navigation.resetView')}
-          title={t('generationCommon.navigation.resetView')}
-          onClick={onResetView}
-        >
-          <IconRotate size={15} stroke={1.8} aria-hidden="true" />
-        </WorkbenchButton>
-        <input
-          className="w-[78px] accent-workbench-accent"
-          type="range"
-          min="20"
-          max="300"
-          value={zoomPercent}
-          aria-label={t('generationCommon.navigation.zoomRatio')}
-          onChange={(event) => onZoomTo(Number(event.target.value) / 100)}
-        />
-        {!readOnly ? (
-          <WorkbenchButton
-            aria-label={t('generationCommon.navigation.tidy')}
-            title={t('generationCommon.navigation.tidyHint')}
-            onClick={onTidy}
+        <TooltipProvider delayDuration={250} disableHoverableContent>
+          <CanvasNavigationTooltipButton
+            label={t('generationCommon.navigation.fitView')}
+            tooltip={
+              nodes.length === 0 ? t('generationCommon.navigation.emptyCanvas') : t('generationCommon.navigation.fitView')
+            }
+            disabled={nodes.length === 0}
+            onClick={onFitView}
           >
-            <IconLayoutGrid size={15} stroke={1.8} aria-hidden="true" />
-          </WorkbenchButton>
-        ) : null}
-        <WorkbenchButton
-          aria-label={
-            showMinimap ? t('generationCommon.navigation.hideMinimap') : t('generationCommon.navigation.showMinimap')
-          }
-          title={
-            hasMinimapContent
-              ? showMinimap
-                ? t('generationCommon.navigation.hideMinimap')
-                : t('generationCommon.navigation.showMinimap')
-              : t('generationCommon.navigation.minimapThreshold', { count: MINIMAP_MIN_NODES })
-          }
-          aria-pressed={showMinimap}
-          onClick={onToggleMinimap}
-        >
-          <MinimapToggleIcon size={15} stroke={1.8} aria-hidden="true" />
-        </WorkbenchButton>
+            <IconFocusCentered size={15} stroke={1.8} aria-hidden="true" />
+          </CanvasNavigationTooltipButton>
+          <CanvasNavigationTooltipButton label={t('generationCommon.navigation.resetView')} onClick={onResetView}>
+            <IconRotate size={15} stroke={1.8} aria-hidden="true" />
+          </CanvasNavigationTooltipButton>
+          <input
+            className="w-[78px] accent-workbench-accent"
+            type="range"
+            min="20"
+            max="300"
+            value={zoomPercent}
+            aria-label={t('generationCommon.navigation.zoomRatio')}
+            onChange={(event) => onZoomTo(Number(event.target.value) / 100)}
+          />
+          {!readOnly ? (
+            <CanvasNavigationTooltipButton
+              label={t('generationCommon.navigation.tidy')}
+              tooltip={t('generationCommon.navigation.tidyHint')}
+              onClick={onTidy}
+            >
+              <IconLayoutGrid size={15} stroke={1.8} aria-hidden="true" />
+            </CanvasNavigationTooltipButton>
+          ) : null}
+          <CanvasNavigationTooltipButton
+            label={
+              showMinimap ? t('generationCommon.navigation.hideMinimap') : t('generationCommon.navigation.showMinimap')
+            }
+            tooltip={
+              hasMinimapContent
+                ? showMinimap
+                  ? t('generationCommon.navigation.hideMinimap')
+                  : t('generationCommon.navigation.showMinimap')
+                : t('generationCommon.navigation.minimapThreshold', { count: MINIMAP_MIN_NODES })
+            }
+            aria-pressed={showMinimap}
+            onClick={onToggleMinimap}
+          >
+            <MinimapToggleIcon size={15} stroke={1.8} aria-hidden="true" />
+          </CanvasNavigationTooltipButton>
+          <CanvasControlsHelpPopover />
+        </TooltipProvider>
       </div>
     </div>
   )

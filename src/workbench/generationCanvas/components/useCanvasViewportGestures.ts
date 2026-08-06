@@ -2,19 +2,24 @@
 // 收口三类输入（2026-07-31 用户拍板 #832，2026-08-03 补齐二选一）：
 //   · 滚轮：**语义可配**（canvasGesturePreference）——默认缩放锚光标（ComfyUI 式），
 //     可切成平移（Figma 式，给触控板党）；⌘/Ctrl+滚轮与捏合**两档恒缩放**。卡内可滚区放行原生滚动。
-//   · 左键按住空白拖 / 空格+拖 / 中键拖 / 右键拖 = 平移（右键拖超阈值才平移并吞掉右键菜单）。
-//   · Shift+左键拖空白 = 框选（useMarqueeSelection 接管，此处让出）。
+//   · 空格+左键拖 / 中键拖 / 右键拖 = 平移（右键拖超阈值才吞掉右键菜单）。
+//   · 空白左键拖统一交给 useMarqueeSelection，视口层不再占用框选的自然入口。
 // 同时托管视口变换原语（scheduleOffset / setViewportTransform / zoomAtStagePoint），
 // 平移与离散缩放都走 rAF 批处理，消除快速输入的多次 setState 抖动。
 import React from 'react'
 import { clampNumber, getWheelZoomFactor } from './generationCanvasGeometry'
 import { findScrollableAncestor } from './canvasScroll'
 import { resolveWheelIntent, useCanvasGestureScheme } from './canvasGesturePreference'
+import {
+  canvasDragExceededThreshold,
+  isCanvasPanButtonHeld,
+  resolveCanvasPanButtonFromMove,
+  resolveCanvasPointerDownAction,
+  shouldPreventDefaultForCanvasPanStart,
+} from './canvasPointerGestureModel'
 
 type Offset = { x: number; y: number }
 type Viewport = { zoom: number; offset: Offset }
-
-const PAN_CLICK_THRESHOLD = 4
 
 type UseCanvasViewportGesturesArgs = {
   readOnly: boolean
@@ -22,10 +27,6 @@ type UseCanvasViewportGesturesArgs = {
   offsetRef: React.MutableRefObject<Offset>
   zoomRef: React.MutableRefObject<number>
   setViewport: React.Dispatch<React.SetStateAction<Viewport>>
-  /** 左键点空白（未拖动）= 清空选择 */
-  clearSelection: () => void
-  cancelConnection: () => void
-  pendingConnectionSourceId: string
   setContextNodeMenu: (value: null) => void
   setActiveEdge: (value: null) => void
   activeEdgeId: string | null
@@ -40,9 +41,9 @@ export type CanvasViewportGestures = {
   animateViewportTo: (zoom: number, offset: Offset, duration?: number) => void
   zoomAtStagePoint: (zoom: number, point: { x: number; y: number }) => void
   handlePointerDownCapture: (event: React.PointerEvent<HTMLDivElement>) => void
-  handlePointerDown: (event: React.PointerEvent<HTMLDivElement>) => void
-  handlePointerMove: (event: React.PointerEvent<HTMLDivElement>) => void
+  handlePointerMove: (event: React.PointerEvent<HTMLDivElement>) => boolean
   handlePointerUp: (event: React.PointerEvent<HTMLDivElement>) => void
+  handlePointerCancel: (event: React.PointerEvent<HTMLDivElement>) => void
   /** onContextMenu 先调它：右键拖平移后返回 true 表示该吞掉菜单 */
   shouldSuppressContextMenu: () => boolean
 }
@@ -53,9 +54,6 @@ export function useCanvasViewportGestures({
   offsetRef,
   zoomRef,
   setViewport,
-  clearSelection,
-  cancelConnection,
-  pendingConnectionSourceId,
   setContextNodeMenu,
   setActiveEdge,
   activeEdgeId,
@@ -64,12 +62,35 @@ export function useCanvasViewportGestures({
   const pendingOffsetRef = React.useRef<Offset | null>(null)
   const animFrameRef = React.useRef<number | null>(null)
   const isPanningRef = React.useRef(false)
-  const panStartRef = React.useRef<{ clientX: number; clientY: number; offsetX: number; offsetY: number; button: number; moved: boolean } | null>(null)
+  const panStartRef = React.useRef<{
+    pointerId: number
+    clientX: number
+    clientY: number
+    offsetX: number
+    offsetY: number
+    button: 0 | 1 | 2
+    moved: boolean
+  } | null>(null)
+  const lastPointerPositionRef = React.useRef<{ pointerId: number; clientX: number; clientY: number } | null>(null)
+  const activePointerButtonsRef = React.useRef(0)
   const suppressContextMenuRef = React.useRef(false)
   const spaceHeldRef = React.useRef(false)
   const [isPanning, setIsPanning] = React.useState(false)
   const [isSpaceHeld, setIsSpaceHeld] = React.useState(false)
   const gestureScheme = useCanvasGestureScheme()
+
+  const resetPanState = React.useCallback(() => {
+    isPanningRef.current = false
+    setIsPanning(false)
+    panStartRef.current = null
+    lastPointerPositionRef.current = null
+  }, [])
+
+  const releaseSpace = React.useCallback(() => {
+    if (!spaceHeldRef.current) return
+    spaceHeldRef.current = false
+    setIsSpaceHeld(false)
+  }, [])
 
   const cancelAnim = React.useCallback(() => {
     if (animFrameRef.current !== null) {
@@ -143,6 +164,28 @@ export function useCanvasViewportGestures({
     })
   }, [offsetRef, setViewportTransform, zoomRef])
 
+  const finishPan = React.useCallback((pointerId?: number) => {
+    resetPanState()
+    if (offsetFrameRef.current !== null) {
+      window.cancelAnimationFrame(offsetFrameRef.current)
+      offsetFrameRef.current = null
+    }
+    if (pendingOffsetRef.current) {
+      const pending = pendingOffsetRef.current
+      setViewport((current) => ({ ...current, offset: pending }))
+      pendingOffsetRef.current = null
+    }
+    const stage = stageRef.current
+    if (
+      stage && pointerId !== undefined &&
+      typeof stage.hasPointerCapture === 'function' &&
+      typeof stage.releasePointerCapture === 'function' &&
+      stage.hasPointerCapture(pointerId)
+    ) {
+      stage.releasePointerCapture(pointerId)
+    }
+  }, [resetPanState, setViewport, stageRef])
+
   React.useEffect(() => () => {
     if (offsetFrameRef.current !== null) {
       window.cancelAnimationFrame(offsetFrameRef.current)
@@ -154,16 +197,35 @@ export function useCanvasViewportGestures({
     }
   }, [])
 
+  React.useEffect(() => {
+    const handlePointerUp = (event: PointerEvent) => {
+      activePointerButtonsRef.current = event.buttons
+      if (event.buttons === 0) lastPointerPositionRef.current = null
+    }
+    const handlePointerCancel = () => {
+      activePointerButtonsRef.current = 0
+      lastPointerPositionRef.current = null
+    }
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerCancel)
+    return () => {
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerCancel)
+    }
+  }, [])
+
   // 空格按住 = 平移模式（光标 grab）。输入框/可编辑区放行，别抢空格输入。
   // 它不是「滚轮方案的一部分」，是正交的第四个平移入口：光标压在**节点上**时，除中键/右键外
   // 只有它能平移（空白左键拖此时会被节点接走）。故两档共用、不进设置。
   React.useEffect(() => {
     if (readOnly) return undefined
-    const isEditableTarget = (target: EventTarget | null) =>
-      target instanceof HTMLElement && Boolean(target.closest('input, textarea, select, [contenteditable="true"], .ProseMirror'))
+    const isInteractiveTarget = (target: EventTarget | null) =>
+      target instanceof HTMLElement && Boolean(target.closest(
+        'input, textarea, select, button, a[href], [contenteditable="true"], [role="button"], [role="menuitem"], .ProseMirror',
+      ))
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.code !== 'Space' && event.key !== ' ') return
-      if (isEditableTarget(event.target)) return
+      if (isInteractiveTarget(event.target) && activePointerButtonsRef.current === 0) return
       if (!stageRef.current || stageRef.current.offsetParent === null) return
       if (!spaceHeldRef.current) {
         spaceHeldRef.current = true
@@ -171,50 +233,67 @@ export function useCanvasViewportGestures({
       }
       event.preventDefault() // 否则空格会滚页 / 触发按钮
     }
-    const release = () => {
-      if (!spaceHeldRef.current) return
-      spaceHeldRef.current = false
-      setIsSpaceHeld(false)
-    }
     const handleKeyUp = (event: KeyboardEvent) => {
-      if (event.code === 'Space' || event.key === ' ') release()
+      if (event.code !== 'Space' && event.key !== ' ') return
+      releaseSpace()
+      if (panStartRef.current?.button === 0) finishPan(panStartRef.current.pointerId)
+    }
+    const handleBlur = () => {
+      releaseSpace()
+      suppressContextMenuRef.current = false
+      activePointerButtonsRef.current = 0
+      if (panStartRef.current) finishPan(panStartRef.current.pointerId)
+      else resetPanState()
     }
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
-    window.addEventListener('blur', release) // 切走窗口时松开，否则回来还卡在平移态
+    window.addEventListener('blur', handleBlur) // 切走窗口时松开，否则回来还卡在平移态
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
-      window.removeEventListener('blur', release)
+      window.removeEventListener('blur', handleBlur)
     }
-  }, [readOnly, stageRef])
+  }, [finishPan, readOnly, releaseSpace, resetPanState, stageRef])
 
-  const beginPan = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+  const beginPan = React.useCallback((
+    event: React.PointerEvent<HTMLDivElement>,
+    button: 0 | 1 | 2,
+    startPoint?: { clientX: number; clientY: number },
+  ) => {
     setContextNodeMenu(null)
     setActiveEdge(null)
-    if (pendingConnectionSourceId && !readOnly) cancelConnection()
+    suppressContextMenuRef.current = false
     isPanningRef.current = true
     setIsPanning(true)
     panStartRef.current = {
-      clientX: event.clientX,
-      clientY: event.clientY,
+      pointerId: event.pointerId,
+      clientX: startPoint?.clientX ?? event.clientX,
+      clientY: startPoint?.clientY ?? event.clientY,
       offsetX: offsetRef.current.x,
       offsetY: offsetRef.current.y,
-      button: event.button,
+      button,
       moved: false,
     }
     try { event.currentTarget.setPointerCapture(event.pointerId) } catch { /* 无活动指针时忽略 */ }
-  }, [cancelConnection, offsetRef, pendingConnectionSourceId, readOnly, setActiveEdge, setContextNodeMenu])
+  }, [offsetRef, setActiveEdge, setContextNodeMenu])
 
   // 捕获阶段：空格/中键/右键拖在节点之上也能平移（抢在节点 pointerdown 前）。
   const handlePointerDownCapture = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    const wantsPan = spaceHeldRef.current || event.button === 1 || event.button === 2
-    if (wantsPan) {
-      event.preventDefault()
+    activePointerButtonsRef.current = event.buttons
+    lastPointerPositionRef.current = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY }
+    const action = resolveCanvasPointerDownAction({
+      button: event.button,
+      spaceHeld: spaceHeldRef.current,
+      interactiveTarget: false,
+      readOnly,
+    })
+    if (action === 'pan') {
+      if (shouldPreventDefaultForCanvasPanStart(event.button)) event.preventDefault()
       event.stopPropagation()
-      beginPan(event)
+      beginPan(event, event.button as 0 | 1 | 2)
       return
     }
+    if (event.button === 0) setContextNodeMenu(null)
     // 只有真空白处才收起激活边。边菜单也在 stage 里，而这是 capture 阶段：
     // 子按钮的 stopPropagation 来不及拦。若不在此豁免，pointerdown 会先卸载菜单，
     // 后续 click 无目标，表现为“改标签 / 断开都没反应”。
@@ -222,30 +301,37 @@ export function useCanvasViewportGestures({
     const target = event.target instanceof Element ? event.target : null
     if (target?.closest('.generation-canvas-v2__edge-hit, .generation-canvas-v2__edge-cut, .generation-canvas-v2__edge-control, [role="menu"], [role="menuitem"], [role="menuitemradio"]')) return
     setActiveEdge(null)
-  }, [activeEdgeId, beginPan, setActiveEdge])
-
-  // 冒泡阶段：左键按住空白处拖 = 平移。命中节点/工具条/控件则放行（return）。
-  const handlePointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0 || isPanningRef.current) return
-    setContextNodeMenu(null)
-    setActiveEdge(null)
-    const target = event.target instanceof Element ? event.target : null
-    if (target?.closest(
-      '.generation-canvas-v2-node, .generation-canvas-v2-toolbar, .generation-canvas-v2__zoom-bar, .generation-canvas-v2__minimap, .generation-canvas-v2__selection-toolbar, .generation-canvas-v2__edge-hit, .generation-canvas-v2__edge-cut, button, input, textarea, select, [role="menu"], [role="menuitem"]',
-    )) {
-      return
-    }
-    if (event.shiftKey) return // Shift+左键拖空白 → 框选（useMarqueeSelection）
-    beginPan(event)
-  }, [beginPan, setActiveEdge, setContextNodeMenu])
+  }, [activeEdgeId, beginPan, readOnly, setActiveEdge, setContextNodeMenu])
 
   const handlePointerMove = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (!isPanningRef.current || !panStartRef.current) return
+    activePointerButtonsRef.current = event.buttons
+    const previousPoint = lastPointerPositionRef.current
+    lastPointerPositionRef.current = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY }
+    if (
+      isPanningRef.current && panStartRef.current &&
+      !isCanvasPanButtonHeld(panStartRef.current.button, {
+        buttons: event.buttons,
+        spaceHeld: spaceHeldRef.current,
+      })
+    ) {
+      finishPan(event.pointerId)
+      return false
+    }
+    if (!isPanningRef.current) {
+      const panButton = resolveCanvasPanButtonFromMove({ buttons: event.buttons, spaceHeld: spaceHeldRef.current })
+      if (panButton === null) return false
+      beginPan(
+        event,
+        panButton,
+        previousPoint?.pointerId === event.pointerId ? previousPoint : undefined,
+      )
+    }
+    if (!panStartRef.current) return false
     const start = panStartRef.current
     if (!start.moved) {
-      const dx = Math.abs(event.clientX - start.clientX)
-      const dy = Math.abs(event.clientY - start.clientY)
-      if (dx >= PAN_CLICK_THRESHOLD || dy >= PAN_CLICK_THRESHOLD) {
+      const exceededThreshold = canvasDragExceededThreshold(start.clientX, start.clientY, event.clientX, event.clientY)
+      if (!exceededThreshold && start.button === 2) return true
+      if (exceededThreshold) {
         start.moved = true
         if (start.button === 2) suppressContextMenuRef.current = true // 右键拖→吞菜单
       }
@@ -254,34 +340,25 @@ export function useCanvasViewportGestures({
       x: start.offsetX + (event.clientX - start.clientX),
       y: start.offsetY + (event.clientY - start.clientY),
     })
-  }, [scheduleOffset])
+    return true
+  }, [beginPan, finishPan, scheduleOffset])
 
   const handlePointerUp = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    const start = panStartRef.current
-    if (isPanningRef.current && start) {
-      // 左键纯点击空白（未拖动）= 清空选择
-      if (start.button === 0 && !start.moved) clearSelection()
-    }
-    isPanningRef.current = false
-    setIsPanning(false)
-    panStartRef.current = null
-    if (offsetFrameRef.current !== null) {
-      window.cancelAnimationFrame(offsetFrameRef.current)
-      offsetFrameRef.current = null
-    }
-    if (pendingOffsetRef.current) {
-      const pending = pendingOffsetRef.current
-      setViewport((current) => ({ ...current, offset: pending }))
-      pendingOffsetRef.current = null
-    }
-    if (
-      typeof event.currentTarget.hasPointerCapture === 'function' &&
-      typeof event.currentTarget.releasePointerCapture === 'function' &&
-      event.currentTarget.hasPointerCapture(event.pointerId)
-    ) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-  }, [clearSelection, setViewport])
+    activePointerButtonsRef.current = event.buttons
+    lastPointerPositionRef.current = null
+    if (!isPanningRef.current) return
+    // document 级连线监听器会在 React stage handler 之后收到同一个 native pointerup。
+    // 只标记会冲突的 Space+左键；右键必须保留默认 contextmenu 派发。
+    if (event.button === 0) event.preventDefault()
+    finishPan(event.pointerId)
+  }, [finishPan])
+
+  const handlePointerCancel = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    activePointerButtonsRef.current = 0
+    suppressContextMenuRef.current = false
+    if (isPanningRef.current) finishPan(event.pointerId)
+    else lastPointerPositionRef.current = null
+  }, [finishPan])
 
   const shouldSuppressContextMenu = React.useCallback(() => {
     if (suppressContextMenuRef.current) {
@@ -331,9 +408,9 @@ export function useCanvasViewportGestures({
     animateViewportTo,
     zoomAtStagePoint,
     handlePointerDownCapture,
-    handlePointerDown,
     handlePointerMove,
     handlePointerUp,
+    handlePointerCancel,
     shouldSuppressContextMenu,
   }
 }

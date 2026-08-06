@@ -3,6 +3,7 @@
 import React from 'react'
 import { completeNodeConnection } from '../nodes/completeNodeConnection'
 import type { ConnectionAnchorSide } from '../store/canvasStoreTypes'
+import { shouldFinishCanvasConnection } from './canvasPointerGestureModel'
 
 type Offset = { x: number; y: number }
 
@@ -86,6 +87,7 @@ export function useDragToConnect({
       })
     }
     const handleUp = (event: PointerEvent) => {
+      if (!shouldFinishCanvasConnection(event.button, event.defaultPrevented)) return
       // 命中用**真实渲染的节点 DOM**（松手处完整元素栈），不再用名义尺寸算 AABB——
       // 节点真实渲染高（resolvePreviewHeight：生成后按图比例、卡片类固定高）常比名义尺寸高，
       // 旧 AABB 命中盒比可见卡矮 → 松手落在卡片可见下半区时 find 落空、静默取消（「线连不上」R1）。
