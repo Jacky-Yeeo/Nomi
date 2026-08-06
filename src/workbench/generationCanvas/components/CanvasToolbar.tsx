@@ -127,7 +127,7 @@ export default function CanvasToolbar({ getInsertionPosition, categoryId }: Canv
       )}
       aria-label={t('canvas.toolbar')}
     >
-      <TooltipProvider delayDuration={250}>
+      <TooltipProvider delayDuration={250} disableHoverableContent>
         {PRIMARY_ADD_GROUPS.map((items, groupIndex) => (
           <React.Fragment key={CANVAS_TOOLBAR_NODE_GROUPS[groupIndex][0]}>
             {groupIndex > 0 ? <span className="my-0.5 h-px w-5 shrink-0 bg-nomi-line" aria-hidden="true" /> : null}
@@ -152,7 +152,7 @@ export default function CanvasToolbar({ getInsertionPosition, categoryId }: Canv
                       <span className="hidden">{label}</span>
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="right">{label}</TooltipContent>
+                  <TooltipContent side="right">{t('canvas.nodeName', { type: label })}</TooltipContent>
                 </Tooltip>
               )
             })}

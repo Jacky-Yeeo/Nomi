@@ -85,7 +85,7 @@ type FloatingComposerLayout = {
   gap: number
 }
 
-function floatingComposerLayout(width: number, _height: number, kind: GenerationCanvasNode['kind']): FloatingComposerLayout {
+function floatingComposerLayout(_width: number, _height: number, kind: GenerationCanvasNode['kind']): FloatingComposerLayout {
   // 宽度不再在这里算——它**内容驱动**（CSS `w-fit` + `min-w/max-w` 边界，见卡 className），
   // 跟着该模型实际的参数横排自然撑开，参数少则窄、多则宽、触上限在卡内换行（绝不绑节点比例、不钉死常数）。
   //
@@ -94,7 +94,9 @@ function floatingComposerLayout(width: number, _height: number, kind: Generation
   // 卡片在 flex-col 里自然按内容长高；只有一个可伸缩区（提示词 flex-1 overflow-auto），
   // 底栏 shrink-0 永远贴底可见。这里给一个宽松上限：内容超过它时只有提示词内部滚动，底栏不动。
   const maxHeight = kind === 'video' ? 460 : 400
-  const gap = width >= 420 ? 14 : 10
+  // 连接间距是空间关系，不应随节点画幅宽度跨阈值跳变；否则 1:1 → 21:9 时即使底边
+  // 锚点完全不动，composer 仍会被旧的 10px → 14px 分支推开，看起来像断开。
+  const gap = 14
   return { maxHeight, gap }
 }
 

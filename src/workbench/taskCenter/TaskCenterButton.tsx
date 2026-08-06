@@ -6,7 +6,7 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { IconListDetails } from '@tabler/icons-react'
-import { WorkbenchButton } from '../../design'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, WorkbenchButton } from '../../design'
 import { cn } from '../../utils/cn'
 import { useGenerationCanvasStore } from '../generationCanvas/store/generationCanvasStore'
 import { useGenerationQueueStore } from '../generationCanvas/runner/generationQueueStore'
@@ -52,33 +52,39 @@ export function TaskCenterButton({ onRevealNode }: Props): JSX.Element | null {
 
   return (
     <>
-      <WorkbenchButton
-        className={cn(
-          'nomi-appbar__ghost',
-          'app-no-drag',
-          'inline-flex items-center gap-1.5 h-[30px] px-2.5',
-          'border border-transparent rounded-[var(--nomi-radius-sm)]',
-          'font-inherit text-body-sm',
-          'transition-[background,color] duration-[var(--nomi-transition-fast)]',
-          tone === 'busy'
-            ? 'bg-nomi-accent text-nomi-paper hover:bg-nomi-accent'
-            : tone === 'failed'
-              ? 'bg-transparent text-nomi-danger hover:bg-nomi-ink-05'
-              : 'bg-transparent text-nomi-ink-80 hover:bg-nomi-ink-05 hover:text-nomi-ink',
-        )}
-        aria-label={t('taskCenter.title')}
-        title={t('taskCenter.title')}
-        data-task-center-trigger="true"
-        onClick={() => setOpened((value) => !value)}
-      >
-        <IconListDetails size={15} stroke={1.8} />
-        <span className="max-[1400px]:hidden">{t('taskCenter.title')}</span>
-        {pending > 0 ? (
-          <span className="min-w-4 rounded-pill bg-nomi-paper px-1 text-center text-micro tabular-nums text-nomi-accent">
-            {pending}
-          </span>
-        ) : null}
-      </WorkbenchButton>
+      <TooltipProvider delayDuration={250} disableHoverableContent>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <WorkbenchButton
+              className={cn(
+                'nomi-appbar__ghost',
+                'app-no-drag',
+                'inline-flex items-center gap-1.5 h-[30px] px-2.5',
+                'border border-transparent rounded-[var(--nomi-radius-sm)]',
+                'font-inherit text-body-sm',
+                'transition-[background,color] duration-[var(--nomi-transition-fast)]',
+                tone === 'busy'
+                  ? 'bg-nomi-accent text-nomi-paper hover:bg-nomi-accent'
+                  : tone === 'failed'
+                    ? 'bg-transparent text-nomi-danger hover:bg-nomi-ink-05'
+                    : 'bg-transparent text-nomi-ink-80 hover:bg-nomi-ink-05 hover:text-nomi-ink',
+              )}
+              aria-label={t('taskCenter.title')}
+              data-task-center-trigger="true"
+              onClick={() => setOpened((value) => !value)}
+            >
+              <IconListDetails size={15} stroke={1.8} />
+              <span className="max-[1400px]:hidden">{t('taskCenter.title')}</span>
+              {pending > 0 ? (
+                <span className="min-w-4 rounded-pill bg-nomi-paper px-1 text-center text-micro tabular-nums text-nomi-accent">
+                  {pending}
+                </span>
+              ) : null}
+            </WorkbenchButton>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">{t('taskCenter.title')}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <TaskCenterPanel
         opened={opened}
         onClose={() => setOpened(false)}

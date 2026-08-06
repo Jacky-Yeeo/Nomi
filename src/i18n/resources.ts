@@ -310,6 +310,7 @@ export const zhCN = {
     addNodeMenu: '添加节点菜单',
     toolbar: '生成画布工具栏',
     addNode: '添加{{type}}节点',
+    nodeName: '{{type}}节点',
     nodeKinds: {
       text: '文本',
       image: '图片',
@@ -651,6 +652,7 @@ export const en = {
     addNodeMenu: 'Add node menu',
     toolbar: 'Generation canvas toolbar',
     addNode: 'Add {{type}} node',
+    nodeName: '{{type}} node',
     nodeKinds: {
       text: 'Text',
       image: 'Image',
