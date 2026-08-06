@@ -4,7 +4,7 @@ import type { Editor } from '@tiptap/react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { IconFileText } from '../../../vendor/tablerIcons'
-import { NomiLoadingMark } from '../../../design'
+import { NomiLoadingMark, NomiSelect } from '../../../design'
 import { cn } from '../../../utils/cn'
 import { fetchUserPrompts, type PromptMediaType, type PromptReferenceImage } from '../../api/promptLibraryApi'
 import PromptEditor from '../../assets/PromptEditor'
@@ -37,6 +37,11 @@ import { archetypeForNode, resolveModeForReferenceDemand } from '../agent/refere
 import { addAssetUrlToNode } from './nodeAssetWrite'
 import { toast } from '../../../ui/toast'
 import { getTextGenMode, type TextGenMode } from '../runner/textActions'
+import {
+  GENERATION_VARIANT_COUNTS,
+  parseGenerationVariantCount,
+  type GenerationVariantCount,
+} from './generationVariantCount'
 
 // C5 P2：文本节点的三种生成模式（label 由 composer.append/rewrite/replace 在渲染处翻译）。
 const TEXT_GEN_MODES: { value: TextGenMode; labelKey: string }[] = [
@@ -279,8 +284,8 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
   const [promptEditor, setPromptEditor] = React.useState<Editor | null>(null)
   const [promptPickerOpen, setPromptPickerOpen] = React.useState(false)
   const [promptPickerItems, setPromptPickerItems] = React.useState<PromptPickerItem[]>([])
-  // ×N 变体档位（样张拍板 2026-07-29）：会话态不落盘；点击循环 1→2→4，>1 时生成走变体连发。
-  const [variantCount, setVariantCount] = React.useState<1 | 2 | 4>(1)
+  // 变体张数是会话态、不落盘；显式列出 1–4，避免循环按钮让用户猜下一档。
+  const [variantCount, setVariantCount] = React.useState<GenerationVariantCount>(1)
   const [promptPickerPosition, setPromptPickerPosition] = React.useState<PromptPickerPosition | null>(null)
   const promptPickerButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const promptPickerPopoverRef = React.useRef<HTMLDivElement | null>(null)
@@ -671,24 +676,17 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
           <NodePromptOptimizer node={node} isVideo={nodeExecutionKind === 'video'} />
         ) : null}
         {(nodeExecutionKind === 'image' || nodeExecutionKind === 'video') && !node.locked ? (
-          <button
-            type="button"
-            className={cn(
-              'inline-flex h-7 shrink-0 items-center rounded-full border border-nomi-line bg-transparent px-2.5',
-              'cursor-pointer text-caption text-nomi-ink-60 hover:text-nomi-ink hover:bg-nomi-ink-05',
-              'transition-[background,color] duration-[var(--nomi-transition-fast)]',
-              variantCount > 1 && 'border-nomi-accent text-nomi-accent',
-            )}
-            aria-label={t('generationCommon.composer.variantCountAria')}
+          <NomiSelect
+            ariaLabel={t('generationCommon.composer.variantCountAria')}
             title={t('generationCommon.composer.variantCountTitle', { count: variantCount })}
+            value={String(variantCount)}
             disabled={isGenerating}
-            onClick={(event) => {
-              event.stopPropagation()
-              setVariantCount((prev) => (prev === 1 ? 2 : prev === 2 ? 4 : 1))
-            }}
-          >
-            ×{variantCount}
-          </button>
+            options={GENERATION_VARIANT_COUNTS.map((count) => ({
+              value: String(count),
+              label: t('generationCommon.composer.variantCountOption', { count }),
+            }))}
+            onChange={(value) => setVariantCount(parseGenerationVariantCount(value))}
+          />
         ) : null}
         {(() => {
           const disabledReason = !canGenerateNow && !isGenerating

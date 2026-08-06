@@ -2,7 +2,7 @@ import React from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Slider } from '@mantine/core'
-import { IconChevronDown } from '@tabler/icons-react'
+import { IconAspectRatio, IconChevronDown } from '@tabler/icons-react'
 import { cn } from '../../../utils/cn'
 import { DesignSwitch, NomiSegmented, NomiSelect, type NomiSegmentedOption } from '../../../design'
 import { formatVideoOptionLabel, type ModelParameterControl } from '../../../config/modelCatalogMeta'
@@ -20,6 +20,7 @@ import {
 import { commonRatioSortKey } from './aspectRatio'
 import { resolveArchetypeForOption } from './nodeModelArchetype'
 import { useDedupedModelSelect } from '../../common/useDedupedModelSelect'
+import { localizeAutoOption } from './parameterOptionPresentation'
 
 type InlineParameterBarProps = {
   modelOptions: readonly ModelOption[]
@@ -45,7 +46,8 @@ type InlineParameterBarProps = {
 
 /** 比例文本（"16:9"）→ 宽高比小图形（描边矩形，最长边 18px）。
  *  value 和 label 都试（图片模型 size 值常是像素 "1024x1024"，label 才是 "16:9"——只看 value 会漏画）。 */
-function ratioShape(...candidates: string[]): JSX.Element | null {
+function ratioShape(isAuto: boolean, ...candidates: string[]): JSX.Element | null {
+  if (isAuto) return <IconAspectRatio aria-hidden size={18} stroke={1.6} />
   for (const candidate of candidates) {
     const m = /^(\d{1,3}):(\d{1,3})$/.exec(String(candidate || '').trim())
     if (!m) continue
@@ -89,8 +91,8 @@ function summaryPart(control: DynamicModelControl, meta: Record<string, unknown>
   if (!isParameterControl(control)) {
     const value = catalogControlInitialValue(control, meta)
     const matched = control.options.find((o) => optionValue(o) === value)
-    if (!matched) return value
-    return typeof matched === 'string' ? matched || autoLabel : matched.label
+    const label = matched ? (typeof matched === 'string' ? matched : matched.label) : value
+    return localizeAutoOption(value, label, autoLabel).text
   }
   if (control.type === 'boolean') {
     return (controlInitialValue(control, meta) || 'false') === 'true' ? control.label : ''
@@ -98,7 +100,8 @@ function summaryPart(control: DynamicModelControl, meta: Record<string, unknown>
   const value = controlInitialValue(control, meta)
   if (!value) return ''
   const matched = control.options.find((o) => controlValueToString(o.value) === value)
-  return matched ? matched.label : value.length > 8 ? `${value.slice(0, 8)}…` : value
+  const label = matched ? matched.label : value.length > 8 ? `${value.slice(0, 8)}…` : value
+  return localizeAutoOption(value, label, autoLabel).text
 }
 
 export default function InlineParameterBar({
@@ -227,7 +230,17 @@ export default function InlineParameterBar({
     rawOptions: { value: string; text: string }[],
     onChange: (value: string) => void,
   ): JSX.Element => {
-    let entries = rawOptions.map((o) => ({ ...o, shape: ratioShape(o.value, o.text) }))
+    let entries = rawOptions.map((option) => {
+      const localized = localizeAutoOption(
+        option.value,
+        option.text,
+        t('generationCommon.parameters.auto'),
+      )
+      return {
+        ...localized,
+        shape: ratioShape(localized.isAuto, localized.value, localized.text),
+      }
+    })
     const anyShape = entries.some((e) => e.shape)
     if (anyShape) {
       // Array.sort 稳定：同键项保持声明相对序。
