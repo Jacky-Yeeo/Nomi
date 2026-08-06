@@ -3,7 +3,7 @@ import type { WorkspaceFileListResult } from '../../electron/workspace/workspace
 import type { ProviderKind } from './providerKind'
 import type { DesktopMediaBridge } from './bridgeMedia'
 import type { McpInfo, McpVerifyResult } from './mcpBridgeTypes'
-
+import type { DesktopSettingsBridge } from './settingsBridge'
 export type { ProviderKind }
 export type { ScreenshotHotkeyStatus } from './bridgeMedia'
 
@@ -305,6 +305,7 @@ export type DesktopBridge = DesktopMediaBridge & {
     reopenLibraryWindow: () => void
     hardReloadWindow?: () => void
   }
+  settings?: DesktopSettingsBridge
   startupProbe?: {
     enabled: boolean
     mark: (label: string, payload?: Record<string, unknown>) => void

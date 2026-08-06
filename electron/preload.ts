@@ -56,6 +56,14 @@ contextBridge.exposeInMainWorld("nomiDesktop", {
     reopenLibraryWindow: () => ipcRenderer.send("nomi:app:reopen-library-window"),
     hardReloadWindow: () => ipcRenderer.send("nomi:app:hard-reload-window"),
   },
+  settings: {
+    projectLocation: {
+      get: () => ipcRenderer.invoke("nomi:settings:project-location-get"),
+      pick: () => ipcRenderer.invoke("nomi:settings:project-location-pick"),
+      reset: () => ipcRenderer.invoke("nomi:settings:project-location-reset"),
+      reveal: () => ipcRenderer.invoke("nomi:settings:project-location-reveal"),
+    },
+  },
   browserChromeMenu: {
     select: (id: unknown) => ipcRenderer.send("browser:chrome-menu:select", id),
     cancel: () => ipcRenderer.send("browser:chrome-menu:cancel"),

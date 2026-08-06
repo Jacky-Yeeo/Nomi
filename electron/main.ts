@@ -52,6 +52,7 @@ import { installMainWindowInteractions } from "./mainWindowInteractions";
 import { getMainWindow, setMainWindow } from "./mainWindowRegistry";
 import { registerScreenshotIpc } from "./screenshot/screenshotIpc";
 import { desktopT, registerI18nIpc, setDesktopLocale } from "./i18n";
+import { registerProjectLocationIpc } from "./settings/projectLocationIpc";
 installCrashHandlers();
 
 const configuredUserDataDir = String(process.env.NOMI_ELECTRON_USER_DATA_DIR || "").trim();
@@ -582,6 +583,7 @@ function registerIpc(): void {
     return listProjectAssets(payload);
   });
   registerAssetsIpc();
+  registerProjectLocationIpc();
   ipcMain.handle("nomi:video:extract-frame", async (_event, payload) => {
     const { extractVideoFrameToAsset } = await import("./video/extractVideoFrame");
     return extractVideoFrameToAsset(payload);
