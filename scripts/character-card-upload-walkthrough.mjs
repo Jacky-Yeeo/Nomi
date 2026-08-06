@@ -71,7 +71,7 @@ const fail = (msg) => {
   await win.getByText('新建空白项目', { exact: false }).first().click()
   await win.waitForTimeout(2200)
   await win.keyboard.press('Escape').catch(() => {})
-  await win.getByText('生成', { exact: true }).first().click()
+  await win.locator('[aria-label="工作区切换"]').getByText('生成', { exact: true }).click()
   await win.waitForTimeout(1000)
   const direct = win.locator('[aria-label="添加图片节点"]')
   if ((await direct.count()) === 0 || !(await direct.first().isVisible().catch(() => false))) {

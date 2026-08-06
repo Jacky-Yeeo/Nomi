@@ -10,13 +10,11 @@ import {
   saveLocalProject as saveProjectRecord,
 } from '../project/projectRepository'
 import type {
+  WorkbenchProjectPayload,
   WorkbenchProjectRecordV1 as LocalProjectRecord,
   WorkbenchProjectSummary as LocalProjectSummary,
 } from '../project/projectRecordSchema'
 import { deriveProjectCoverFromRaw } from '../project/projectCoverDerive'
-import type { GenerationCanvasSnapshot } from '../generationCanvas/model/generationCanvasTypes'
-import type { TimelineState } from '../timeline/timelineTypes'
-import type { WorkbenchDocument } from '../workbenchTypes'
 
 const LOCAL_PROJECTS_SWR_KEY = 'nomi:local-projects:v1'
 
@@ -112,11 +110,7 @@ export { readLocalProject, readLocalProjectAsync }
 
 export function saveLocalProject(
   projectId: string,
-  state: {
-    workbenchDocument: WorkbenchDocument
-    timeline: TimelineState
-    generationCanvas: GenerationCanvasSnapshot
-  },
+  state: WorkbenchProjectPayload,
   name?: string,
 ): LocalProjectRecord {
   const record = saveProjectRecord(projectId, state, name)

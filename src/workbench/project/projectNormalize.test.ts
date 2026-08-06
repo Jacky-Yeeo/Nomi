@@ -30,6 +30,11 @@ describe('normalizePayload — storyboardPlan 持久化往返(P0-6)', () => {
     const out = normalizePayload(createDefaultWorkbenchProjectPayload())
     expect(out.storyboardPlan).toBeNull()
   })
+
+  it('保留画布事件日志游标，避免结果级更新后重复回放旧事件', () => {
+    const out = normalizePayload({ ...createDefaultWorkbenchProjectPayload(), generationCanvasLastSeq: 37 })
+    expect(out.generationCanvasLastSeq).toBe(37)
+  })
 })
 
 describe('normalizePayload — 损坏记录优雅降级（缺可默认字段不该让项目打不开）', () => {

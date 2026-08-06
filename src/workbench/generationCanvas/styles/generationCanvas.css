@@ -250,36 +250,22 @@
   opacity: 1;
 }
 
-/* 参考类型小标签（仅 typed mode 渲染；反缩放恒定字号见 TSX 的 scale(1/zoom)）。 */
-.generation-canvas-v2__edge-tag-pill {
-  display: inline-flex;
-  align-items: center;
-  height: 17px;
-  padding: 0 7px;
-  border-radius: 999px;
-  background: var(--nomi-accent-soft);
-  color: var(--nomi-accent);
-  font-size: 10.5px;
-  font-weight: 500;
-  line-height: 1;
-  white-space: nowrap;
-}
-
 .generation-canvas-v2__edge-tag {
   opacity: 1;
-  pointer-events: none;
   transition: opacity 140ms ease;
 }
 
 /* 密集区（同 target 有标签边超阈值）默认收起标签，hover 该边 / 边激活时才显——避免标签糊一片。 */
 .generation-canvas-v2__edge[data-dense='true'] .generation-canvas-v2__edge-tag {
   opacity: 0;
+  pointer-events: none;
 }
 
 .generation-canvas-v2__edge:hover .generation-canvas-v2__edge-tag,
 .generation-canvas-v2__edge[data-incident='true'] .generation-canvas-v2__edge-tag,
 .generation-canvas-v2__edge[data-active='true'] .generation-canvas-v2__edge-tag {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .generation-canvas-v2__edge-hit {

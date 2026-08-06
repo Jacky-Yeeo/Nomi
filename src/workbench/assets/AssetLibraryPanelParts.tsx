@@ -230,6 +230,7 @@ export const AssetGridCell = React.memo(function AssetGridCell({
   onSelect,
   onDragStartAsset,
   onPreview,
+  onDelete,
 }: {
   asset: AssetRef
   compact?: boolean
@@ -241,6 +242,8 @@ export const AssetGridCell = React.memo(function AssetGridCell({
   onDragStartAsset?: (asset: AssetRef, event: React.DragEvent<HTMLDivElement>) => void
   /** 双击放大预览（#52）；缺省则不响应双击。 */
   onPreview?: (asset: AssetRef) => void
+  /** 结果级删除；只删这一张/这一段，不删除承载它的画布节点。 */
+  onDelete?: (asset: AssetRef) => void
 }): JSX.Element {
   const { t } = useTranslation()
   const handleDragStart = React.useCallback((event: React.DragEvent<HTMLDivElement>) => {
@@ -282,6 +285,26 @@ export const AssetGridCell = React.memo(function AssetGridCell({
     >
       <IconCheck size={12} stroke={2.4} />
     </span>
+  ) : null
+  const deleteButton = onDelete ? (
+    <button
+      type="button"
+      className={cn(
+        'absolute right-1.5 top-1.5 z-[2] grid size-6 place-items-center rounded-nomi-sm border border-workbench-danger/20',
+        'bg-nomi-paper text-workbench-danger shadow-nomi-sm opacity-0 transition-[opacity,background] duration-[var(--nomi-transition-fast)]',
+        'hover:bg-workbench-danger-soft focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-workbench-danger/25',
+        'group-hover:opacity-100',
+      )}
+      aria-label={t('assetLibrary.deleteNamed', { name: asset.name })}
+      title={t('assetLibrary.deleteProjectAsset')}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation()
+        onDelete(asset)
+      }}
+    >
+      <IconTrash size={13} stroke={2} aria-hidden="true" />
+    </button>
   ) : null
 
   return (
@@ -325,6 +348,7 @@ export const AssetGridCell = React.memo(function AssetGridCell({
               )}
               <AssetKindBadge kind={asset.kind} compact />
               {check}
+              {deleteButton}
             </div>
           </div>
         ) : (
@@ -347,6 +371,7 @@ export const AssetGridCell = React.memo(function AssetGridCell({
             <AssetThumb asset={asset} />
             <AssetKindBadge kind={asset.kind} />
             {check}
+            {deleteButton}
             <span className="absolute bottom-0 left-0 right-0 truncate bg-gradient-to-t from-[oklch(0_0_0/0.6)] to-transparent px-1.5 pb-1 pt-2.5 text-micro text-nomi-paper">
               {asset.name}
             </span>

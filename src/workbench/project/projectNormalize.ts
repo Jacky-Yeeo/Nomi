@@ -82,6 +82,7 @@ export function normalizePayload(input: unknown): WorkbenchProjectPayload {
     timeline: normalizeTimeline(payload.timeline),
     generationCanvas: payload.generationCanvas,
     categories: normalizeCategories(payload.categories),
+    generationCanvasLastSeq: payload.generationCanvasLastSeq,
     // P0-6:分镜方案随项目持久化(normalizePayload 是字段重建式,不透传 → 必须显式带上,否则切项目/重载丢)。
     storyboardPlan: payload.storyboardPlan ?? null,
     // 卡片回看:落画布状态随项目持久化(老项目无字段 → false 当草稿)。

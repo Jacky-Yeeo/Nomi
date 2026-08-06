@@ -9,6 +9,13 @@ import {
 } from './nodeSizing'
 
 const FLIP_HYSTERESIS = 48
+const TOOLBAR_CLEARANCE_GAP = 18
+
+export const NODE_FLOATING_TOOLBAR_SELECTOR = '[data-node-floating-toolbar="true"]'
+
+export function toolbarClearanceInCanvasUnits(screenHeight: number, zoom: number, gap: number): number {
+  return screenHeight > 0 ? screenHeight / (zoom || 1) + gap : 0
+}
 
 type Placement = {
   anchorRef: React.RefObject<HTMLDivElement>
@@ -95,9 +102,11 @@ export function useComposerViewportPlacement(input: {
         ))
       }
 
-      const toolbar = nodeEl.querySelector('.generation-canvas-v2-node__panorama-toolbar')
+      const toolbar = nodeEl.querySelector<HTMLElement>(NODE_FLOATING_TOOLBAR_SELECTOR)
       const toolbarScreenHeight = toolbar ? toolbar.getBoundingClientRect().height : 0
-      setAboveClearance(toolbarScreenHeight > 0 ? toolbarScreenHeight / (canvasZoom || 1) + 18 : 0)
+      setAboveClearance(
+        toolbarClearanceInCanvasUnits(toolbarScreenHeight, canvasZoom, TOOLBAR_CLEARANCE_GAP),
+      )
     }
 
     let observedTimelineHandle: HTMLElement | null = null

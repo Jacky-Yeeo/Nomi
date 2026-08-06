@@ -83,6 +83,8 @@ contextBridge.exposeInMainWorld("nomiDesktop", {
     create: (record: unknown) => invokeSync("nomi:projects:create", record),
     read: (projectId: string) => invokeSync("nomi:projects:read", projectId),
     readAsync: (projectId: string) => ipcRenderer.invoke("nomi:projects:read-async", projectId),
+    diagnose: (projectId: string) => ipcRenderer.invoke("nomi:projects:diagnose", projectId),
+    recover: (projectId: string) => ipcRenderer.invoke("nomi:projects:recover", projectId),
     save: (projectId: string, record: unknown) => invokeSync("nomi:projects:save", projectId, record),
     saveAsync: (projectId: string, record: unknown) =>
       ipcRenderer.invoke("nomi:projects:save-async", projectId, record),

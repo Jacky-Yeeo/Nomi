@@ -21,8 +21,9 @@ export function FloatingToolbarShell({ ariaLabel, children }: { ariaLabel: strin
         'absolute left-1/2 bottom-[calc(100%+16px)] z-[12]',
         'inline-flex items-center gap-1 min-h-9 px-1.5 py-1',
         'border border-nomi-line rounded-nomi',
-        'bg-nomi-paper/[0.96] shadow-nomi-md backdrop-blur-[12px]',
+        'bg-nomi-paper shadow-nomi-md',
       )}
+      data-node-floating-toolbar="true"
       style={{ transform: `translateX(-50%) scale(${1 / (canvasZoom || 1)})`, transformOrigin: 'bottom center' }}
       role="toolbar"
       aria-label={ariaLabel}

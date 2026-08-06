@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, protocol, session, shell } from "e
 import type { Rectangle, WebContents } from "electron";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { createProject, deleteProject, listProjects, readProject, saveProject } from "./projects/repository";
+import { createProject, deleteProject, diagnoseProject, listProjects, readProject, recoverProject, saveProject } from "./projects/repository";
 import { registerAssetsIpc } from "./assets/assetsIpc";
 import {
   clearModelCatalogVendorApiKey,
@@ -427,6 +427,8 @@ function registerIpc(): void {
   });
   registerSyncIpc("nomi:projects:read", readProject);
   ipcMain.handle("nomi:projects:read-async", (_event, projectId: unknown) => readProject(String(projectId || "")));
+  ipcMain.handle("nomi:projects:diagnose", (_event, projectId: unknown) => diagnoseProject(String(projectId || "")));
+  ipcMain.handle("nomi:projects:recover", (_event, projectId: unknown) => recoverProject(String(projectId || "")));
   registerSyncIpc("nomi:projects:save", saveProject);
   ipcMain.handle("nomi:projects:save-async", (_event, projectId: unknown, record: unknown) =>
     saveProject(String(projectId || ""), record),

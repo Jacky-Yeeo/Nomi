@@ -1,14 +1,107 @@
 import fs from "node:fs";
 import path from "node:path";
+import { readJsonFile, writeJsonFileAtomic } from "../jsonFile";
 import { migrateLegacyProjectFolder } from "./legacyProjectMigration";
 import { initializeWorkspace, readWorkspaceManifest, writeWorkspaceManifest } from "./workspaceManifest";
 import { listRecentWorkspaces, rememberWorkspace, removeWorkspaceReference } from "./workspaceRegistry";
-import { normalizeWorkspaceProjectRecord, type WorkspaceProjectRecordV2 } from "./workspaceTypes";
+import {
+  normalizeWorkspaceProjectRecord,
+  workspaceProjectRecordSchema,
+  type WorkspaceProjectRecordV2,
+} from "./workspaceTypes";
+import {
+  workspaceProjectBackupFile,
+  workspaceProjectFile,
+  workspaceProjectQuarantineFile,
+} from "./workspacePaths";
 
 export type WorkspaceRepositoryDeps = {
   settingsRoot: string;
   defaultProjectsRoot: string;
 };
+
+export type WorkspaceProjectDiagnosticStatus =
+  | "ok"
+  | "not-registered"
+  | "missing-folder"
+  | "missing-manifest"
+  | "corrupt-manifest"
+  | "id-mismatch";
+
+export type WorkspaceProjectDiagnostic = {
+  projectId: string;
+  rootPath?: string;
+  status: WorkspaceProjectDiagnosticStatus;
+  recoverable: boolean;
+  backupAvailable: boolean;
+};
+
+function readValidProjectRecord(filePath: string, projectId: string): WorkspaceProjectRecordV2 | null {
+  if (!fs.existsSync(filePath)) return null;
+  try {
+    const parsed = workspaceProjectRecordSchema.safeParse(readJsonFile(filePath));
+    if (!parsed.success || parsed.data.id !== projectId) return null;
+    return normalizeWorkspaceProjectRecord(parsed.data);
+  } catch {
+    return null;
+  }
+}
+
+function backupWorkspaceProject(rootPath: string, record: WorkspaceProjectRecordV2): void {
+  writeJsonFileAtomic(workspaceProjectBackupFile(rootPath), record);
+}
+
+export function diagnoseWorkspaceProject(
+  projectId: string,
+  deps: WorkspaceRepositoryDeps,
+): WorkspaceProjectDiagnostic {
+  const id = String(projectId || "").trim();
+  const entry = findRecentEntry(id, deps);
+  if (!entry) return { projectId: id, status: "not-registered", recoverable: false, backupAvailable: false };
+  const rootPath = entry.rootPath;
+  if (entry.missing || !fs.existsSync(rootPath)) {
+    return { projectId: id, rootPath, status: "missing-folder", recoverable: false, backupAvailable: false };
+  }
+  const backupAvailable = Boolean(readValidProjectRecord(workspaceProjectBackupFile(rootPath), id));
+  const manifestPath = workspaceProjectFile(rootPath);
+  if (!fs.existsSync(manifestPath)) {
+    return { projectId: id, rootPath, status: "missing-manifest", recoverable: backupAvailable, backupAvailable };
+  }
+  try {
+    const parsed = workspaceProjectRecordSchema.safeParse(readJsonFile(manifestPath));
+    if (!parsed.success) {
+      return { projectId: id, rootPath, status: "corrupt-manifest", recoverable: backupAvailable, backupAvailable };
+    }
+    if (parsed.data.id !== id) {
+      return { projectId: id, rootPath, status: "id-mismatch", recoverable: backupAvailable, backupAvailable };
+    }
+    return { projectId: id, rootPath, status: "ok", recoverable: false, backupAvailable };
+  } catch {
+    return { projectId: id, rootPath, status: "corrupt-manifest", recoverable: backupAvailable, backupAvailable };
+  }
+}
+
+export function recoverWorkspaceProject(
+  projectId: string,
+  deps: WorkspaceRepositoryDeps,
+): WorkspaceProjectRecordV2 {
+  const diagnostic = diagnoseWorkspaceProject(projectId, deps);
+  if (!diagnostic.rootPath || !diagnostic.recoverable) {
+    throw new Error(`Workspace project is not recoverable: ${projectId}`);
+  }
+  const backup = readValidProjectRecord(workspaceProjectBackupFile(diagnostic.rootPath), projectId);
+  if (!backup) throw new Error(`Workspace project backup is unavailable: ${projectId}`);
+  const manifestPath = workspaceProjectFile(diagnostic.rootPath);
+  if (fs.existsSync(manifestPath)) {
+    fs.copyFileSync(manifestPath, workspaceProjectQuarantineFile(diagnostic.rootPath, Date.now()));
+  }
+  const recovered = writeWorkspaceManifest(diagnostic.rootPath, {
+    ...backup,
+    lastKnownRootPath: diagnostic.rootPath,
+  });
+  rememberWorkspace(deps.settingsRoot, recovered);
+  return recovered;
+}
 
 // 项目来源：'native' = 在默认根（~/Documents/Nomi Projects）里新建的原生项目；
 // 'folder' = 用「打开文件夹」绑定到外部目录的项目。靠目录位置派生，存量项目也能判，无需 schema 迁移。
@@ -165,6 +258,7 @@ export function createWorkspaceProject(
     lastKnownRootPath: rootPath,
   });
   writeWorkspaceManifest(rootPath, record);
+  backupWorkspaceProject(rootPath, record);
   rememberWorkspace(deps.settingsRoot, record);
   return record;
 }
@@ -220,7 +314,7 @@ export function listWorkspaceProjects(deps: WorkspaceRepositoryDeps): WorkspaceP
           lastKnownRootPath: entry.rootPath,
         }),
         entry.rootPath,
-        true,
+        false,
         source,
       );
     }
@@ -271,6 +365,7 @@ export function saveWorkspaceProject(
     payload: inputPayload(record),
     lastKnownRootPath: entry.rootPath,
   });
+  backupWorkspaceProject(entry.rootPath, existing);
   const written = writeWorkspaceManifest(entry.rootPath, next);
   rememberWorkspace(deps.settingsRoot, written);
   return written;

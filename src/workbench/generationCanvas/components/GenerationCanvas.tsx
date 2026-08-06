@@ -116,6 +116,7 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
   const captureHistory = useGenerationCanvasStore((state) => state.captureHistory)
   const commitPersistedChange = useGenerationCanvasStore((state) => state.commitPersistedChange)
   const disconnectEdge = useGenerationCanvasStore((state) => state.disconnectEdge)
+  const updateEdgeMode = useGenerationCanvasStore((state) => state.updateEdgeMode)
   const pendingConnectionSourceId = useGenerationCanvasStore((state) => state.pendingConnectionSourceId)
   const pendingConnectionSourceSide = useGenerationCanvasStore((state) => state.pendingConnectionSourceSide)
   const cancelConnection = useGenerationCanvasStore((state) => state.cancelConnection)
@@ -670,6 +671,7 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
               pendingConnectionSourceSide={connectionCreateMenu?.sourceSide ?? pendingConnectionSourceSide}
               pendingCursorPos={connectionCreateMenu ? { x: connectionCreateMenu.canvasX, y: connectionCreateMenu.canvasY } : pendingCursorPos}
               onSetActiveEdge={setActiveEdge}
+              onUpdateEdgeMode={updateEdgeMode}
               onDisconnectEdge={disconnectEdge}
               getCanvasPointFromClientPoint={getCanvasPointFromClientPoint}
             />

@@ -21,7 +21,6 @@ import { filterAssets, type AssetKind, type AssetRef } from './assetTypes'
 import { ASSET_LIBRARY_DRAG_MIME, serializeAssetLibraryDrag } from './assetLibraryDrag'
 import { importAudioFilesToLibrary, type AudioImportResult } from './importAudioToLibrary'
 import type { GenerationAssetImportResult } from '../generationCanvas/adapters/assetImportAdapter'
-import { useGenerationCanvasStore } from '../generationCanvas/store/generationCanvasStore'
 import { confirmDialog, DesignEmptyState, DesignSearchInput, TooltipProvider } from '../../design'
 import AssetFinderPanel from './autoGroup/AssetFinderPanel'
 import { acceptAttrForKinds, mediaKindFromExtension } from '../../../electron/assets/mediaTypes'
@@ -34,7 +33,8 @@ import {
 } from './AssetLibraryPanelParts'
 import { AssetPreviewDialog } from './AssetPreviewDialog'
 import { ASSET_KIND_FILTER_VALUES, FILTER_OPTIONS, type FilterValue } from './assetLibraryPanelFilters'
-import { buildAssetLibraryDeletePlan, filterImageVideoAssets, filterPlayableAssets } from './assetLibrarySources'
+import { filterImageVideoAssets, filterPlayableAssets } from './assetLibrarySources'
+import { deleteAssetResult } from './deleteAssetResult'
 import { addAssetToTimelineEnd } from '../timeline/addAssetToTimeline'
 import {
   assetToDragPayload,
@@ -424,64 +424,53 @@ export function AssetLibraryContent({
       toast(t('assetLibrary.selectToDelete'), 'warning')
       return
     }
-    const canvasStore = useGenerationCanvasStore.getState()
-    const deletePlan = buildAssetLibraryDeletePlan({
-      selectedAssets: selectedProjectAssets,
-      canvasNodes: canvasStore.nodes,
-      allProjectAssets,
-      currentProjectId: projectId,
-    })
-    if (deletePlan.nodeIds.length === 0) {
-      toast(t('assetLibrary.cannotDeleteSelected'), 'warning')
-      return
-    }
     const confirmed = await confirmDialog({
-      title: t('assetLibrary.confirmDeleteTitle', { count: deletePlan.nodeIds.length }),
+      title: t('assetLibrary.confirmDeleteTitle', { count: selectedProjectAssets.length }),
       message: t('assetLibrary.confirmDeleteMessage'),
       confirmLabel: t('assetLibrary.delete'),
       danger: true,
     })
     if (!confirmed) return
-    const bridge = getDesktopBridge()
-    const deleteFiles = bridge?.workspace?.deleteFiles
-    if (deletePlan.fileTargets.length > 0 && !deleteFiles) {
-      toast(t('assetLibrary.deleteUnsupported'), 'error')
-      return
-    }
     try {
-      let deletedFileCount = 0
-      let failedFileCount = 0
-      if (deletePlan.fileTargets.length > 0 && deleteFiles) {
-        const pathsByProject = new Map<string, string[]>()
-        for (const target of deletePlan.fileTargets) {
-          const paths = pathsByProject.get(target.projectId)
-          if (paths) paths.push(target.relativePath)
-          else pathsByProject.set(target.projectId, [target.relativePath])
-        }
-        const results = await Promise.all([...pathsByProject].map(([targetProjectId, relativePaths]) =>
-          deleteFiles({ projectId: targetProjectId, relativePaths }),
-        ))
-        deletedFileCount = results.reduce((total, result) => total + result.deletedCount, 0)
-        failedFileCount = results.reduce((total, result) => total + result.failedCount, 0)
-      }
-      const latestCanvasStore = useGenerationCanvasStore.getState()
-      const existingCanvasIds = new Set(latestCanvasStore.nodes.map((node) => node.id))
-      const deletableCanvasNodeIds = deletePlan.nodeIds.filter((nodeId) => existingCanvasIds.has(nodeId))
-      if (deletableCanvasNodeIds.length > 0) {
-        latestCanvasStore.selectNodes(deletableCanvasNodeIds)
-        latestCanvasStore.deleteSelectedNodes()
-      }
+      // 串行：同一关闭项目的多张结果必须一张张基于最新 record 改，Promise.all 会各读同一旧快照后互相覆盖。
+      const outcomes: Awaited<ReturnType<typeof deleteAssetResult>>[] = []
+      for (const asset of selectedProjectAssets) outcomes.push(await deleteAssetResult(asset, projectId))
+      const removedCount = outcomes.reduce((total, outcome) => total + outcome.removedResultCount, 0)
+      const deletedFileCount = outcomes.reduce((total, outcome) => total + outcome.deletedFileCount, 0)
+      const failedFileCount = outcomes.reduce((total, outcome) => total + outcome.failedFileCount, 0)
       refreshProjectAssets()
       refreshAllProjectAssets()
       setSelectedIds(new Set())
-      if (deletableCanvasNodeIds.length > 0) toast(t('assetLibrary.deletedProjectAssets', { count: deletableCanvasNodeIds.length }), 'success')
-      if (deletedFileCount > 0 && deletableCanvasNodeIds.length === 0) toast(t('assetLibrary.deletedFiles', { count: deletedFileCount }), 'success')
+      if (removedCount > 0) toast(t('assetLibrary.deletedProjectAssets', { count: removedCount }), 'success')
+      else if (deletedFileCount > 0) toast(t('assetLibrary.deletedFiles', { count: deletedFileCount }), 'success')
+      else if (failedFileCount === 0) toast(t('assetLibrary.cannotDeleteSelected'), 'warning')
       if (failedFileCount > 0) toast(t('assetLibrary.failedFiles', { count: failedFileCount }), 'warning')
     } catch (error) {
       console.error('delete project assets failed', error)
       toast(t('assetLibrary.deleteFailed'), 'error')
     }
-  }, [allProjectAssets, projectId, refreshAllProjectAssets, refreshProjectAssets, selectedProjectAssets, t])
+  }, [projectId, refreshAllProjectAssets, refreshProjectAssets, selectedProjectAssets, t])
+
+  const deleteOneAsset = React.useCallback(async (asset: AssetRef): Promise<void> => {
+    const confirmed = await confirmDialog({
+      title: t('assetLibrary.confirmDeleteTitle', { count: 1 }),
+      message: t('assetLibrary.confirmDeleteMessage'),
+      confirmLabel: t('assetLibrary.delete'),
+      danger: true,
+    })
+    if (!confirmed) return
+    try {
+      const outcome = await deleteAssetResult(asset, projectId || '')
+      refreshProjectAssets()
+      refreshAllProjectAssets()
+      setPreviewAsset((current) => current?.id === asset.id ? null : current)
+      if (outcome.failedFileCount > 0) toast(t('assetLibrary.failedFiles', { count: outcome.failedFileCount }), 'warning')
+      else toast(t('assetLibrary.deletedProjectAssets', { count: 1 }), 'success')
+    } catch (error) {
+      console.error('delete asset result failed', error)
+      toast(t('assetLibrary.deleteFailed'), 'error')
+    }
+  }, [projectId, refreshAllProjectAssets, refreshProjectAssets, t])
 
   const uploadButton = (
     <button
@@ -748,6 +737,7 @@ export function AssetLibraryContent({
                   onSelect={activateAsset}
                   onPreview={assetPreviewAction}
                   onDragStartAsset={assetDragStartAction}
+                  onDelete={usageContext === 'canvas' && sourceFilter === 'all' ? (assetToDelete) => void deleteOneAsset(assetToDelete) : undefined}
                 />
               ))}
             </div>
@@ -782,6 +772,7 @@ export function AssetLibraryContent({
                         onSelect={activateAsset}
                         onPreview={assetPreviewAction}
                         onDragStartAsset={assetDragStartAction}
+                        onDelete={usageContext === 'canvas' && sourceFilter === 'all' ? (assetToDelete) => void deleteOneAsset(assetToDelete) : undefined}
                       />
                     ))}
                   </div>

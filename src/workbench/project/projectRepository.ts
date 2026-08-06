@@ -1,11 +1,9 @@
-import type { TimelineState } from '../timeline/timelineTypes'
 import {
   workbenchProjectRecordSchema,
+  type WorkbenchProjectPayload,
   type WorkbenchProjectRecordV1,
   type WorkbenchProjectSummary,
 } from './projectRecordSchema'
-import type { GenerationCanvasSnapshot } from '../generationCanvas/model/generationCanvasTypes'
-import type { WorkbenchDocument } from '../workbenchTypes'
 import { assertWorkbenchProjectMediaUrlsPersistable } from './projectMediaMigration'
 import { getDesktopBridge } from '../../desktop/bridge'
 import { buildTemplateCategories, getProjectTemplate } from '../library/projectTemplates'
@@ -186,11 +184,7 @@ export async function readLocalProjectAsync(projectId: string): Promise<Workbenc
 
 export function saveLocalProject(
   projectId: string,
-  state: {
-    workbenchDocument: WorkbenchDocument
-    timeline: TimelineState
-    generationCanvas: GenerationCanvasSnapshot
-  },
+  state: WorkbenchProjectPayload,
   name?: string,
 ): WorkbenchProjectRecordV1 {
   const id = String(projectId || '').trim()

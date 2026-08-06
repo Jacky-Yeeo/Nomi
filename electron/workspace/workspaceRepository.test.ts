@@ -5,14 +5,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createWorkspaceProject,
   gcEmptyDraftWorkspaceProjects,
+  diagnoseWorkspaceProject,
   listWorkspaceProjects,
   readWorkspaceProject,
+  recoverWorkspaceProject,
   removeWorkspaceProjectReference,
   resolveWorkspaceProjectDir,
   saveWorkspaceProject,
   type WorkspaceRepositoryDeps,
 } from "./workspaceRepository";
-import { workspaceProjectFile } from "./workspacePaths";
+import { workspaceProjectBackupFile, workspaceProjectFile, workspaceProjectQuarantineFile } from "./workspacePaths";
 import { recentWorkspacesPath } from "./workspaceRegistry";
 
 const tempRoots: string[] = [];
@@ -102,6 +104,28 @@ describe("workspace repository", () => {
       payload: { draft: 2 },
     });
     expect(raw.payload).toEqual({ draft: 2 });
+    expect(JSON.parse(fs.readFileSync(workspaceProjectBackupFile(selectedRoot), "utf8")).payload).toEqual({ draft: 1 });
+  });
+
+  it("diagnoses and recovers a corrupt manifest from the last valid backup", () => {
+    const selectedRoot = makeTempDir();
+    const repoDeps = deps();
+    const created = createWorkspaceProject(
+      { rootPath: selectedRoot, record: { name: "Recover Me", payload: { draft: 1 } } },
+      repoDeps,
+    );
+    saveWorkspaceProject(created.id, { name: "Recover Me", payload: { draft: 2 } }, repoDeps);
+    fs.writeFileSync(workspaceProjectFile(selectedRoot), "{bad json");
+
+    expect(diagnoseWorkspaceProject(created.id, repoDeps)).toMatchObject({
+      status: "corrupt-manifest",
+      recoverable: true,
+      backupAvailable: true,
+    });
+    const recovered = recoverWorkspaceProject(created.id, repoDeps);
+    expect(recovered.payload).toEqual({ draft: 1 });
+    expect(readWorkspaceProject(created.id, repoDeps)?.payload).toEqual({ draft: 1 });
+    expect(fs.existsSync(workspaceProjectQuarantineFile(selectedRoot, Date.now()))).toBe(true);
   });
 
   it("removes a project reference without deleting rootPath", () => {
@@ -156,10 +180,9 @@ describe("workspace repository", () => {
       id: healthy.id,
       missing: false,
     });
-    expect(projects.find((project) => project.id === broken.id)).toMatchObject({
-      id: broken.id,
-      missing: true,
-    });
+    // 文件夹仍在时不能把「清单损坏」伪装成 missing；上层会把 native missing 当真删并摘掉 registry，
+    // 从而连恢复入口都消失。保留卡片，打开时再走 diagnose/recover。
+    expect(projects.find((project) => project.id === broken.id)).toMatchObject({ id: broken.id, missing: false });
     expect(readWorkspaceProject(healthy.id, repoDeps)).toMatchObject({ id: healthy.id });
     expect(readWorkspaceProject(broken.id, repoDeps)).toBeNull();
     warnSpy.mockRestore();

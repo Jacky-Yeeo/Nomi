@@ -278,9 +278,46 @@ export default function NomiStudioApp(): JSX.Element {
       const { module, service } = await ensureProjectPersistenceService()
       hydratingProjectRef.current = true
       try {
-        const hydrated = await service.hydrateProject(projectId)
+        let hydrateError: unknown = null
+        let hydrated = await service.hydrateProject(projectId).catch((error: unknown) => {
+          hydrateError = error
+          return null
+        })
         if (!hydrated) {
-          toast(t('studio.projectNotFound'), 'error')
+          const projectBridge = getDesktopBridge()?.projects
+          const diagnostic = projectBridge?.diagnose
+            ? await projectBridge.diagnose(projectId).catch(() => null)
+            : null
+          if (diagnostic?.recoverable && projectBridge?.recover) {
+            const confirmed = await confirmDialog({
+              title: t('studio.projectRecoveryTitle'),
+              message: t('studio.projectRecoveryMessage'),
+              confirmLabel: t('studio.projectRecoveryConfirm'),
+              cancelLabel: t('common.cancel'),
+              tone: 'info',
+            })
+            if (confirmed) {
+              await projectBridge.recover(projectId)
+              hydrated = await service.hydrateProject(projectId)
+              if (hydrated) toast(t('studio.projectRecoveryComplete'), 'success')
+            }
+          } else if (diagnostic?.status === 'missing-folder') {
+            toast(t('studio.projectFolderMissing'), 'error')
+          } else if (diagnostic?.rootPath) {
+            const reveal = await confirmDialog({
+              title: t('studio.projectRepairTitle'),
+              message: t('studio.projectRepairMessage', { path: diagnostic.rootPath }),
+              confirmLabel: t('studio.openProjectFolder'),
+              cancelLabel: t('common.cancel'),
+              tone: 'info',
+            })
+            if (reveal) await getDesktopBridge()?.workspace?.revealProjectFolder({ projectId })
+          } else {
+            toast(t('studio.projectNotFound'), 'error')
+          }
+        }
+        if (!hydrated) {
+          if (hydrateError) console.error('project hydrate failed', hydrateError)
           refreshProjects()
           return false
         }
