@@ -110,13 +110,14 @@ export default function GenerationWorkspace({
         )}
       >
         {canvas}
-        {/* 折叠态：右下悬浮把手——避开节点与 composer 的中央编辑通道。 */}
+        {/* 折叠态：底部居中把手——2026-08-06 曾挪到右下「避开中央编辑通道」，但用户拍板
+            （2026-08-08 飞书反馈）时间轴是主时间观入口，应在底部中间。 */}
         {timelineCollapsed ? (
           <button
             type="button"
             className={cn(
               'workbench-generation__timeline-handle',
-              'absolute bottom-3 right-3 z-[8]',
+              'absolute bottom-3 left-1/2 -translate-x-1/2 z-[8]',
               'inline-flex items-center gap-2 rounded-full px-3 py-1.5',
               'border border-[var(--workbench-border)] bg-nomi-paper shadow-workbench-pop',
               'text-body-sm font-medium text-nomi-ink',
@@ -145,7 +146,10 @@ export default function GenerationWorkspace({
             'workbench-generation__ai relative',
             'grid min-w-0 min-h-0 overflow-hidden border-b border-[var(--workbench-border)]',
             aiLayout === 'overlay'
-              ? 'absolute top-4 right-4 z-[80] block w-auto h-auto border-0 bg-transparent pointer-events-auto'
+              // 收起态胶囊挪右下（2026-08-08 飞书反馈「Nomi 生成按钮和创作框重叠」）：
+              // 节点默认落画布上半区（右上最重灾区），右下角落遮挡面最小；
+              // 时间轴把手居中后右下正好空出。
+              ? 'absolute bottom-4 right-4 z-[80] block w-auto h-auto border-0 bg-transparent pointer-events-auto'
               : 'justify-items-end border-l border-l-[var(--workbench-border)] bg-[var(--workbench-surface)]',
           )}
           aria-label={t('generationCommon.workspace.assistantSidebar')}

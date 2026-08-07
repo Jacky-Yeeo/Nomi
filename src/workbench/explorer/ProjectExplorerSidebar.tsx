@@ -150,14 +150,49 @@ export default function ProjectExplorerSidebar({ categories, projectId = null }:
   )
 
   const panelTitle = sidebarPanelTitle(tab, t)
-  const expandedWidth = isLibraryTab(tab) ? PROJECT_LIBRARY_SIDEBAR_EXPANDED_WIDTH : PROJECT_SIDEBAR_EXPANDED_WIDTH
+  const sidebarWidthOverride = useWorkbenchStore((s) => s.projectSidebarWidth)
+  const setSidebarWidth = useWorkbenchStore((s) => s.setProjectSidebarWidth)
+  const defaultExpandedWidth = isLibraryTab(tab) ? PROJECT_LIBRARY_SIDEBAR_EXPANDED_WIDTH : PROJECT_SIDEBAR_EXPANDED_WIDTH
+  const expandedWidth = sidebarWidthOverride ?? defaultExpandedWidth
+
+  // 右缘拖拽调宽（2026-08-08 飞书反馈「素材库宽度锁死不能拽」）——照右侧 AI 栏的
+  // pointer-capture separator 模式（GenerationWorkspace），不造第二套。拖拽中关掉 width
+  // transition，否则跟手被动画拖住。
+  const dragRef = React.useRef<{ startX: number; startW: number } | null>(null)
+  const [dragging, setDragging] = React.useState(false)
+  const onHandlePointerDown = React.useCallback(
+    (e: React.PointerEvent) => {
+      dragRef.current = { startX: e.clientX, startW: expandedWidth }
+      e.currentTarget.setPointerCapture(e.pointerId)
+      setDragging(true)
+    },
+    [expandedWidth],
+  )
+  const onHandlePointerMove = React.useCallback(
+    (e: React.PointerEvent) => {
+      const st = dragRef.current
+      if (!st) return
+      // 左侧停靠：往右拖（clientX 变大）= 加宽。
+      setSidebarWidth(st.startW + (e.clientX - st.startX))
+    },
+    [setSidebarWidth],
+  )
+  const onHandlePointerEnd = React.useCallback((e: React.PointerEvent) => {
+    dragRef.current = null
+    setDragging(false)
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    } catch {
+      /* noop */
+    }
+  }, [])
 
   return (
     <aside
       data-collapsed={collapsed ? 'true' : 'false'}
       className={cn(
-        'flex h-full min-h-0 shrink-0 overflow-hidden border-r border-nomi-line bg-nomi-paper text-nomi-ink',
-        'transition-[width] duration-150 ease-out',
+        'relative flex h-full min-h-0 shrink-0 overflow-hidden border-r border-nomi-line bg-nomi-paper text-nomi-ink',
+        !dragging && 'transition-[width] duration-150 ease-out',
       )}
       style={{ width: collapsed ? PROJECT_SIDEBAR_COLLAPSED_WIDTH : expandedWidth }}
       aria-label={t('sidebar.explorer')}
@@ -291,6 +326,29 @@ export default function ProjectExplorerSidebar({ categories, projectId = null }:
           </section>
         ) : null}
       </TooltipProvider>
+      {/* 右缘拖拽调宽手柄：仅展开态显示。视觉条常驻淡显、hover/拖拽中加深。 */}
+      {!collapsed ? (
+        <div
+          role="separator"
+          aria-label={t('sidebar.resize')}
+          aria-orientation="vertical"
+          className={cn(
+            'group absolute right-0 top-0 bottom-0 z-10 w-2.5',
+            'flex cursor-col-resize items-center justify-center touch-none',
+          )}
+          onPointerDown={onHandlePointerDown}
+          onPointerMove={onHandlePointerMove}
+          onPointerUp={onHandlePointerEnd}
+          onPointerCancel={onHandlePointerEnd}
+        >
+          <span
+            className={cn(
+              'h-8 w-[3px] rounded-full bg-nomi-ink-30 transition-colors',
+              dragging ? 'bg-nomi-accent' : 'group-hover:bg-nomi-accent',
+            )}
+          />
+        </div>
+      ) : null}
     </aside>
   )
 }

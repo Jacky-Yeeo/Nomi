@@ -55,7 +55,10 @@ export function CanvasControlsHelpPopover(): JSX.Element {
       {open ? (
         <div
           className={cn(
-            'absolute bottom-[calc(100%+8px)] left-0 z-[12] w-96 p-3',
+            // 2026-08-08 反馈「说明超出框」：w-96 两列各 ~174px，「Space + 左拖」「Delete / Backspace」
+            // 这类长 kbd nowrap 必溢出右缘。加宽到 30rem（每列 ~228px 容纳最长组合）；
+            // 触发按钮在右下导航栈，right-0 向左展开防出屏（原 left-0 加宽后会越视口右缘）。
+            'absolute bottom-[calc(100%+8px)] right-0 z-[12] w-[30rem] p-3',
             'grid grid-cols-2 gap-3 border border-nomi-line rounded-nomi',
             'bg-nomi-paper text-nomi-ink shadow-nomi-lg',
           )}

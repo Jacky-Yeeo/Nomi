@@ -107,7 +107,6 @@ export function ConnectAssistantCard({ info, onChanged }: ConnectAssistantCardPr
 
   const label = CLIENT_LABEL[target]
   const client = info.clients[target]
-  const anyInstalled = CLIENT_ORDER.some((key) => info.clients[key]?.installed)
 
   const handleInstall = () => {
     if (!capability.installMcp) return
@@ -166,7 +165,9 @@ export function ConnectAssistantCard({ info, onChanged }: ConnectAssistantCardPr
       glyphTone="ink"
       name={t('onboardingProviders.assistant.name')}
       subtitle={t('onboardingProviders.assistant.subtitle')}
-      status={anyInstalled || info.tokenReady ? 'ok' : 'todo'}
+      // 徽章绿只认「真接入且握手没断」：此前 anyInstalled || tokenReady 就 ok——
+      // 配置残留/broken 也亮绿「已接入」，用户「什么都没整却显示已接入」（2026-08-08 反馈）。
+      status={client.installed && !broken ? 'ok' : 'todo'}
       statusLabel={statusLabel}
       defaultExpanded={false}
     >
@@ -220,7 +221,7 @@ export function ConnectAssistantCard({ info, onChanged }: ConnectAssistantCardPr
           ) : client.installed ? (
             <>
               <div className="flex items-start gap-2 rounded-nomi-sm bg-[var(--workbench-success-soft)] px-3 py-2.5">
-                <IconCircleCheck size={17} className="shrink-0 mt-0.5 text-workbench-success" />
+                <IconCircleCheck size={17} className="shrink-0 mt-0.5 text-workbench-success-ink" />
                 <div className="min-w-0">
                   {/* 验证通过就报「已连通」并给出证据（几个工具可用）；没验证能力时退回「已写入配置」。 */}
                   <div className="text-body-sm font-semibold text-nomi-ink">

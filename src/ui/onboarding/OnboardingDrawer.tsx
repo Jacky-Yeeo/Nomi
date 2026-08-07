@@ -352,12 +352,12 @@ export function OnboardingDrawer(): JSX.Element {
 
   return (
     <div className="flex flex-col">
-      <div className="px-4 pt-4 pb-1">
-        <div className="text-title font-bold text-nomi-ink">{t('onboardingProviders.drawer.title')}</div>
-      </div>
+      {/* 顶部能力概览：先告诉用户「你现在能生成什么」（effect-first），再谈配置。
+          大标题已上移到浮卡 header（OnboardingFloatingPanel），此处不再重复渲染
+          （2026-08-08 飞书反馈「两个模型设置重复」）。 */}
 
       {/* 顶部能力概览：先告诉用户「你现在能生成什么」（effect-first），再谈配置。 */}
-      <div className="px-4 pt-1 pb-2">
+      <div className="px-4 pt-3 pb-2">
         <div className="text-micro text-nomi-ink-40 mb-1.5">{t('onboardingProviders.drawer.capabilities')}</div>
         <div className="flex flex-wrap gap-1.5">
           {KIND_CAPS.map(({ kind, labelKey, Icon }) => {
@@ -368,7 +368,7 @@ export function OnboardingDrawer(): JSX.Element {
                 key={kind}
                 className={cn(
                   'inline-flex items-center gap-1 text-caption rounded-nomi-sm px-2 py-1',
-                  on ? 'bg-workbench-success-soft text-workbench-success' : 'bg-nomi-ink-05 text-nomi-ink-40',
+                  on ? 'bg-workbench-success-soft text-workbench-success-ink' : 'bg-nomi-ink-05 text-nomi-ink-40',
                 )}
               >
                 <Icon size={13} stroke={1.7} />

@@ -81,6 +81,9 @@ type WorkbenchState = {
   workspaceMode: WorkspaceMode
   /** 生成/预览区右侧助手侧栏宽度（px，可拖宽）。 */
   assistantWidth: number
+  /** 左侧项目/素材侧栏展开态宽度覆盖值（px，可拖宽；null = 跟随 tab 默认：库 500 / 分组 300）。
+      2026-08-08 飞书反馈「素材库宽度锁死不能拖拽」。 */
+  projectSidebarWidth: number | null
   /** Phase E: which directory-tree category is currently selected */
   activeCategoryId: string
   /** 顶层分类列表（内置 5 + 用户自定义）。单一真相源，持久化随项目。 */
@@ -154,6 +157,7 @@ type WorkbenchState = {
   redoTimeline: () => void
   setWorkspaceMode: (mode: unknown) => void
   setAssistantWidth: (width: number) => void
+  setProjectSidebarWidth: (width: number) => void
   setWorkbenchDocument: (document: WorkbenchDocument) => void
   setCreationDocumentTools: (tools: CreationDocumentTools | null) => void
   setCreationSelectionText: (text: string) => void
@@ -244,6 +248,7 @@ export const useWorkbenchStore = create<WorkbenchState>()(subscribeWithSelector(
   persistRevision: 0,
   workspaceMode: 'generation',
   assistantWidth: 340,
+  projectSidebarWidth: null,
   activeCategoryId: 'shots',
   categories: cloneBuiltinCategories(),
   sidebarCollapsed: true,
@@ -345,6 +350,7 @@ export const useWorkbenchStore = create<WorkbenchState>()(subscribeWithSelector(
     set({ workspaceMode: mode })
   },
   setAssistantWidth: (width) => set({ assistantWidth: Math.max(300, Math.min(600, Math.round(width))) }),
+  setProjectSidebarWidth: (width) => set({ projectSidebarWidth: Math.max(240, Math.min(720, Math.round(width))) }),
   setWorkbenchDocument: (workbenchDocument) => {
     set((state) => ({
       workbenchDocument: normalizeWorkbenchDocument(workbenchDocument),
