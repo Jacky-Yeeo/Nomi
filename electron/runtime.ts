@@ -245,7 +245,6 @@ export function findTaskMapping(vendorKey: string, taskKind: ProfileKind, modelK
 
 // 请求构造层已抽到 catalog/profileHttpRequest（减负 giant shell）；re-export 保持 audioTaskRunner/catalogCommit 从 ./runtime 导入不变。
 export { buildProfileHttpRequest };
-
 export async function executeProfileOperation(input: {
   vendor: Vendor;
   model: Model;
@@ -253,6 +252,7 @@ export async function executeProfileOperation(input: {
   request: TaskRequest;
   operation: HttpOperation;
   providerMeta?: JsonRecord;
+  localAssetReader?: import("./catalog/assetLocalization").LocalAssetReader;
 }): Promise<{ response: unknown; request: unknown }> {
   // 进程型 transport（P4 声明驱动）：op 声明 process（本地 CLI dreamina）→ spawn，不走 HTTP。
   // 渲染/spawn/本地文件导入全在 processOperation（注入 writeAsset，避免 ↔ runtime 循环依赖）。
@@ -288,7 +288,7 @@ export async function executeProfileOperation(input: {
         (key) => decryptApiKeyRecord(uploadCatalog.apiKeysByVendor[key]),
         mediaKind,
       ),
-    readNomiLocalAsset,
+    input.localAssetReader || readNomiLocalAsset,
     postJsonForAssetUpload,
     postMultipartForAssetUpload,
   );
@@ -388,7 +388,7 @@ export async function runTask(payload: unknown): Promise<TaskResult> {
   // 自定义调用脚本（用户数据，plan 2026-08-04）：存在即接管图像/视频/3D 请求；对 L3 护栏它就是「有 mapping」（否则改图类被误拒），参考缺失的拒发仍生效。派发抽到 catalog/customCallDispatch（R12）。
   const customCallScript = trim((model as Model).customCall?.script);
   // L3 诚实护栏：图生图/图生视频缺参考或缺 mapping → 付费守卫之前拒发人话，绝不静默退化纯文生（判定在 taskParams.imageEditGuardError）。
-  const guardError = imageEditGuardError(kind, request, Boolean(mapping) || Boolean(customCallScript), model.labelZh || model.modelKey, mapping?.create?.body);
+  const guardError = imageEditGuardError(kind, request, Boolean(mapping) || Boolean(customCallScript), model.labelZh || model.modelKey, customCallScript ? undefined : mapping?.create?.body);
   if (guardError) throw new Error(guardError);
   // 第四路 audio：TTS/Whisper 同步收口（二进制/multipart）。付费守卫：必发 vendor，进来即校验消费令牌。
   if (wantedKind === "audio") {

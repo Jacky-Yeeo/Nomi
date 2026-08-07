@@ -4,7 +4,9 @@ import type { ProviderKind } from './providerKind'
 import type { DesktopMediaBridge } from './bridgeMedia'
 import type { McpInfo, McpVerifyResult } from './mcpBridgeTypes'
 import type { DesktopSettingsBridge } from './settingsBridge'
+import type { DesktopOnboardingBridge } from './onboardingBridgeTypes'
 export type { ProviderKind }
+export type { DesktopAdapterModeResult, DesktopProviderAdapterRun } from './onboardingBridgeTypes'
 export type { ScreenshotHotkeyStatus } from './bridgeMedia'
 
 /** 落盘的对话消息(conversation 域;draft/附件是 session 域不落盘)。 */
@@ -576,60 +578,7 @@ export type DesktopBridge = DesktopMediaBridge & {
       },
     ) => Promise<{ ok: boolean }>
   }
-  onboarding: {
-    manualCommit: (payload: {
-      vendorName: string
-      baseUrl: string
-      apiKey: string
-      providerKind?: ProviderKind
-      headers?: Record<string, string>
-      models: Array<{ id: string; displayName?: string; kind?: 'text' | 'image' | 'video' | 'audio' }>
-    }) => Promise<{
-      ok: boolean
-      vendorKey?: string
-      committed?: Array<{ modelKey: string; displayName: string }>
-      error?: string
-    }>
-    testConnection: (payload: {
-      baseUrl: string
-      apiKey: string
-      modelId?: string
-      /** 专家强制指定的协议。省略 + autoProbe=true 时由主进程探测。 */
-      providerKind?: ProviderKind
-      /** true = 自动探测 chat↔responses（anthropic 按 hostname 提示）。 */
-      autoProbe?: boolean
-      /**
-       * 'reachability' = 只验「地址+Key 通不通」（GET /models），不发聊天请求、不探协议。
-       * 用于上游一个文本模型都没有时（纯图片/视频中转）——协议只管文本，那时探协议毫无意义，
-       * 拿视频模型 id 发 chat/completions 只会被上游拒、误报「连不上」。
-       */
-      probe?: 'reachability'
-      headers?: Record<string, string>
-    }) => Promise<{
-      ok: boolean
-      status?: number
-      error?: string
-      /** 探测/确认成功的协议——渲染层据此显示「用的是 X 协议」并存盘。 */
-      detectedKind?: ProviderKind
-      /** true = 这次只验了可达性（没探协议），文案要如实说清，别谎称「模型能用」。 */
-      reachabilityOnly?: boolean
-    }>
-    listModels: (payload: {
-      baseUrl: string
-      apiKey: string
-      providerKind?: ProviderKind
-      headers?: Record<string, string>
-    }) => Promise<{
-      ok: boolean
-      models?: string[]
-      status?: number
-      error?: string
-    }>
-    /** 按 id 关键词猜模型类型（图片/视频/配音/文本），给「类型」下拉预填，用户可改（Issue #8）。 */
-    guessKinds: (payload: { ids: string[] }) => Promise<{
-      kinds: Record<string, 'text' | 'image' | 'video' | 'audio'>
-    }>
-  }
+  onboarding: DesktopOnboardingBridge
   /** 版本号 + 检查更新 + 一键更新（功能需求1/2/3）。check/download/install 用户显式触发，进度/状态走 onEvent。 */
   update?: {
     appInfo: () => Promise<DesktopAppInfo>

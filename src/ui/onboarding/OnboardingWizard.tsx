@@ -2,11 +2,11 @@
  * Onboarding Wizard — 「从中转添加模型」（Issue #8：中转优先·一次拉全·按模型分类）。
  *
  * 用户填中转地址 + key → 拉取它开放的模型（GET /v1/models）→ 每个模型按 id 自动判类型
- * （图片/视频/文本，主进程 guessKinds，可改）→ 勾选 → 一次保存。图片/视频/文本统一一条路；
- * 旧「AI 读文档抠参数」子系统已下线（各中转参数不一，读文档不可靠）。UI 不暴露 vendor/mapping
- * 等内部术语（Design.md「no decorative complexity」）。
+ * （图片/视频/文本，主进程 guessKinds，可改）→ 勾选 → 一次批量接入并真测。AI 只编译受限的
+ * 声明式 HTTP 适配器，真实生成通过后才发布；UI 不暴露 vendor/mapping 等内部术语
+ * （Design.md「no decorative complexity」）。
  *
- * Backed by: nomiDesktop.onboarding.{listModels, guessKinds, testConnection, manualCommit}。
+ * Backed by: nomiDesktop.onboarding.{listModels, guessKinds, testConnection, adapterStart, adapterGet}。
  */
 import React from 'react'
 import { useTranslation } from 'react-i18next'
@@ -14,7 +14,9 @@ import { Stack, Group, Text, PasswordInput, ActionIcon, Anchor, Select, Collapse
 import { IconPlus, IconTrash, IconCheck, IconX, IconChevronDown, IconChevronRight, IconAlertTriangle, IconListCheck, IconCloudDownload } from '@tabler/icons-react'
 import { DesignButton, DesignModal, DesignTextInput, DesignSegmentedControl } from '../../design'
 import { ModelPickerScreen } from './ModelPickerScreen'
+import { AdapterVerificationScreen } from './AdapterVerificationScreen'
 import { getDesktopBridge } from '../../desktop/bridge'
+import type { DesktopProviderAdapterRun } from '../../desktop/bridge'
 import type { ProviderKind } from '../../desktop/providerKind'
 import { resolveManualSaveAction } from './onboardingSaveGate'
 import { PROVIDER_PRESETS } from './providerPresets'
@@ -78,7 +80,8 @@ export function OnboardingWizard({ opened, onClose, onCommitted, initialPreset }
   // 拉到的「候选池」（GET /models 的全部，带预判类型）——喂第二屏供勾选，不直接落库。
   const [candidateModels, setCandidateModels] = React.useState<Array<{ id: string; kind: ModelKind }>>([])
   // 当前在表单还是模型勾选第二屏（换屏，非新弹窗）。success/error 阶段不看它。
-  const [screen, setScreen] = React.useState<'form' | 'select'>('form')
+  const [screen, setScreen] = React.useState<'form' | 'select' | 'verify'>('form')
+  const [adapterRun, setAdapterRun] = React.useState<DesktopProviderAdapterRun | null>(null)
   // 是否已尝试过拉取（区分「还没填地址」与「拉了但端点没列出」两种空态）。
   const [fetchAttempted, setFetchAttempted] = React.useState(false)
   const [fetchingModels, setFetchingModels] = React.useState(false)
@@ -108,6 +111,7 @@ export function OnboardingWizard({ opened, onClose, onCommitted, initialPreset }
     setModels([])
     setCandidateModels([])
     setScreen('form')
+    setAdapterRun(null)
     setFetchAttempted(false)
     setFetchModelsMsg('')
     setTestState('idle')
@@ -180,15 +184,61 @@ export function OnboardingWizard({ opened, onClose, onCommitted, initialPreset }
     try { return (await bridge.onboarding.guessKinds({ ids: [id] })).kinds?.[id] ?? 'text' } catch { return 'text' }
   }, [bridge])
 
-  // 第二屏确认 → 选中的子集成为将落库的 models（kind 收敛到合法四类，model3d 等异常退回 text）。
-  const handleConfirmPicked = React.useCallback((picked: Array<{ id: string; kind: string }>) => {
-    setModels(picked.map(m => ({
+  const startAdapterVerification = React.useCallback(async (picked: Array<{ id: string; kind: string }>) => {
+    if (!bridge?.onboarding?.adapterStart) {
+      setErrorReason(t('modelSetup.desktopUnavailable'))
+      setPhase('error')
+      return
+    }
+    const cleanModels = picked.map(m => ({
       id: m.id,
       kind: (m.kind === 'image' || m.kind === 'video' || m.kind === 'audio' ? m.kind : 'text') as ModelKind,
-    })))
-    setScreen('form')
-    setTestState('idle')
-  }, [])
+    })).filter(m => m.id.trim())
+    if (cleanModels.length === 0) return
+    setModels(cleanModels)
+    setSaving(true)
+    try {
+      const res = await bridge.onboarding.adapterStart({
+        vendorName: vendorName.trim(),
+        baseUrl: baseUrl.trim(),
+        apiKey: userApiKey.trim(),
+        authType: providerKind === 'anthropic' ? 'x-api-key' : 'bearer',
+        providerKind,
+        headers: buildHeadersObject(),
+        models: cleanModels.map(model => ({ modelKey: model.id, labelZh: model.id, kind: model.kind })),
+      })
+      if (!res.ok || !res.run) {
+        setErrorReason(t('modelSetup.saveFailed'))
+        setErrorHint(res.error || t('modelSetup.checkCredentials'))
+        setPhase('error')
+        return
+      }
+      setAdapterRun(res.run)
+      setScreen('verify')
+      setTestState('idle')
+    } finally {
+      setSaving(false)
+    }
+  }, [bridge, vendorName, baseUrl, userApiKey, providerKind, buildHeadersObject, t])
+
+  // 第二屏主按钮即启动整批接入+真实验证，不再回表单让用户多点一次「保存」。
+  const handleConfirmPicked = React.useCallback((picked: Array<{ id: string; kind: string }>) => {
+    void startAdapterVerification(picked)
+  }, [startAdapterVerification])
+
+  // 主进程任务独立于弹窗生命周期；弹窗开着时只轮询真实快照，关闭后任务继续。
+  React.useEffect(() => {
+    if (!opened || screen !== 'verify' || !adapterRun || !bridge?.onboarding?.adapterGet) return
+    if (['completed', 'partial', 'failed', 'needs_ai', 'stale'].includes(adapterRun.stage)) return
+    let alive = true
+    const poll = async () => {
+      const res = await bridge.onboarding.adapterGet({ runId: adapterRun.id }).catch(() => null)
+      if (alive && res?.ok && res.run) setAdapterRun(res.run)
+    }
+    const timer = window.setInterval(() => { void poll() }, 900)
+    void poll()
+    return () => { alive = false; window.clearInterval(timer) }
+  }, [opened, screen, adapterRun, bridge])
 
   // 拉取这个上游开放的全部模型 → 预判类型 → 存进候选池（不直接落库）。用户在第二屏勾选确认
   // 真正要哪些（opt-in，2026-06-29 反转旧「全量灌库再删」）。失焦自动拉取也走这里，只静默填池。
@@ -275,39 +325,8 @@ export function OnboardingWizard({ opened, onClose, onCommitted, initialPreset }
   }, [bridge, baseUrl, userApiKey, models, providerKind, kindForced, buildHeadersObject, t])
 
   const handleManualSave = React.useCallback(async () => {
-    if (!bridge?.onboarding?.manualCommit) {
-      setErrorReason(t('modelSetup.desktopUnavailable'))
-      setPhase('error')
-      return
-    }
-    const cleanModels = models
-      .map(m => ({ id: m.id.trim(), kind: m.kind }))
-      .filter(m => m.id.length > 0)
-    if (cleanModels.length === 0) return
-    setSaving(true)
-    try {
-      const res = await bridge.onboarding.manualCommit({
-        vendorName: vendorName.trim(),
-        baseUrl: baseUrl.trim(),
-        apiKey: userApiKey.trim(),
-        providerKind,
-        headers: buildHeadersObject(),
-        models: cleanModels,
-      })
-      if (res.ok) {
-        const n = res.committed?.length ?? cleanModels.length
-        setResultLabel(n === 1 ? (res.committed?.[0]?.displayName || cleanModels[0].id) : t('modelSetup.modelCount', { count: n }))
-        setPhase('success')
-        if (res.committed) onCommitted?.(res.committed)
-      } else {
-        setErrorReason(t('modelSetup.saveFailed'))
-        setErrorHint(res.error || t('modelSetup.checkCredentials'))
-        setPhase('error')
-      }
-    } finally {
-      setSaving(false)
-    }
-  }, [bridge, vendorName, baseUrl, userApiKey, models, providerKind, buildHeadersObject, onCommitted, t])
+    await startAdapterVerification(models)
+  }, [models, startAdapterVerification])
 
   // 输入或测试态一变 → 解除「仍要保存」二次确认（防 arm 后改了地址/Key 还沿用旧确认）。
   React.useEffect(() => {
@@ -327,7 +346,7 @@ export function OnboardingWizard({ opened, onClose, onCommitted, initialPreset }
   const maybeAutoFetchModels = () => {
     if (!canTest || fetchingModels) return
     if (userApiKey.trim().length === 0 || candidateModels.length > 0 || models.length > 0) return
-    const sig = `${baseUrlTrimmed} ${userApiKey.trim()} ${providerKind}`
+    const sig = `${baseUrlTrimmed}\0${userApiKey.trim()}\0${providerKind}`
     if (sig === autoFetchSigRef.current) return
     autoFetchSigRef.current = sig
     void handleFetchModels()
@@ -682,6 +701,17 @@ export function OnboardingWizard({ opened, onClose, onCommitted, initialPreset }
           />
         )}
 
+        {phase === 'input' && screen === 'verify' && adapterRun && (
+          <AdapterVerificationScreen
+            run={adapterRun}
+            onClose={() => {
+              if (adapterRun.stage === 'completed' || adapterRun.stage === 'partial') onCommitted?.(adapterRun.models)
+              onClose()
+            }}
+            onBack={() => { setScreen('form'); setAdapterRun(null) }}
+          />
+        )}
+
         {phase === 'success' && (
           <Stack gap={12} align="center" py={8}>
             <div className="flex items-center justify-center size-12 rounded-full bg-workbench-success-soft text-workbench-success">
@@ -713,4 +743,3 @@ export function OnboardingWizard({ opened, onClose, onCommitted, initialPreset }
     </DesignModal>
   )
 }
-

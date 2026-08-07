@@ -32,6 +32,7 @@ import { ComfyuiLocalCard, COMFYUI_VENDOR_KEY } from './ComfyuiLocalCard'
 import { AddComfyuiInstanceButton } from './AddComfyuiInstanceButton'
 import { isComfyuiVendorKey } from '../../workbench/generationCanvas/runner/comfyuiTaskControl'
 import { NetworkSection } from './NetworkSection'
+import { adapterProviderState } from './adapterVerificationViewModel'
 import { CODEX_LOCAL_VENDOR_KEY } from './codexLocalProvider'
 import { CodexLocalImageCard } from './CodexLocalImageCard'
 import { KNOWN_VENDORS, isKnownVendor } from '../../config/knownVendors'
@@ -413,6 +414,10 @@ export function OnboardingDrawer(): JSX.Element {
             {otherVendorGroups.map((group) => {
               const enabledN = group.models.filter((m) => m.enabled).length
               const meta = vendorMeta.get(group.vendorKey)
+              const adapterCard = adapterProviderState(group.models)
+              const adapterStatusLabel = adapterCard.state === 'configured'
+                ? t('onboardingProviders.drawer.configured')
+                : t(`onboardingProviders.adapterVerification.cardStatus.${adapterCard.state}`)
               return (
                 <FoldableModelCard
                   key={group.vendorKey}
@@ -420,8 +425,8 @@ export function OnboardingDrawer(): JSX.Element {
                   glyphTone="soft"
                   name={group.name}
                   subtitle={t('onboardingProviders.drawer.modelsEnabled', { enabled: enabledN, total: group.models.length })}
-                  status="ok"
-                  statusLabel={t('onboardingProviders.drawer.configured')}
+                  status={adapterCard.state === 'configured' || adapterCard.state === 'verified' ? 'ok' : 'todo'}
+                  statusLabel={adapterStatusLabel}
                   defaultExpanded={false}
                   headerAction={
                     <button

@@ -24,7 +24,12 @@ vi.mock("electron", () => ({
   },
 }));
 
-import { upsertModelCatalogModel, upsertModelCatalogVendor, upsertModelCatalogVendorApiKey } from "./catalog/catalogStore";
+import {
+  upsertModelCatalogMapping,
+  upsertModelCatalogModel,
+  upsertModelCatalogVendor,
+  upsertModelCatalogVendorApiKey,
+} from "./catalog/catalogStore";
 import { mintSpendGrant } from "./spendGrant";
 import { runTask } from "./runtime";
 
@@ -87,5 +92,40 @@ return 'data:image/png;base64,eA=='`,
         request: { kind: "image_edit", prompt: "x", extras: { modelKey: "cc-model", nodeId: "n1", grantId } },
       }),
     ).rejects.toThrow(/参考/);
+  });
+
+  it("脚本接管后不再用遗留 mapping body 误判参考图发不出去", async () => {
+    seedScriptedModel(`if (!params.referenceImages?.[0]) throw new Error('reference missing')
+return 'data:image/png;base64,eA=='`);
+    // 模型从声明式 mapping 切到自定义脚本后，旧 mapping 仍可能留在目录里。它的 body 不携带图片，
+    // 但脚本会自己读取 params.referenceImages；护栏必须检查实际派发路径，而不是已失效的旧 body。
+    upsertModelCatalogMapping({
+      vendorKey: "custom-cc",
+      modelKey: "cc-model",
+      taskKind: "image_edit",
+      name: "legacy mapping",
+      create: {
+        method: "POST",
+        path: "/legacy",
+        body: { prompt: "{{request.prompt}}", seed: "{{request.params.seed}}" },
+      },
+    });
+    const grantId = mintSpendGrant({ nodeIds: ["n1"] });
+
+    const result = await runTask({
+      vendor: "custom-cc",
+      request: {
+        kind: "image_edit",
+        prompt: "keep the subject",
+        extras: {
+          modelKey: "cc-model",
+          nodeId: "n1",
+          grantId,
+          referenceImages: ["https://cdn.example.com/reference.png"],
+        },
+      },
+    });
+
+    expect(result.status).toBe("succeeded");
   });
 });

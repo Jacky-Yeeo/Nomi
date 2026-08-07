@@ -12,6 +12,7 @@ import { cn } from '../../utils/cn'
 import type { ChipModel } from './ModelChipGroups'
 import { groupModelsByKind, MODEL_CHIP_KIND_LABEL } from './modelChipGrouping'
 import { bulkToggleTargets, enabledCount, filterModelsByQuery, modelRowKey, selectedModelRows } from './modelEnableEditing'
+import { isAdapterModelLocked } from './adapterVerificationViewModel'
 
 type ModelEnableEditorProps = {
   models: ChipModel[]
@@ -36,7 +37,7 @@ export function ModelEnableEditor({ models, onToggle, onDelete, onCustomCall }: 
   const selectedRows = React.useMemo(() => selectedModelRows(models, selected), [models, selected])
 
   const bulk = React.useCallback((enable: boolean) => {
-    const targets = bulkToggleTargets(visible, enable)
+    const targets = bulkToggleTargets(visible, enable).filter(model => !isAdapterModelLocked(model.meta))
     if (targets.length > 0) onToggle(targets, enable)
   }, [visible, onToggle])
 
@@ -152,6 +153,7 @@ export function ModelEnableEditor({ models, onToggle, onDelete, onCustomCall }: 
               </div>
               {g.models.map((m) => {
                 const key = modelRowKey(m)
+                const adapterLocked = isAdapterModelLocked(m.meta)
                 if (selectMode) {
                   const isSelected = selected.has(key)
                   return (
@@ -195,11 +197,14 @@ export function ModelEnableEditor({ models, onToggle, onDelete, onCustomCall }: 
                       type="button"
                       role="checkbox"
                       aria-checked={m.enabled}
+                      disabled={adapterLocked}
                       aria-label={t(m.enabled ? 'onboardingProviders.modelControls.disableModelAria' : 'onboardingProviders.modelControls.enableModelAria', { name: m.labelZh })}
                       onClick={() => onToggle([m], !m.enabled)}
                       className={cn(
                         'w-[18px] h-[18px] rounded-nomi-sm shrink-0 grid place-items-center border',
-                        m.enabled
+                        adapterLocked
+                          ? 'bg-nomi-ink-05 border-nomi-line text-nomi-ink-20 cursor-not-allowed'
+                          : m.enabled
                           ? 'bg-nomi-accent border-nomi-accent text-nomi-paper'
                           : 'bg-nomi-paper border-nomi-ink-20 text-transparent',
                       )}
@@ -208,8 +213,12 @@ export function ModelEnableEditor({ models, onToggle, onDelete, onCustomCall }: 
                     </button>
                     <button
                       type="button"
+                      disabled={adapterLocked}
                       onClick={() => onToggle([m], !m.enabled)}
-                      className={cn('flex-1 min-w-0 text-left text-body-sm truncate', m.enabled ? 'text-nomi-ink' : 'text-nomi-ink-60')}
+                      className={cn(
+                        'flex-1 min-w-0 text-left text-body-sm truncate',
+                        adapterLocked ? 'cursor-not-allowed text-nomi-ink-40' : m.enabled ? 'text-nomi-ink' : 'text-nomi-ink-60',
+                      )}
                     >
                       {m.labelZh}
                     </button>

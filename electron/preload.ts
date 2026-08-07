@@ -398,6 +398,12 @@ contextBridge.exposeInMainWorld("nomiDesktop", {
     },
   },
   onboarding: {
+    adapterStart: (payload: unknown) =>
+      ipcRenderer.invoke("nomi:provider-adapter:start", payload),
+    adapterGet: (payload: unknown) =>
+      ipcRenderer.invoke("nomi:provider-adapter:get", payload),
+    adapterLatest: (payload: unknown) =>
+      ipcRenderer.invoke("nomi:provider-adapter:latest", payload),
     manualCommit: (payload: unknown) =>
       ipcRenderer.invoke("nomi:onboarding:manual-commit", payload) as Promise<{
         ok: boolean;
