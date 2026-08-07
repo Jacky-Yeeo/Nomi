@@ -39,7 +39,10 @@ export default function CreationWorkspace(): JSX.Element {
           ? 'grid max-w-[900px] mx-auto'
           : cn(
               'grid grid-cols-[minmax(0,1fr)_344px] max-w-[1264px] mx-auto gap-5',
-              'max-[1120px]:grid-cols-[minmax(0,1fr)] max-[1120px]:grid-rows-[minmax(420px,1fr)_minmax(320px,42vh)]',
+              // 断点 1120→880（2026-08-07 飞书反馈「为什么变成上下了」）：1120 太宽，
+              // 常规窗口就触发上下堆叠，违背「常驻右栏」拍板（2026-07-25）；右栏 344 + 主区
+              // 最小可用 ~536 = 880 以下才真正需要堆叠。
+              'max-[880px]:grid-cols-[minmax(0,1fr)] max-[880px]:grid-rows-[minmax(420px,1fr)_minmax(320px,42vh)]',
             ),
       )}
       aria-label={t('creationAi.workspace.aria')}

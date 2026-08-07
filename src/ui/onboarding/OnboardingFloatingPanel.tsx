@@ -35,7 +35,10 @@ export function OnboardingFloatingPanel({ opened, onClose }: Props): JSX.Element
     return () => window.removeEventListener('keydown', handler)
   }, [opened, onClose])
 
-  // 点击外部关闭
+  // 点击外部关闭。**capture 阶段监听**：画布节点大量 onPointerDown stopPropagation
+  // （如 NodeGenerationComposer），冒泡阶段监听根本收不到 → 用户点画布关不掉面板，
+  // 只剩 ESC 一条路（2026-08-07 飞书反馈「不知道怎么退出」根因之一）。capture 先于
+  // target/bubble 触发，stopPropagation 挡不住。
   React.useEffect(() => {
     if (!opened) return
     const handler = (e: MouseEvent) => {
@@ -55,11 +58,11 @@ export function OnboardingFloatingPanel({ opened, onClose }: Props): JSX.Element
       onClose()
     }
     const id = window.requestAnimationFrame(() => {
-      window.addEventListener('mousedown', handler)
+      window.addEventListener('mousedown', handler, true)
     })
     return () => {
       window.cancelAnimationFrame(id)
-      window.removeEventListener('mousedown', handler)
+      window.removeEventListener('mousedown', handler, true)
     }
   }, [opened, onClose])
 
@@ -94,6 +97,23 @@ export function OnboardingFloatingPanel({ opened, onClose }: Props): JSX.Element
           animation: 'nomi-panel-pop 140ms cubic-bezier(.2, .7, .3, 1)',
         }}
       >
+        {/* 显式头部：标题 + X 关闭。此前出口只有 ESC 和点外关闭（还被画布 stopPropagation
+            吞掉）→ 用户反馈「不知道怎么退出」。无遮罩浮卡的拍板设计不变，只是补显式出口。 */}
+        <div
+          className="flex items-center justify-between shrink-0 px-3 py-2 border-b border-nomi-line-soft"
+        >
+          <span className="text-caption font-semibold text-nomi-ink-60">
+            {t('onboardingProviders.drawer.title')}
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t('common.close')}
+            className="text-nomi-ink-40 hover:text-nomi-ink text-h2 leading-none px-1"
+          >
+            ×
+          </button>
+        </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           <OnboardingDrawer />
         </div>

@@ -16,8 +16,8 @@ import {
   type Scene3DVector3,
 } from './scene3dTypes'
 import { OBJECT_LIMIT, type CrowdAddOptions } from './scene3dConstants'
+import { isEditableKeyboardTarget } from './scene3dInput'
 import {
-  isEditableKeyboardTarget,
   cloneObjectForClipboard,
   cloneCameraForClipboard,
   makePastedObject,

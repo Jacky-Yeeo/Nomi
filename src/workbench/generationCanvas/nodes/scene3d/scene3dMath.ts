@@ -21,27 +21,14 @@ import {
   MANNEQUIN_DEFAULT_POSE,
   MANNEQUIN_DEFAULT_SCALE,
   MANNEQUIN_REST_ROTATION_KEY,
-  MOVEMENT_CODES,
   ROLE_COLOR_SEQUENCE,
   SCENE3D_GRID_FLAG,
   SCENE3D_RUNTIME_ID_KEY,
   type CrowdAddOptions,
-  type Scene3DMovementCode,
 } from './scene3dConstants'
 
-export type PointerCaptureTarget = {
-  setPointerCapture?: (pointerId: number) => void
-  releasePointerCapture?: (pointerId: number) => void
-}
-
-export function isEditableKeyboardTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  return Boolean(target.closest('input, textarea, select, [contenteditable="true"]'))
-}
-
-export function pointerCaptureTarget(target: unknown): PointerCaptureTarget | null {
-  return target && typeof target === 'object' ? target as PointerCaptureTarget : null
-}
+// isEditableKeyboardTarget / pointerCaptureTarget / PointerCaptureTarget 的单源在
+// scene3dInput.ts / scene3dSharedTypes.ts（P1：此处曾经的并行副本已删，2026-08-07）。
 
 // 按 runtime id 在 scene 里找对象的**唯一**正确做法。运行期 id 标在 `object.userData[SCENE3D_RUNTIME_ID_KEY]`，
 // 而 three 的 `getObjectByProperty(name, value)` 查的是 `object[name]`（顶层属性，非 userData）→ 永远找不到。
@@ -705,10 +692,6 @@ export function numberInputValue(value: number): string {
   return Number.isFinite(value) ? String(Number(value.toFixed(3))) : '0'
 }
 
-export function isMovementCode(code: string): code is Scene3DMovementCode {
-  return MOVEMENT_CODES.has(code)
-}
-
 // #3 续：解析 OrbitControls 在「是否跟随角色」下该用的俯仰角(polar angle)上下界。
 // 跟随态(操控/录制绕拍角色) → 返回电影构图带 [min,max]，夹住竖向两极（横向方位角不夹=绕圈手感不变），
 // 主体猛拖竖向也留在画面内。非跟随态 → 返回 [0, π] = OrbitControls 默认无约束（退出即恢复自由 orbit，零回归）。
@@ -716,34 +699,4 @@ export function isMovementCode(code: string): code is Scene3DMovementCode {
 export function followOrbitPolarBounds(following: boolean): { min: number; max: number } {
   if (!following) return { min: 0, max: Math.PI }
   return { min: FOLLOW_ORBIT_MIN_POLAR_ANGLE, max: FOLLOW_ORBIT_MAX_POLAR_ANGLE }
-}
-
-export function clearMovementKeyState(keys: Record<Scene3DMovementCode, boolean>): void {
-  keys.KeyW = false
-  keys.KeyA = false
-  keys.KeyS = false
-  keys.KeyD = false
-  keys.ArrowUp = false
-  keys.ArrowDown = false
-  keys.ArrowLeft = false
-  keys.ArrowRight = false
-  keys.Space = false
-  keys.ShiftLeft = false
-  keys.ShiftRight = false
-}
-
-export function hasActiveMovementKey(keys: Record<Scene3DMovementCode, boolean>): boolean {
-  return (
-    keys.KeyW ||
-    keys.KeyA ||
-    keys.KeyS ||
-    keys.KeyD ||
-    keys.ArrowUp ||
-    keys.ArrowDown ||
-    keys.ArrowLeft ||
-    keys.ArrowRight ||
-    keys.Space ||
-    keys.ShiftLeft ||
-    keys.ShiftRight
-  )
 }

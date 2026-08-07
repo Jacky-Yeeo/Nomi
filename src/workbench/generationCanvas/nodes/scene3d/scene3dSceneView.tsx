@@ -9,10 +9,10 @@ import {
   cameraLookAtRotation,
   cameraAimSpherical,
   mannequinRoleLabel,
-  pointerCaptureTarget,
   tagEditorOnlySubtree,
-  type PointerCaptureTarget,
 } from './scene3dMath'
+import { pointerCaptureTarget } from './scene3dInput'
+import type { PointerCaptureTarget } from './scene3dSharedTypes'
 import {
   SCENE3D_EDITOR_ONLY_FLAG,
   CAMERA_MARKER_COLOR,

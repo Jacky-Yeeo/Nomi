@@ -1,8 +1,7 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import type { GenerationCanvasNode, GenerationProvenance } from '../model/generationCanvasTypes'
+import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
 import { cn } from '../../../utils/cn'
-import { WorkbenchButton } from '../../../design'
 
 /**
  * Phase E Task E11 — Provenance viewer.
@@ -133,12 +132,6 @@ export default function ProvenancePanel({ node, open, onClose }: Props): JSX.Ele
             ) : null}
           </div>
         )}
-
-        <div className="flex items-center justify-end gap-2 mt-5 pt-3 border-t border-nomi-line-soft">
-          <WorkbenchButton variant="default" onClick={onClose}>
-            {t('common.close')}
-          </WorkbenchButton>
-        </div>
       </div>
     </div>
   )
