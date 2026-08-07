@@ -68,6 +68,9 @@ tests/system/runs/
 .pose-lab/
 .pose-lab-vite.log
 
+# 浏览器自动化测试 profile 缓存（含 Service Worker 缓存里的第三方 key，绝不入库）
+.independent-retest/
+
 .tmp/
 
 # 下载量可视化看板：派生产物（pnpm stats:html 按需生成），数据每次都变故不提交
