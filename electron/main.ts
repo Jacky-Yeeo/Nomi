@@ -29,7 +29,8 @@ import { registerNotificationIpc } from "./notificationIpc";
 import { openWorkspaceFolder, selectWorkspaceFolder } from "./workspace/workspaceIpc";
 import { listWorkspaceFiles, resolveWorkspaceFilePath } from "./workspace/workspaceFileIndex";
 import { registerWorkspaceFileDeleteIpc } from "./workspace/workspaceFileDelete";
-import { installCrashHandlers, logCrash } from "./crashLog";
+import { logCrash } from "./crashLog";
+import { installMainProcessLifecycle } from "./mainProcessLifecycle";
 import { registerExportJobIpc } from "./export/exportJobIpc";
 import { registerAgentChatV2Ipc } from "./ai/agentChatV2Ipc";
 import { registerTextStreamIpc } from "./ai/textStreamIpc";
@@ -53,7 +54,7 @@ import { getMainWindow, setMainWindow } from "./mainWindowRegistry";
 import { registerScreenshotIpc } from "./screenshot/screenshotIpc";
 import { desktopT, registerI18nIpc, setDesktopLocale } from "./i18n";
 import { registerProjectLocationIpc } from "./settings/projectLocationIpc";
-installCrashHandlers();
+installMainProcessLifecycle(app);
 
 const configuredUserDataDir = String(process.env.NOMI_ELECTRON_USER_DATA_DIR || "").trim();
 if (configuredUserDataDir) {
