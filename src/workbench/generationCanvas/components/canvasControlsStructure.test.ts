@@ -118,8 +118,8 @@ describe('generation canvas control structure', () => {
     const helpPopover = source('./CanvasControlsHelpPopover.tsx')
 
     // 布局断言随 2026-08-08 溢出修复更新：w-96 → w-[30rem]（长 kbd 如「Delete / Backspace」
-    // 在 174px 列宽下必溢出右缘）、left-0 → right-0（右下触发位向左展开防出屏）。
-    expect(helpPopover).toContain("'absolute bottom-[calc(100%+8px)] right-0 z-[12] w-[30rem] p-3'")
+    // 在 174px 列宽下必溢出右缘）、right-0 → left-1/2 -translate-x-1/2（居中防左右遮挡）。
+    expect(helpPopover).toContain("'absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 z-[12] w-[30rem] p-3'")
     expect(helpPopover).toContain('text-caption whitespace-nowrap text-nomi-ink-60')
     expect(helpPopover).toContain('text-caption font-medium leading-none whitespace-nowrap text-nomi-ink')
   })

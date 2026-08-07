@@ -146,10 +146,9 @@ export default function GenerationWorkspace({
             'workbench-generation__ai relative',
             'grid min-w-0 min-h-0 overflow-hidden border-b border-[var(--workbench-border)]',
             aiLayout === 'overlay'
-              // 收起态胶囊挪右下（2026-08-08 飞书反馈「Nomi 生成按钮和创作框重叠」）：
-              // 节点默认落画布上半区（右上最重灾区），右下角落遮挡面最小；
-              // 时间轴把手居中后右下正好空出。
-              ? 'absolute bottom-4 right-4 z-[80] block w-auto h-auto border-0 bg-transparent pointer-events-auto'
+              // 收起态胶囊置右上角（2026-08-08 飞书反馈「Nomi 生成按钮和创作框重叠」）：
+              // 浮层落画布右上，与编辑器框不重叠，遮挡面最小。
+              ? 'absolute top-4 right-4 z-[80] block w-auto h-auto border-0 bg-transparent pointer-events-auto'
               : 'justify-items-end border-l border-l-[var(--workbench-border)] bg-[var(--workbench-surface)]',
           )}
           aria-label={t('generationCommon.workspace.assistantSidebar')}
