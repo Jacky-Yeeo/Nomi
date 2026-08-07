@@ -30,6 +30,14 @@ import {
 import { SEEDREAM_EDIT_MAPPING, SEEDREAM_MODEL_SEED, SEEDREAM_T2I_MAPPING } from "./kieSeedream";
 import { NANO_BANANA_EDIT_MAPPING, NANO_BANANA_MODEL_SEED, NANO_BANANA_T2I_MAPPING } from "./kieNanoBanana";
 import { KLING_3_I2V_MAPPING, KLING_3_MODEL_SEED, KLING_3_T2V_MAPPING } from "./kieKling";
+import { MINIMAX_H3_CREATE_OP, MINIMAX_H3_MAPPING, MINIMAX_H3_MODEL_SEED, MINIMAX_H3_QUERY_OP } from "./kieMiniMaxH3";
+import {
+  SEEDANCE_2_5_CREATE_OP,
+  SEEDANCE_2_5_IMAGE_TO_VIDEO_MAPPING,
+  SEEDANCE_2_5_MODEL_SEED,
+  SEEDANCE_2_5_QUERY_OP,
+  SEEDANCE_2_5_TEXT_TO_VIDEO_MAPPING,
+} from "./kieSeedance25";
 import { APIMART_VENDOR_SEED } from "./apimartVendor";
 import { APIMART_IMAGE_MODELS, APIMART_IMAGE_QUERY, APIMART_IMAGE_STATUS } from "./apimartImages";
 import { APIMART_VIDEO_MODELS, APIMART_VIDEO_QUERY, APIMART_VIDEO_STATUS } from "./apimartVideos";
@@ -87,6 +95,9 @@ const NANO_BANANA_T2I_MAPPING_ID = "seed-kie-nano-banana-text_to_image";
 const NANO_BANANA_EDIT_MAPPING_ID = "seed-kie-nano-banana-image_edit";
 const KLING_3_T2V_MAPPING_ID = "seed-kie-kling-3-text_to_video";
 const KLING_3_I2V_MAPPING_ID = "seed-kie-kling-3-image_to_video";
+const MINIMAX_H3_MAPPING_ID = "seed-kie-minimax-h3-text_to_video";
+const SEEDANCE_2_5_T2V_MAPPING_ID = "seed-kie-seedance2-5-text_to_video";
+const SEEDANCE_2_5_I2V_MAPPING_ID = "seed-kie-seedance2-5-image_to_video";
 
 /** kie 的 curated 内置模型（archetypeId = 能力档案指针，代码所有；enabled/labelZh = 用户所有）。 */
 const KIE_CURATED_MODELS: CuratedModel[] = [
@@ -97,6 +108,8 @@ const KIE_CURATED_MODELS: CuratedModel[] = [
   { modelKey: SEEDREAM_MODEL_SEED.modelKey, labelZh: SEEDREAM_MODEL_SEED.labelZh, kind: SEEDREAM_MODEL_SEED.kind, archetypeId: "seedream" },
   { modelKey: NANO_BANANA_MODEL_SEED.modelKey, labelZh: NANO_BANANA_MODEL_SEED.labelZh, kind: NANO_BANANA_MODEL_SEED.kind, archetypeId: "nano-banana" },
   { modelKey: KLING_3_MODEL_SEED.modelKey, labelZh: KLING_3_MODEL_SEED.labelZh, kind: KLING_3_MODEL_SEED.kind, archetypeId: "kling-3.0" },
+  { modelKey: MINIMAX_H3_MODEL_SEED.modelKey, labelZh: MINIMAX_H3_MODEL_SEED.labelZh, kind: MINIMAX_H3_MODEL_SEED.kind, archetypeId: "minimax-h3" },
+  { modelKey: SEEDANCE_2_5_MODEL_SEED.modelKey, labelZh: SEEDANCE_2_5_MODEL_SEED.labelZh, kind: SEEDANCE_2_5_MODEL_SEED.kind, archetypeId: "seedance-2.5" },
 ];
 
 /** kie 的 curated mapping（单源；create/query/statusMapping = 代码所有，强制对账）。 */
@@ -113,6 +126,9 @@ const KIE_CURATED_MAPPINGS: CuratedMapping[] = [
   { id: NANO_BANANA_EDIT_MAPPING_ID, taskKind: NANO_BANANA_EDIT_MAPPING.taskKind, modelKey: NANO_BANANA_EDIT_MAPPING.modelKey, name: NANO_BANANA_EDIT_MAPPING.name, create: NANO_BANANA_EDIT_MAPPING.create, query: NANO_BANANA_EDIT_MAPPING.query, statusMapping: NANO_BANANA_EDIT_MAPPING.statusMapping },
   { id: KLING_3_T2V_MAPPING_ID, taskKind: KLING_3_T2V_MAPPING.taskKind, modelKey: KLING_3_T2V_MAPPING.modelKey, name: KLING_3_T2V_MAPPING.name, create: KLING_3_T2V_MAPPING.create, query: KLING_3_T2V_MAPPING.query },
   { id: KLING_3_I2V_MAPPING_ID, taskKind: KLING_3_I2V_MAPPING.taskKind, modelKey: KLING_3_I2V_MAPPING.modelKey, name: KLING_3_I2V_MAPPING.name, create: KLING_3_I2V_MAPPING.create, query: KLING_3_I2V_MAPPING.query },
+  { id: MINIMAX_H3_MAPPING_ID, taskKind: MINIMAX_H3_MAPPING.taskKind, modelKey: MINIMAX_H3_MAPPING.modelKey, name: MINIMAX_H3_MAPPING.name, create: MINIMAX_H3_CREATE_OP, query: MINIMAX_H3_QUERY_OP },
+  { id: SEEDANCE_2_5_T2V_MAPPING_ID, taskKind: SEEDANCE_2_5_TEXT_TO_VIDEO_MAPPING.taskKind, modelKey: SEEDANCE_2_5_TEXT_TO_VIDEO_MAPPING.modelKey, name: SEEDANCE_2_5_TEXT_TO_VIDEO_MAPPING.name, create: SEEDANCE_2_5_CREATE_OP, query: SEEDANCE_2_5_QUERY_OP },
+  { id: SEEDANCE_2_5_I2V_MAPPING_ID, taskKind: SEEDANCE_2_5_IMAGE_TO_VIDEO_MAPPING.taskKind, modelKey: SEEDANCE_2_5_IMAGE_TO_VIDEO_MAPPING.modelKey, name: SEEDANCE_2_5_IMAGE_TO_VIDEO_MAPPING.name, create: SEEDANCE_2_5_CREATE_OP, query: SEEDANCE_2_5_QUERY_OP },
 ];
 
 /** apimart 的 curated 模型 + mapping，从单源 APIMART_IMAGE_MODELS / APIMART_VIDEO_MODELS 派生。 */

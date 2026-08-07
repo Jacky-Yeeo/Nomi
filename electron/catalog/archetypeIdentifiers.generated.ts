@@ -12,6 +12,22 @@ export const ARCHETYPE_IDENTIFIER_PATTERNS: Record<string, string[]> = {
     "seedance-2-mini",
     "seedance2mini"
   ],
+  "seedance-2.5": [
+    "bytedance/seedance-2-5",
+    "seedance-2-5",
+    "seedance-2.5",
+    "seedance2.5",
+    "seedance25"
+  ],
+  "minimax-h3": [
+    "minimax-h3",
+    "minimax-h3/text-to-video",
+    "minimax-h3/image-to-video",
+    "minimax-h3/reference-to-video",
+    "hailuo-3",
+    "hailuo-03",
+    "hailuo3"
+  ],
   "happyhorse": [
     "happyhorse",
     "happyhorse/text-to-video",

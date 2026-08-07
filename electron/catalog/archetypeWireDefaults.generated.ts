@@ -21,6 +21,36 @@ export const ARCHETYPE_WIRE_DEFAULTS: Record<string, Record<string, Record<strin
       }
     }
   },
+  "seedance-2.5": {
+    "text_to_video": {
+      "*": {
+        "resolution": "720p",
+        "aspect_ratio": "16:9",
+        "duration": 5,
+        "generate_audio": true,
+        "return_last_frame": false
+      }
+    },
+    "image_to_video": {
+      "*": {
+        "resolution": "720p",
+        "aspect_ratio": "16:9",
+        "duration": 5,
+        "generate_audio": true,
+        "return_last_frame": false
+      }
+    }
+  },
+  "minimax-h3": {
+    "text_to_video": {
+      "*": {
+        "resolution": "2K",
+        "aspect_ratio": "adaptive",
+        "duration": 6,
+        "model": "minimax-h3/reference-to-video"
+      }
+    }
+  },
   "happyhorse": {
     "text_to_video": {
       "*": {
