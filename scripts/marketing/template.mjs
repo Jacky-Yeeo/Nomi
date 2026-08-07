@@ -1,5 +1,6 @@
 import { contentByLocale } from './content.mjs'
 import { homepageClientJs } from './client.mjs'
+import { downloadUrls } from './downloads.mjs'
 import { buildMetadata } from './metadata.mjs'
 import { homepageCss } from './styles.mjs'
 
@@ -54,7 +55,7 @@ function renderNav(content, shared, locale) {
     <span aria-hidden="true">/</span>
     <a href="/en/" data-locale-choice="en"${isChinese ? '' : ' aria-current="page"'}>EN</a>
   </span>
-  <a class="button button--coral" href="${escapeAttr(shared.releaseUrl)}" ${externalAttrs}>
+  <a class="button button--coral" data-download-nomi href="${escapeAttr(shared.releaseUrl)}" ${externalAttrs}>
     <span>${escapeText(content.nav.download)}</span><span aria-hidden="true">↘</span>
   </a>
 </nav>`
@@ -69,7 +70,7 @@ function renderHero(content, shared) {
       <h1>${escapeText(content.hero.titleLead)}<em>${escapeText(content.hero.titleEmphasis)}</em></h1>
       <p class="lede">${escapeText(content.hero.lede)}</p>
       <div class="actions">
-        <a class="button button--coral" href="${escapeAttr(shared.releaseUrl)}" ${externalAttrs}><span>${escapeText(content.hero.download)}</span><span aria-hidden="true">↘</span></a>
+        <a class="button button--coral" data-download-nomi href="${escapeAttr(shared.releaseUrl)}" ${externalAttrs}><span>${escapeText(content.hero.download)}</span><span aria-hidden="true">↘</span></a>
         <a class="button button--ghost" href="${filmHref}" data-open-film><span>${escapeText(content.hero.watch)}</span><span aria-hidden="true">▶</span></a>
       </div>
       <p class="no-js-fallback">${escapeText(content.hero.watch)} · MP4</p>
@@ -116,7 +117,7 @@ function renderPaths(content, shared) {
     { title: content.paths.open.actions[1], code: 'GITHUB', href: shared.repositoryUrl },
     { title: content.paths.open.actions[2], code: 'DOCS', href: content.nav.docsHref },
   ]
-  const openRows = openLinks.map((item) => `<a class="service" href="${escapeAttr(item.href)}"><span>${escapeText(item.title)}</span><span>${item.code}</span></a>`).join('')
+  const openRows = openLinks.map((item, index) => `<a class="service"${index === 0 ? ' data-download-nomi' : ''} href="${escapeAttr(item.href)}"><span>${escapeText(item.title)}</span><span>${item.code}</span></a>`).join('')
   const services = content.paths.teams.services.map((service) => `<div class="service" data-service="${escapeAttr(service.id)}"><span>${escapeText(service.title)}</span><span>${escapeText(service.code)}</span></div>`).join('')
   return `<section id="teams" class="paths-section">
   <div class="shell">
@@ -127,7 +128,7 @@ function renderPaths(content, shared) {
         <h3>${escapeText(content.paths.open.title)}</h3>
         <p class="path-description">${escapeText(content.paths.open.description)}</p>
         <div class="service-list">${openRows}</div>
-        <div class="path-actions"><a class="button button--coral" href="${escapeAttr(shared.releaseUrl)}" ${externalAttrs}><span>${escapeText(content.paths.open.download)}</span><span aria-hidden="true">↘</span></a></div>
+        <div class="path-actions"><a class="button button--coral" data-download-nomi href="${escapeAttr(shared.releaseUrl)}" ${externalAttrs}><span>${escapeText(content.paths.open.download)}</span><span aria-hidden="true">↘</span></a></div>
       </article>
       <article class="path">
         <span class="path-number">${escapeText(content.paths.teams.kicker)}</span>
@@ -177,7 +178,7 @@ function renderClosing(content, shared, locale) {
       <p class="section-kicker">${escapeText(content.closing.kicker)}</p>
       <h2>${escapeText(content.closing.titleLead)}<br /><em>${escapeText(content.closing.titleEmphasis)}</em></h2>
       <div class="closing-actions">
-        <a class="button button--ink" href="${escapeAttr(shared.releaseUrl)}" ${externalAttrs}><span>${escapeText(content.closing.download)}</span><span aria-hidden="true">↘</span></a>
+        <a class="button button--ink" data-download-nomi href="${escapeAttr(shared.releaseUrl)}" ${externalAttrs}><span>${escapeText(content.closing.download)}</span><span aria-hidden="true">↘</span></a>
         <a class="button" href="${escapeAttr(shared.repositoryUrl)}" ${externalAttrs}>${escapeText(content.closing.github)} <span aria-hidden="true">↗</span></a>
       </div>
     </div>
@@ -236,7 +237,7 @@ ${renderCommunity(content, runtimeFacts)}
 ${renderClosing(content, runtimeFacts, locale)}
 </main>
 ${renderFilmDialog(content)}
-<script>${homepageClientJs}</script>
+<script>${homepageClientJs(downloadUrls)}</script>
 </body>
 </html>
 `

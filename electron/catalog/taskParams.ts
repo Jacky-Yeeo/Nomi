@@ -70,6 +70,11 @@ export function taskTemplateParams(request: TaskParamsInput): JsonRecord {
   // 导致 body 的 duration 为空（实测）。数字原样保留，字符串走 trim，缺省 ""。
   const durationRaw = extras.duration ?? extras.durationSeconds ?? extras.videoDuration;
   const duration = typeof durationRaw === "number" ? durationRaw : firstString(durationRaw);
+  // Numeric controls can arrive from persisted node params as strings. Keep the
+  // wire type stable for strict providers (APIMart TTS rejects speed="1.5").
+  // Invalid non-empty values remain visible to the provider instead of being
+  // silently replaced with a default.
+  const speed = numericWireParam(extras.speed);
   const refInput = referenceInputParams(extras);
   const jsonEditInput = jsonImageEditInput(refInput.reference_images);
   return {
@@ -85,6 +90,7 @@ export function taskTemplateParams(request: TaskParamsInput): JsonRecord {
     cfg_scale: request.cfgScale,
     negative_prompt: request.negativePrompt,
     duration,
+    ...(speed !== undefined ? { speed } : {}),
     // 空→undefined（不是 ""）：body 的 `image: "{{request.params.image_url}}"` 整 token 渲染时，
     // undefined 会被丢弃、"" 却会当空字段发出去（纯文生图/文生视频误带 image:"" 会被部分中转拒）。
     image_url: firstReferenceImage(request) || undefined,
@@ -102,6 +108,16 @@ export function taskTemplateParams(request: TaskParamsInput): JsonRecord {
     json_edit_aspect_ratio: jsonEditInput.images ? firstString(extras.aspect_ratio, extras.aspectRatio) || undefined : undefined,
     max_tokens: extras.maxTokens ?? extras.max_tokens,
   };
+}
+
+function numericWireParam(value: unknown): number | string | undefined {
+  if (value === null || typeof value === "undefined") return undefined;
+  if (typeof value === "number") return Number.isFinite(value) ? value : String(value);
+  if (typeof value !== "string") return value == null ? undefined : String(value);
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : trimmed;
 }
 
 // 参考值的 URL 形状（http/nomi-local/data/blob/绝对路径）。护栏判定只认它——archetypeInput 里还混着

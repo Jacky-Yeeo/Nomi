@@ -72,7 +72,13 @@ export async function dismissSplashIfPresent(win) {
     await skip.click({ timeout: 4_000 });
     await win.locator(".nomi-splash").waitFor({ state: "detached", timeout: 4_000 }).catch(() => undefined);
   } catch {
-    // 开屏没出现 / 已自动收尾 → 放行
+    // React 动画首帧偶发让 Playwright actionability 观察不到按钮；保留同一语义
+    // 控件，用 DOM click 收尾，避免遮罩仍在时把后续失败误报成产品入口故障。
+    await win.evaluate(() => {
+      const button = document.querySelector('[data-splash-skip="true"]');
+      if (button instanceof HTMLElement) button.click();
+    }).catch(() => undefined);
+    await win.locator(".nomi-splash").waitFor({ state: "detached", timeout: 4_000 }).catch(() => undefined);
   }
 }
 
@@ -103,7 +109,7 @@ export async function openGenerationAiPanel(win) {
   if (await input.count()) return;
   // 空白项目默认无「画面」board(空态显示「这里还没有画面 / 新建画面」)→ 助手输入框不挂载。
   // 先建一个 board(无则 no-op),再开面板。
-  const boardCta = win.getByText("新建画面", { exact: false }).first();
+  const boardCta = win.locator('button[aria-label^="新建一个"][aria-label$="节点"]').first();
   if (await boardCta.count()) {
     await boardCta.click({ timeout: 5000 }).catch(() => {});
     await win.waitForTimeout(1200);

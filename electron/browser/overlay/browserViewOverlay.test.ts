@@ -78,11 +78,13 @@ describe("browser asset overlay native hit testing", () => {
 
     setBrowserAssetOverlayDragInteractive(record, true);
     record.pointerInteractive = true;
+    record.hoverInteractive = true;
     expect(record.dragInteractive).toBe(true);
     finishBrowserAssetOverlayDrag(record);
 
     expect(record.dragInteractive).toBe(false);
     expect(record.pointerInteractive).toBe(false);
+    expect(record.hoverInteractive).toBe(false);
     expect(record.dragInteractiveResetTimer).toBeNull();
     expect(record.window.setIgnoreMouseEvents).toHaveBeenLastCalledWith(true, { forward: true });
   });

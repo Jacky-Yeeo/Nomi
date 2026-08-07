@@ -139,7 +139,14 @@ try {
   await win.locator('[aria-label="打开 3D 编辑器"]').first().click({ timeout: 3000 })
     .catch(() => win.evaluate(() => document.querySelector('[aria-label="打开 3D 编辑器"]')?.click()));
   await win.waitForTimeout(3000);
-  await win.getByRole("button", { name: "跳过", exact: true }).first().click({ timeout: 1500 }).catch(() => {});
+  const coachSkip = win.locator('[data-coach-skip="true"]').first();
+  if (await coachSkip.count()) {
+    await coachSkip.click({ timeout: 1500 }).catch(() => win.evaluate(() => {
+      const button = document.querySelector('[data-coach-skip="true"]');
+      if (button instanceof HTMLElement) button.click();
+    }));
+    await coachSkip.waitFor({ state: "detached", timeout: 3000 }).catch(() => {});
+  }
   await win.getByRole("button", { name: "轨迹", exact: true }).first().click();
   await win.waitForTimeout(400);
   await win.getByRole("button", { name: "新建", exact: true }).first().click();

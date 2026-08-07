@@ -261,10 +261,8 @@ export function AssetLibraryContent({
           refreshProjectAssets()
           refreshAllProjectAssets()
           reportMediaImport(result)
-          // 落点可见性（2026-08-07 飞书反馈「上传图片传到另一个位置了 没看到」）：
-          // 节点建在画布固定坐标 (120,90)，用户视口若不在附近就「看不到传到哪了」。
-          // 上传完成后选中首个新节点 + 请求画布 fit，让视口平移过去（复用 Scene3DEditor 同款
-          // requestCanvasFit + selectNode 组合，不造第二套）。
+          // 落点可见性（2026-08-07 飞书反馈「上传传到另一个位置没看到」）：选中首个新节点 +
+          // 请求画布 fit 平移视口过去（复用 Scene3DEditor 同款组合，不造第二套）。
           const firstNode = result.created[0]?.node
           if (firstNode) {
             useGenerationCanvasStore.getState().selectNode(firstNode.id)

@@ -128,6 +128,7 @@ export function Scene3DCoachMarks({ onDone }: { onDone: () => void }): JSX.Eleme
           <span className="flex items-center gap-3">
             <button
               className="border-0 bg-transparent p-0 text-micro text-nomi-ink-60 hover:text-nomi-ink"
+              data-coach-skip="true"
               type="button"
               onClick={finish}
             >

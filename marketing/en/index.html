@@ -191,7 +191,7 @@ html[data-enhanced="true"] .no-js-fallback { display: none; }
     <span aria-hidden="true">/</span>
     <a href="/en/" data-locale-choice="en" aria-current="page">EN</a>
   </span>
-  <a class="button button--coral" href="https://github.com/aqm857886159/Nomi/releases/latest" target="_blank" rel="noreferrer">
+  <a class="button button--coral" data-download-nomi href="https://github.com/aqm857886159/Nomi/releases/latest" target="_blank" rel="noreferrer">
     <span>Download</span><span aria-hidden="true">↘</span>
   </a>
 </nav>
@@ -202,7 +202,7 @@ html[data-enhanced="true"] .no-js-fallback { display: none; }
       <h1>Direct the shot.<em>Not just the prompt.</em></h1>
       <p class="lede">Keep the story, storyboard, visual anchors, generation canvas, and timeline in one connected context.</p>
       <div class="actions">
-        <a class="button button--coral" href="https://github.com/aqm857886159/Nomi/releases/latest" target="_blank" rel="noreferrer"><span>Download Nomi</span><span aria-hidden="true">↘</span></a>
+        <a class="button button--coral" data-download-nomi href="https://github.com/aqm857886159/Nomi/releases/latest" target="_blank" rel="noreferrer"><span>Download Nomi</span><span aria-hidden="true">↘</span></a>
         <a class="button button--ghost" href="/assets/video/launch-film-en.mp4" data-open-film><span>Watch the 60s film</span><span aria-hidden="true">▶</span></a>
       </div>
       <p class="no-js-fallback">Watch the 60s film · MP4</p>
@@ -254,8 +254,8 @@ html[data-enhanced="true"] .no-js-fallback { display: none; }
         <span class="path-number">01 / OPEN SOURCE</span>
         <h3>Open source for creators</h3>
         <p class="path-description">Local-first and AGPL-3.0. Your projects and media stay on your computer; the workflow stays under your control.</p>
-        <div class="service-list"><a class="service" href="https://github.com/aqm857886159/Nomi/releases/latest"><span>Download the desktop app</span><span>RELEASES</span></a><a class="service" href="https://github.com/aqm857886159/Nomi"><span>View the source</span><span>GITHUB</span></a><a class="service" href="https://github.com/aqm857886159/Nomi#quick-start"><span>Read the docs</span><span>DOCS</span></a></div>
-        <div class="path-actions"><a class="button button--coral" href="https://github.com/aqm857886159/Nomi/releases/latest" target="_blank" rel="noreferrer"><span>Download Nomi</span><span aria-hidden="true">↘</span></a></div>
+        <div class="service-list"><a class="service" data-download-nomi href="https://github.com/aqm857886159/Nomi/releases/latest"><span>Download the desktop app</span><span>RELEASES</span></a><a class="service" href="https://github.com/aqm857886159/Nomi"><span>View the source</span><span>GITHUB</span></a><a class="service" href="https://github.com/aqm857886159/Nomi#quick-start"><span>Read the docs</span><span>DOCS</span></a></div>
+        <div class="path-actions"><a class="button button--coral" data-download-nomi href="https://github.com/aqm857886159/Nomi/releases/latest" target="_blank" rel="noreferrer"><span>Download Nomi</span><span aria-hidden="true">↘</span></a></div>
       </article>
       <article class="path">
         <span class="path-number">02 / FOR TEAMS</span>
@@ -299,7 +299,7 @@ html[data-enhanced="true"] .no-js-fallback { display: none; }
       <p class="section-kicker">06 / BRING YOUR SHOT INTO FOCUS</p>
       <h2>You see the shot.<br /><em>Nomi helps the model see it.</em></h2>
       <div class="closing-actions">
-        <a class="button button--ink" href="https://github.com/aqm857886159/Nomi/releases/latest" target="_blank" rel="noreferrer"><span>Download</span><span aria-hidden="true">↘</span></a>
+        <a class="button button--ink" data-download-nomi href="https://github.com/aqm857886159/Nomi/releases/latest" target="_blank" rel="noreferrer"><span>Download</span><span aria-hidden="true">↘</span></a>
         <a class="button" href="https://github.com/aqm857886159/Nomi" target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a>
       </div>
     </div>
@@ -321,6 +321,7 @@ html[data-enhanced="true"] .no-js-fallback { display: none; }
   </video>
 </dialog>
 <script>(() => {
+  const downloadUrls = {"windowsX64":"https://github.com/aqm857886159/Nomi/releases/latest/download/Nomi-windows-setup.exe","macArm64":"https://github.com/aqm857886159/Nomi/releases/latest/download/Nomi-mac-arm64.dmg","macX64":"https://github.com/aqm857886159/Nomi/releases/latest/download/Nomi-mac-intel.dmg"}
   const localeKey = 'nomi_locale'
   const pageLocale = document.documentElement.lang
   const preferred = (() => { try { return localStorage.getItem(localeKey) } catch { return null } })()
@@ -339,6 +340,39 @@ html[data-enhanced="true"] .no-js-fallback { display: none; }
     dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close() })
   }
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) document.querySelector('[data-hero-video]')?.pause()
+  const resolvePlatformDownload = async () => {
+    const platform = navigator.platform || ''
+    const userAgent = navigator.userAgent || ''
+    let architecture = ''
+    if (navigator.userAgentData?.getHighEntropyValues) {
+      try { architecture = (await navigator.userAgentData.getHighEntropyValues(['architecture'])).architecture || '' } catch {}
+    }
+    const platformText = (platform + ' ' + userAgent).toLowerCase()
+    const architectureText = architecture.toLowerCase()
+    const url = /win/.test(platformText) && !/arm/.test(architectureText)
+      ? downloadUrls.windowsX64
+      : /mac|iphone|ipad/.test(platformText) && /arm|aarch64/.test(architectureText)
+        ? downloadUrls.macArm64
+        : /mac|iphone|ipad/.test(platformText) && (/x86|x64|intel/.test(architectureText) || /intel mac/.test(platformText))
+          ? downloadUrls.macX64
+          : null
+    return url || null
+  }
+  const applyPlatformDownload = async () => {
+    const url = await resolvePlatformDownload()
+    if (!url) return
+    document.querySelectorAll('[data-download-nomi]').forEach((link) => {
+      link.href = url
+      link.removeAttribute('target')
+      link.removeAttribute('rel')
+    })
+  }
+  document.querySelectorAll('[data-download-nomi]').forEach((link) => link.addEventListener('click', async (event) => {
+    event.preventDefault()
+    const url = await resolvePlatformDownload()
+    location.href = url || link.href
+  }))
+  void applyPlatformDownload()
   document.documentElement.dataset.enhanced = 'true'
   document.documentElement.dataset.locale = pageLocale
 })()</script>
