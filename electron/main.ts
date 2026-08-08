@@ -55,6 +55,7 @@ import { getMainWindow, setMainWindow } from "./mainWindowRegistry";
 import { registerScreenshotIpc } from "./screenshot/screenshotIpc";
 import { desktopT, registerI18nIpc, setDesktopLocale } from "./i18n";
 import { registerProjectLocationIpc } from "./settings/projectLocationIpc";
+import { registerProductionRunIpc } from "./productionRun/productionRunIpc";
 installMainProcessLifecycle(app);
 const configuredUserDataDir = String(process.env.NOMI_ELECTRON_USER_DATA_DIR || "").trim();
 if (configuredUserDataDir) {
@@ -402,7 +403,6 @@ function registerSyncIpc<TArgs extends unknown[], TResult>(
     }
   });
 }
-
 function registerIpc(): void {
   const selectedWorkspaceRoots = new Set<string>();
   registerI18nIpc();
@@ -649,12 +649,12 @@ function registerIpc(): void {
   registerBrowserViewIpc(getRendererUrl);
   registerOnboardingIpc();
   registerProviderAdapterIpc();
+  registerProductionRunIpc();
   registerUpdaterIpc();
   // M0 独立捕捞窗已退役（方案A 2026-07-12）：捕捞面收敛到应用内浏览器（registerBrowserViewIpc）。
   // S4-1 评测安全铁律:事件落盘前,已配置的 vendor key 精确匹配脱敏(形态兜底之外的地基)。
   setEventLogSecretsProvider(catalogSecretsProvider);
 }
-
 // 纵深防御：渲染层此前在「无 CSP」环境运行，contextIsolation 是唯一防线。
 // 注入严格 CSP，让任何被注入的脚本/远端内容无法自由 eval、连外站、加外部资源。
 // dev/prod 分治：dev 下 vite HMR 需要 unsafe-eval + inline + ws 回连，故放宽；

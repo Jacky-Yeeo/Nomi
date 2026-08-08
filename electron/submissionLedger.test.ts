@@ -3,7 +3,7 @@ import { dedupeSubmission, pruneExpiredSubmissions, runTaskWithIdempotency } fro
 
 type Entry = Parameters<typeof dedupeSubmission>[0] extends Map<string, infer E> ? E : never
 
-describe('dedupeSubmission — 提交幂等台账（at-most-once 钱安全保证）', () => {
+describe('dedupeSubmission — 仅进程内的并发提交合并', () => {
   it('同键并发(进行中) → fn 只执行一次，全部拿到同一个结果', async () => {
     const ledger = new Map()
     let calls = 0
@@ -27,7 +27,7 @@ describe('dedupeSubmission — 提交幂等台账（at-most-once 钱安全保证
     expect(await dedupeSubmission(ledger, 'run-2', fn, { now: () => 1000 })).toBe('task-xyz')
     // 模拟「成功但回执丢了」后控制器重试：同键再来
     expect(await dedupeSubmission(ledger, 'run-2', fn, { now: () => 1500 })).toBe('task-xyz')
-    expect(calls).toBe(1) // ★绝不二次下单
+    expect(calls).toBe(1) // 当前进程的 TTL 窗口内只执行一次
   })
 
   it('同键已失败(settle 后 ttl 内) → 重放同一个 rejection，绝不二次下单', async () => {

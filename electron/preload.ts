@@ -98,6 +98,15 @@ contextBridge.exposeInMainWorld("nomiDesktop", {
       ipcRenderer.invoke("nomi:projects:save-async", projectId, record),
     delete: (projectId: string) => invokeSync("nomi:projects:delete", projectId),
   },
+  productionRuns: {
+    list: (projectId: string) => ipcRenderer.invoke("nomi:production-runs:list", { projectId }),
+    read: (projectId: string, runId: string) => ipcRenderer.invoke("nomi:production-runs:read", { projectId, runId }),
+    createDraft: (payload: unknown) => ipcRenderer.invoke("nomi:production-runs:create-draft", payload),
+    command: (projectId: string, runId: string, command: unknown) =>
+      ipcRenderer.invoke("nomi:production-runs:command", { projectId, runId, command }),
+    events: (projectId: string, runId: string, afterCursor: number) =>
+      ipcRenderer.invoke("nomi:production-runs:events", { projectId, runId, afterCursor }),
+  },
   assets: {
     list: (payload: unknown) => ipcRenderer.invoke("nomi:assets:list", payload),
     // 素材文件夹（素材面收敛 2026-07-22 转正）：per-project 落盘,素材库唯一消费者。

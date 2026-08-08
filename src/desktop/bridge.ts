@@ -5,6 +5,7 @@ import type { DesktopMediaBridge } from './bridgeMedia'
 import type { McpInfo, McpVerifyResult } from './mcpBridgeTypes'
 import type { DesktopSettingsBridge } from './settingsBridge'
 import type { DesktopOnboardingBridge } from './onboardingBridgeTypes'
+import type { DesktopProductionRunBridge } from './productionRunBridgeTypes'
 export type { ProviderKind }
 export type { DesktopAdapterModeResult, DesktopProviderAdapterRun } from './onboardingBridgeTypes'
 export type { ScreenshotHotkeyStatus } from './bridgeMedia'
@@ -308,6 +309,7 @@ export type DesktopBridge = DesktopMediaBridge & {
     hardReloadWindow?: () => void
   }
   settings?: DesktopSettingsBridge
+  productionRuns?: DesktopProductionRunBridge
   startupProbe?: {
     enabled: boolean
     mark: (label: string, payload?: Record<string, unknown>) => void
