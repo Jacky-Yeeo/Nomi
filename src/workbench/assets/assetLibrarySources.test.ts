@@ -3,7 +3,7 @@ import type { AssetRef } from './assetTypes'
 import {
   filterImageVideoAssets,
 } from './assetLibrarySources'
-import { parseNomiLocalAssetUrl } from '../../media/nomiLocalAssetUrl'
+import { buildNomiLocalAssetUrl, parseNomiLocalAssetUrl } from '../../media/nomiLocalAssetUrl'
 
 function projectAsset(input: {
   id: string
@@ -38,5 +38,12 @@ describe('asset library sources', () => {
       projectId: 'project a',
       relativePath: 'assets/generated/猫.png',
     })
+  })
+
+  it('逐段编码项目内相对路径，拒绝目录穿越', () => {
+    expect(buildNomiLocalAssetUrl('project a', 'assets/generated/猫 1.png')).toBe(
+      'nomi-local://asset/project%20a/assets/generated/%E7%8C%AB%201.png',
+    )
+    expect(() => buildNomiLocalAssetUrl('project-a', '../secret.txt')).toThrow('Unsafe local asset path')
   })
 })

@@ -20,4 +20,8 @@ export type DesktopSettingsBridge = {
     reset: () => Promise<DesktopProjectLocationResult>
     reveal: () => Promise<DesktopProjectLocationResult>
   }
+  automationPolicy: {
+    get: () => Promise<import('../../electron/settings/automationPolicyContract').AutomationPolicySettings>
+    set: (payload: unknown) => Promise<import('../../electron/settings/automationPolicyContract').AutomationPolicySettings>
+  }
 }

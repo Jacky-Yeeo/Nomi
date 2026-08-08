@@ -112,6 +112,10 @@ const request = {
   currency: "CNY",
 };
 
+function outbox(deps: Omit<Parameters<typeof createSubmissionOutbox>[0], "now">) {
+  return createSubmissionOutbox({ ...deps, now: () => "2026-08-08T08:00:00.000Z" });
+}
+
 describe("SubmissionOutbox", () => {
   it("persists reservation and submit intent before provider dispatch", async () => {
     const repository = setup();
@@ -123,7 +127,7 @@ describe("SubmissionOutbox", () => {
       return { providerTaskId: "provider-task-1" };
     });
 
-    const result = await createSubmissionOutbox({ repository, dispatch }).submit(request);
+    const result = await outbox({ repository, dispatch }).submit(request);
 
     expect(result.providerTaskId).toBe("provider-task-1");
     expect(repository.read("project-1", "run-1")?.jobs[0]).toMatchObject({
@@ -136,7 +140,7 @@ describe("SubmissionOutbox", () => {
   it("resumes safely when interrupted before dispatch", async () => {
     const repository = setup();
     const dispatch = vi.fn(async () => ({ providerTaskId: "provider-task-1" }));
-    const interrupted = createSubmissionOutbox({
+    const interrupted = outbox({
       repository,
       dispatch,
       beforeDispatch: () => {
@@ -148,7 +152,7 @@ describe("SubmissionOutbox", () => {
     expect(dispatch).not.toHaveBeenCalled();
     expect(repository.read("project-1", "run-1")?.jobs[0].status).toBe("submit_intent_persisted");
 
-    await createSubmissionOutbox({ repository, dispatch }).submit(request);
+    await outbox({ repository, dispatch }).submit(request);
     expect(dispatch).toHaveBeenCalledTimes(1);
   });
 
@@ -158,7 +162,7 @@ describe("SubmissionOutbox", () => {
       .mockRejectedValueOnce(new SubmissionNotDispatchedError("socket failed before write"))
       .mockResolvedValueOnce({ providerTaskId: "provider-task-1" });
 
-    await createSubmissionOutbox({ repository, dispatch }).submit(request);
+    await outbox({ repository, dispatch }).submit(request);
     expect(dispatch).toHaveBeenCalledTimes(2);
     expect(dispatch.mock.calls[0][0].idempotencyKey).toBe(dispatch.mock.calls[1][0].idempotencyKey);
   });
@@ -166,7 +170,7 @@ describe("SubmissionOutbox", () => {
   it("turns a lost receipt into submission_unknown and never submits twice", async () => {
     const repository = setup();
     const dispatch = vi.fn(async () => ({ providerTaskId: "provider-task-1" }));
-    const outbox = createSubmissionOutbox({
+    const submissionOutbox = outbox({
       repository,
       dispatch,
       afterDispatch: () => {
@@ -174,11 +178,11 @@ describe("SubmissionOutbox", () => {
       },
     });
 
-    await expect(outbox.submit(request)).rejects.toBeInstanceOf(SubmissionReceiptUnknownError);
+    await expect(submissionOutbox.submit(request)).rejects.toBeInstanceOf(SubmissionReceiptUnknownError);
     expect(repository.read("project-1", "run-1")?.jobs[0].status).toBe("submission_unknown");
     expect(repository.read("project-1", "run-1")?.budget).toMatchObject({ reserved: 0, unsettled: 5 });
 
-    await expect(outbox.submit(request)).rejects.toBeInstanceOf(SubmissionReconciliationRequiredError);
+    await expect(submissionOutbox.submit(request)).rejects.toBeInstanceOf(SubmissionReconciliationRequiredError);
     expect(dispatch).toHaveBeenCalledTimes(1);
   });
 
@@ -186,10 +190,10 @@ describe("SubmissionOutbox", () => {
     const repository = setup();
     let release: (value: { providerTaskId: string }) => void = () => undefined;
     const dispatch = vi.fn(() => new Promise<{ providerTaskId: string }>((resolve) => { release = resolve; }));
-    const outbox = createSubmissionOutbox({ repository, dispatch });
+    const submissionOutbox = outbox({ repository, dispatch });
 
-    const first = outbox.submit(request);
-    const second = outbox.submit(request);
+    const first = submissionOutbox.submit(request);
+    const second = submissionOutbox.submit(request);
     await vi.waitFor(() => expect(dispatch).toHaveBeenCalledTimes(1));
     release({ providerTaskId: "provider-task-1" });
 

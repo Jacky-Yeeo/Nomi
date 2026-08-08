@@ -1,7 +1,7 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { Portal } from '@mantine/core'
-import { IconAdjustmentsHorizontal, IconFolder, IconInfoCircle, IconX } from '@tabler/icons-react'
+import { IconAdjustmentsHorizontal, IconBrain, IconFolder, IconInfoCircle, IconLock, IconX } from '@tabler/icons-react'
 import { cn } from '../../utils/cn'
 import { DesignSwitch } from '../../design'
 import { getDesktopBridge } from '../../desktop/bridge'
@@ -12,16 +12,22 @@ import { ScreenshotHotkeySection } from './ScreenshotHotkeySection'
 import { CanvasGestureSection } from './CanvasGestureSection'
 import { AboutSection } from './AboutSection'
 import { ProjectLocationSection } from './ProjectLocationSection'
+import { AiModelsSection } from './AiModelsSection'
+import { AutomationPermissionsSection } from './AutomationPermissionsSection'
+import { defaultAutomationPolicySettings } from './settingsAutomationView'
+import type { AutomationPolicySettings } from '../../../electron/settings/automationPolicyContract'
 
 // 语言用「母语名」直读，不随界面语言翻译——换语言时两个名字都稳定可认（沿用 PR#50 的判断）。
 const LOCALE_LABEL_KEY: Record<AppLocale, string> = { 'zh-CN': 'common.chinese', en: 'common.english' }
 
 // 集中设置页（2026-08-01 用户拍板样张）：左 tab 右内容。首批「文件与保存」做实——自动另存开关+目录；
 // 其余 tab 占位。复用 OnboardingFloatingPanel 的外壳交互（Portal + Esc + 点遮罩关），布局是居中大 modal。
-type SettingsTab = 'file' | 'general' | 'about'
+type SettingsTab = 'file' | 'ai' | 'automation' | 'general' | 'about'
 
 const TABS: { id: SettingsTab; icon: typeof IconFolder; labelKey: string }[] = [
   { id: 'file', icon: IconFolder, labelKey: 'settings.tab.file' },
+  { id: 'ai', icon: IconBrain, labelKey: 'settings.tab.ai' },
+  { id: 'automation', icon: IconLock, labelKey: 'settings.tab.automation' },
   { id: 'general', icon: IconAdjustmentsHorizontal, labelKey: 'settings.tab.general' },
   { id: 'about', icon: IconInfoCircle, labelKey: 'settings.tab.about' },
 ]
@@ -34,6 +40,7 @@ export function SettingsDialog({ onClose, onReplaySplash }: { onClose: () => voi
   const locale = getAppLocale()
   const [enabled, setEnabled] = React.useState(false)
   const [dir, setDir] = React.useState('')
+  const [automationPolicy, setAutomationPolicy] = React.useState<AutomationPolicySettings>(defaultAutomationPolicySettings)
 
   // 打开时读当前偏好（主进程 download-prefs.json）。
   React.useEffect(() => {
@@ -43,6 +50,15 @@ export function SettingsDialog({ onClose, onReplaySplash }: { onClose: () => voi
         if (!prefs) return
         setEnabled(Boolean(prefs.enabled))
         setDir(String(prefs.dir || ''))
+      })
+      .catch(() => undefined)
+  }, [])
+
+  React.useEffect(() => {
+    void getDesktopBridge()
+      ?.settings?.automationPolicy?.get()
+      .then((value) => {
+        if (value) setAutomationPolicy(value)
       })
       .catch(() => undefined)
   }, [])
@@ -75,6 +91,19 @@ export function SettingsDialog({ onClose, onReplaySplash }: { onClose: () => voi
     }
   }
 
+  const updateAutomationPolicy = React.useCallback((patch: Partial<AutomationPolicySettings>): void => {
+    setAutomationPolicy((current) => {
+      const next = { ...current, ...patch }
+      void getDesktopBridge()
+        ?.settings?.automationPolicy?.set(next)
+        .then((stored) => {
+          if (stored) setAutomationPolicy(stored)
+        })
+        .catch(() => undefined)
+      return next
+    })
+  }, [])
+
   return (
     <Portal>
       <div
@@ -88,9 +117,9 @@ export function SettingsDialog({ onClose, onReplaySplash }: { onClose: () => voi
       >
         <div
           className="flex max-w-full overflow-hidden rounded-nomi-lg border border-nomi-line bg-nomi-paper shadow-nomi-lg"
-          style={{ width: 600, height: 420 }}
+          style={{ width: 760, height: 560 }}
         >
-          <aside className="flex w-[168px] flex-none flex-col gap-0.5 border-r border-nomi-line bg-nomi-ink-05 p-3.5">
+          <aside className="flex flex-none flex-col gap-0.5 border-r border-nomi-line bg-nomi-ink-05 p-3.5" style={{ width: 196 }}>
             <div className="px-3 pb-3 pt-1 text-body-sm font-medium text-nomi-ink">{t('settings.title')}</div>
             {TABS.map(({ id, icon: Icon, labelKey }) => (
               <button
@@ -150,6 +179,10 @@ export function SettingsDialog({ onClose, onReplaySplash }: { onClose: () => voi
 
                 <ProjectLocationSection />
               </div>
+            ) : tab === 'ai' ? (
+              <AiModelsSection settings={automationPolicy} onChange={updateAutomationPolicy} />
+            ) : tab === 'automation' ? (
+              <AutomationPermissionsSection settings={automationPolicy} onChange={updateAutomationPolicy} />
             ) : tab === 'general' ? (
               <div>
                 <div className="mb-4 text-body font-medium text-nomi-ink">{t('settings.general.title')}</div>

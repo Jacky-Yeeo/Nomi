@@ -63,6 +63,10 @@ contextBridge.exposeInMainWorld("nomiDesktop", {
       reset: () => ipcRenderer.invoke("nomi:settings:project-location-reset"),
       reveal: () => ipcRenderer.invoke("nomi:settings:project-location-reveal"),
     },
+    automationPolicy: {
+      get: () => ipcRenderer.invoke("nomi:settings:automation-policy-get"),
+      set: (payload: unknown) => ipcRenderer.invoke("nomi:settings:automation-policy-set", payload),
+    },
   },
   browserChromeMenu: {
     select: (id: unknown) => ipcRenderer.send("browser:chrome-menu:select", id),

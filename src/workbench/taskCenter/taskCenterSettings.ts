@@ -1,4 +1,4 @@
-// 任务跑完的提醒（声音 / 系统通知）+ 开关持久化。
+// 任务跑完的提醒（声音 / 系统通知）。持久化统一归主进程自动化设置，任务中心不再另存一份。
 // 方案：docs/plan/2026-08-02-task-center-queue.md
 //
 // 规则：**只在窗口失焦时打扰**。窗口开着就走现有的 toast（batchPlanPreview 里那条汇总），
@@ -10,35 +10,28 @@
 // 既不增产物体积，也避开 bundle-asset-url-must-not-persist 那个坑。
 import { getDesktopBridge } from '../../desktop/bridge'
 
-const STORAGE_KEY = 'nomi:taskCenter:v1'
-
 export type TaskCenterPrefs = {
   sound: boolean
   notify: boolean
 }
 
 const DEFAULT_PREFS: TaskCenterPrefs = { sound: true, notify: true }
+let cachedPrefs = DEFAULT_PREFS
 
-export function readTaskCenterPrefs(): TaskCenterPrefs {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) return DEFAULT_PREFS
-    const parsed = JSON.parse(raw) as Partial<TaskCenterPrefs>
-    return {
-      sound: typeof parsed.sound === 'boolean' ? parsed.sound : DEFAULT_PREFS.sound,
-      notify: typeof parsed.notify === 'boolean' ? parsed.notify : DEFAULT_PREFS.notify,
-    }
-  } catch {
-    return DEFAULT_PREFS
-  }
+export function getTaskCenterPrefsSnapshot(): TaskCenterPrefs {
+  return cachedPrefs
 }
 
-export function writeTaskCenterPrefs(prefs: TaskCenterPrefs): void {
+export async function readTaskCenterPrefs(): Promise<TaskCenterPrefs> {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs))
+    const stored = await getDesktopBridge()?.settings?.automationPolicy?.get()
+    cachedPrefs = stored
+      ? { sound: stored.notificationSound, notify: stored.systemNotifications }
+      : DEFAULT_PREFS
   } catch {
-    /* 隐私模式/配额满：静默降级，开关仍在本次会话内生效。 */
+    cachedPrefs = DEFAULT_PREFS
   }
+  return cachedPrefs
 }
 
 /** 窗口在不在前台。失焦才提醒的判据。 */

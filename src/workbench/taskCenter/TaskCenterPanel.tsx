@@ -14,7 +14,6 @@ import { confirmAndRunNode } from '../generationCanvas/runner/generationRunContr
 import { confirmAndRunPlan } from '../generationCanvas/components/batchPlanPreview'
 import { buildDependencyWaves } from '../generationCanvas/runner/dependencyWaves'
 import { buildTaskCenterView, formatElapsed, type TaskCenterRow } from './taskCenterEntries'
-import { readTaskCenterPrefs, writeTaskCenterPrefs, type TaskCenterPrefs } from './taskCenterSettings'
 
 const PANEL_WIDTH = 380
 const TOP_OFFSET = 64
@@ -35,7 +34,6 @@ export function TaskCenterPanel({ opened, onClose, onRevealNode }: Props): JSX.E
   const entries = useGenerationQueueStore((state) => state.entries)
   const batches = useGenerationQueueStore((state) => state.batches)
   const nodes = useGenerationCanvasStore((state) => state.nodes)
-  const [prefs, setPrefs] = React.useState<TaskCenterPrefs>(() => readTaskCenterPrefs())
   const [now, setNow] = React.useState(() => Date.now())
 
   React.useEffect(() => {
@@ -74,14 +72,6 @@ export function TaskCenterPanel({ opened, onClose, onRevealNode }: Props): JSX.E
     () => buildTaskCenterView({ entries, batches, nodes, fallbackTitle: t('taskCenter.untitledShot'), now }),
     [entries, batches, nodes, t, now],
   )
-
-  const updatePrefs = React.useCallback((patch: Partial<TaskCenterPrefs>) => {
-    setPrefs((current) => {
-      const next = { ...current, ...patch }
-      writeTaskCenterPrefs(next)
-      return next
-    })
-  }, [])
 
   if (!opened) return null
 
@@ -197,15 +187,6 @@ export function TaskCenterPanel({ opened, onClose, onRevealNode }: Props): JSX.E
           ) : null}
         </div>
 
-        <div className="border-t border-nomi-line px-3.5 py-2.5 flex flex-col gap-1.5">
-          <div className="flex items-center gap-2">
-            <span className="flex-1 text-caption text-nomi-ink-80">{t('taskCenter.notifyMe')}</span>
-            <PrefToggle on={prefs.sound} label={t('taskCenter.sound')} onClick={() => updatePrefs({ sound: !prefs.sound })} />
-            <PrefToggle on={prefs.notify} label={t('taskCenter.systemNotification')} onClick={() => updatePrefs({ notify: !prefs.notify })} />
-          </div>
-          <div className="text-micro text-nomi-ink-40 leading-relaxed">{t('taskCenter.notifyHint')}</div>
-        </div>
-
         <style>{`
           @keyframes nomi-panel-pop {
             from { opacity: 0; transform: translateY(-4px) scale(0.985); }
@@ -224,22 +205,6 @@ function SectionHeader({ icon, label, note }: { icon: React.ReactNode; label: st
       {label}
       {note ? <span className="text-nomi-accent">· {note}</span> : null}
     </div>
-  )
-}
-
-function PrefToggle({ on, label, onClick }: { on: boolean; label: string; onClick: () => void }): JSX.Element {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      className={[
-        'text-micro rounded-full px-2.5 py-0.5 transition-[background,color] duration-[var(--nomi-transition-fast)]',
-        on ? 'bg-nomi-accent text-nomi-paper' : 'bg-nomi-ink-10 text-nomi-ink-60',
-      ].join(' ')}
-    >
-      {label}
-    </button>
   )
 }
 

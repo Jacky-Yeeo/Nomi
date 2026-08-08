@@ -5,11 +5,12 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { useGenerationQueueStore } from '../generationCanvas/runner/generationQueueStore'
-import { notifyBatchFinished, readTaskCenterPrefs } from './taskCenterSettings'
+import { getTaskCenterPrefsSnapshot, notifyBatchFinished, readTaskCenterPrefs } from './taskCenterSettings'
 
 export function useBatchFinishNotifier(): void {
   const { t } = useTranslation()
   React.useEffect(() => {
+    void readTaskCenterPrefs()
     // 已提醒过的批次：订阅回调可能因无关状态变化多次触发，靠这个集合保证一批只响一次。
     const announced = new Set<string>()
     for (const batch of Object.values(useGenerationQueueStore.getState().batches)) {
@@ -30,7 +31,7 @@ export function useBatchFinishNotifier(): void {
             failed > 0
               ? t('taskCenter.notification.bodyWithFailures', { successes: ok, failures: failed })
               : t('taskCenter.notification.body', { count: ok }),
-          prefs: readTaskCenterPrefs(),
+          prefs: getTaskCenterPrefsSnapshot(),
         })
       }
     })
