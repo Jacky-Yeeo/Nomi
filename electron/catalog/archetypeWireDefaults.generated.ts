@@ -435,6 +435,38 @@ export const ARCHETYPE_WIRE_DEFAULTS: Record<string, Record<string, Record<strin
       }
     }
   },
+  "byteplus-seedance-2": {
+    "text_to_video": {
+      "*": {
+        "ratio": "16:9",
+        "resolution": "720p",
+        "duration": 5,
+        "generate_audio": true,
+        "model": "doubao-seedance-2-0-260128"
+      }
+    },
+    "image_to_video": {
+      "*": {
+        "ratio": "16:9",
+        "resolution": "720p",
+        "duration": 5,
+        "generate_audio": true,
+        "model": "doubao-seedance-2-0-260128"
+      }
+    }
+  },
+  "byteplus-seedream": {
+    "text_to_image": {
+      "*": {
+        "size": "2048x2048"
+      }
+    },
+    "image_edit": {
+      "*": {
+        "size": "2048x2048"
+      }
+    }
+  },
   "dreamina-seedance-2": {
     "text_to_video": {
       "*": {

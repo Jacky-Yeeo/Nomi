@@ -1,5 +1,7 @@
 import { VOLCENGINE_SEEDANCE_QUERY_OP, VOLCENGINE_SEEDANCE_STATUS_MAPPING, VOLCENGINE_VIDEO_MODELS } from "./volcengineVideos";
 import { VOLCENGINE_IMAGE_MODELS } from "./volcengineImages";
+import { BYTEPLUS_SEEDANCE_QUERY_OP, BYTEPLUS_SEEDANCE_STATUS_MAPPING, BYTEPLUS_VIDEO_MODELS } from "./byteplusVideos";
+import { BYTEPLUS_IMAGE_MODELS } from "./byteplusImages";
 import type { HttpOperation, ProfileKind } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -78,7 +80,39 @@ function volcengineSeedreamProfile(): NativeWireProfile {
   };
 }
 
-const PROFILES: NativeWireProfile[] = [volcengineSeedanceProfile(), volcengineSeedreamProfile()];
+/** BytePlus 原生 Seedance 2.0（海外区）。同火山方舟 API 契约，域名不同。 */
+function byteplusSeedanceProfile(): NativeWireProfile {
+  const model = BYTEPLUS_VIDEO_MODELS.find((m) => m.archetypeId === "byteplus-seedance-2");
+  const create: Partial<Record<ProfileKind, HttpOperation>> = {};
+  for (const mapping of model?.mappings ?? []) {
+    create[mapping.taskKind] = { ...mapping.create, pathFrom: "host-root" };
+  }
+  return {
+    archetypeId: "byteplus-seedance-2",
+    wireName: "BytePlus原生",
+    probePath: "/api/v3/contents/generations/tasks",
+    create,
+    query: { ...BYTEPLUS_SEEDANCE_QUERY_OP, pathFrom: "host-root" },
+    statusMapping: BYTEPLUS_SEEDANCE_STATUS_MAPPING,
+  };
+}
+
+/** BytePlus 原生 Seedream 图像（海外区）。同步族。 */
+function byteplusSeedreamProfile(): NativeWireProfile {
+  const model = BYTEPLUS_IMAGE_MODELS.find((m) => m.archetypeId === "byteplus-seedream");
+  const create: Partial<Record<ProfileKind, HttpOperation>> = {};
+  for (const mapping of model?.mappings ?? []) {
+    create[mapping.taskKind] = { ...mapping.create, pathFrom: "host-root" };
+  }
+  return {
+    archetypeId: "byteplus-seedream",
+    wireName: "BytePlus原生",
+    probePath: "/api/v3/images/generations",
+    create,
+  };
+}
+
+const PROFILES: NativeWireProfile[] = [volcengineSeedanceProfile(), volcengineSeedreamProfile(), byteplusSeedanceProfile(), byteplusSeedreamProfile()];
 
 /** 按档案 id 查原生 wire 配方；没有就返回 null（该模型没有可复用的原生形状）。 */
 export function nativeWireProfileForArchetype(archetypeId: string | null | undefined): NativeWireProfile | null {

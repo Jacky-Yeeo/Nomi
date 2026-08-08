@@ -221,6 +221,11 @@ export default defineConfig(async ({ command, mode }) => {
             }
           : undefined,
       hmr: process.env.NOMI_DISABLE_VITE_HMR === '1' ? false : undefined,
+      watch: {
+        // Electron 运行时在 .tmp 下高频写临时文件（Windows 上会锁文件），
+        // 让 Vite 监听整个仓库会触发 EBUSY 崩溃（chokidar FSWatcher error）。
+        ignored: ['**/.tmp/**', '**/.git/**'],
+      },
       fs: {
         allow: [resolve(__dirname)],
       },

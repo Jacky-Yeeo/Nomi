@@ -46,6 +46,7 @@ import { catalogSecretsProvider } from "./events/secretsProvider";
 import { registerOnboardingIpc } from "./ai/onboarding/onboardingIpc";
 import { registerProviderAdapterIpc } from "./providerAdapter/ipc";
 import { registerUpdaterIpc } from "./update/autoUpdater";
+import { registerByteplusAssetIpc } from "./byteplus/byteplusAssetIpc";
 import { setRendererTarget } from "./capabilityCore/rendererBridge";
 import { readMcpInfo, installMcp, uninstallMcp } from "./capabilityCore/mcpConfig";
 import { verifyMcp } from "./capabilityCore/mcpVerify";
@@ -651,6 +652,7 @@ function registerIpc(): void {
   registerProviderAdapterIpc();
   registerProductionRunIpc();
   registerUpdaterIpc();
+  registerByteplusAssetIpc();
   // M0 独立捕捞窗已退役（方案A 2026-07-12）：捕捞面收敛到应用内浏览器（registerBrowserViewIpc）。
   // S4-1 评测安全铁律:事件落盘前,已配置的 vendor key 精确匹配脱敏(形态兜底之外的地基)。
   setEventLogSecretsProvider(catalogSecretsProvider);

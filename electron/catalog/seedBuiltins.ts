@@ -51,6 +51,7 @@ import { MODELSCOPE_VENDOR_SEED } from "./modelscopeVendor";
 import { MODELSCOPE_IMAGE_MODELS, MODELSCOPE_IMAGE_QUERY, MODELSCOPE_IMAGE_STATUS } from "./modelscopeImages";
 import { MODELSCOPE_TEXT_MODELS } from "./modelscopeTexts";
 import { VOLCENGINE_VENDOR_SEED, VOLCENGINE_SPEECH_VENDOR_SEED } from "./volcengineVendor";
+import { BYTEPLUS_VENDOR_SEED } from "./byteplusVendor";
 import { DREAMINA_VENDOR_SEED } from "./dreaminaVendor";
 import { DREAMINA_CURATED_MODELS, DREAMINA_CURATED_MAPPINGS } from "./dreaminaVideos";
 import { DREAMINA_IMAGE_CURATED_MODELS, DREAMINA_IMAGE_CURATED_MAPPINGS } from "./dreaminaImages";
@@ -63,6 +64,8 @@ import { CODEX_LOCAL_VENDOR_SEED, CODEX_IMAGE_CURATED_MODELS, CODEX_IMAGE_CURATE
 import { VOLCENGINE_IMAGE_MODELS } from "./volcengineImages";
 import { VOLCENGINE_AUDIO_MODELS } from "./volcengineAudios";
 import { VOLCENGINE_SEEDANCE_QUERY_OP, VOLCENGINE_SEEDANCE_STATUS_MAPPING, VOLCENGINE_VIDEO_MODELS } from "./volcengineVideos";
+import { BYTEPLUS_IMAGE_MODELS } from "./byteplusImages";
+import { BYTEPLUS_SEEDANCE_QUERY_OP, BYTEPLUS_SEEDANCE_STATUS_MAPPING, BYTEPLUS_VIDEO_MODELS } from "./byteplusVideos";
 
 /** curated 模型/mapping 的内部类型（reconcile 两函数的输入）。 */
 type CuratedModel = {
@@ -222,6 +225,25 @@ const VOLCENGINE_SPEECH_CURATED_MAPPINGS: CuratedMapping[] = VOLCENGINE_AUDIO_MO
     id: mp.id, taskKind: mp.taskKind, modelKey: m.modelKey, name: mp.name, create: mp.create,
   })),
 );
+
+/** BytePlus（火山引擎海外区）curated 模型 + mapping。Seedream 图片（同步）+ Seedance 视频（异步）。 */
+const BYTEPLUS_CURATED_MODELS: CuratedModel[] = [
+  ...BYTEPLUS_IMAGE_MODELS.map((m) => ({ modelKey: m.modelKey, labelZh: m.labelZh, kind: "image" as const, archetypeId: m.archetypeId })),
+  ...BYTEPLUS_VIDEO_MODELS.map((m) => ({ modelKey: m.modelKey, labelZh: m.labelZh, kind: "video" as const, archetypeId: m.archetypeId })),
+];
+const BYTEPLUS_CURATED_MAPPINGS: CuratedMapping[] = [
+  ...BYTEPLUS_IMAGE_MODELS.flatMap((m) =>
+    m.mappings.map((mp) => ({
+      id: mp.id, taskKind: mp.taskKind, modelKey: m.modelKey, name: mp.name, create: mp.create,
+    })),
+  ),
+  ...BYTEPLUS_VIDEO_MODELS.flatMap((m) =>
+    m.mappings.map((mp) => ({
+      id: mp.id, taskKind: mp.taskKind, modelKey: m.modelKey, name: mp.name,
+      create: mp.create, query: BYTEPLUS_SEEDANCE_QUERY_OP, statusMapping: BYTEPLUS_SEEDANCE_STATUS_MAPPING,
+    })),
+  ),
+];
 
 /**
  * **退役的 curated 记录（变体合并迁移，2026-06-16）**：Seedance 一族原是 4 个独立 catalog 行
@@ -461,6 +483,7 @@ export function applyBuiltinSeeds(state: CatalogState, now: string): { state: Ca
   if (seedVendor(vendors, REPLICATE_VENDOR_SEED, now)) changed = true; // Replicate（元素拆解 qwen-image-layered，按量付费）
   if (seedVendor(vendors, COMFYUI_VENDOR_SEED, now)) changed = true; // 本地 ComfyUI（无鉴权本地后端，默认关、用户显式启用）
   if (seedVendor(vendors, CODEX_LOCAL_VENDOR_SEED, now)) changed = true; // Codex 本地生图（实验，默认关）
+  if (seedVendor(vendors, BYTEPLUS_VENDOR_SEED, now)) changed = true; // BytePlus（火山引擎海外区）
 
   // 退役 curated 记录清理（变体合并迁移：删 Seedance 旧变体模型 + mapping 孤儿，picker 收成 1 项）。
   if (pruneRetiredModels(models, APIMART_VENDOR_SEED.key, RETIRED_APIMART_VIDEO_MODEL_KEYS)) changed = true;
@@ -485,6 +508,7 @@ export function applyBuiltinSeeds(state: CatalogState, now: string): { state: Ca
   if (reconcileModels(models, RUNNINGHUB_VENDOR_SEED.key, RUNNINGHUB_IMAGE_CURATED_MODELS, now)) changed = true;
   if (reconcileModels(models, COMFYUI_VENDOR_SEED.key, COMFYUI_CURATED_MODELS, now)) changed = true;
   if (reconcileModels(models, CODEX_LOCAL_VENDOR_SEED.key, CODEX_IMAGE_CURATED_MODELS, now)) changed = true;
+  if (reconcileModels(models, BYTEPLUS_VENDOR_SEED.key, BYTEPLUS_CURATED_MODELS, now)) changed = true;
 
   // kie 历史包袱 repair：把视频形状的坏 (kie, text_to_image) 替换成正确的 GPT Image 2 文生图契约
   // （旧 onboarding 抽错留下的；契约见 kieGptImage2.ts 直连实测确认）。apimart 无此历史，不需要。
@@ -516,6 +540,7 @@ export function applyBuiltinSeeds(state: CatalogState, now: string): { state: Ca
   if (reconcileMappings(mappings, RUNNINGHUB_VENDOR_SEED.key, RUNNINGHUB_IMAGE_CURATED_MAPPINGS, now)) changed = true;
   if (reconcileMappings(mappings, COMFYUI_VENDOR_SEED.key, COMFYUI_CURATED_MAPPINGS, now)) changed = true;
   if (reconcileMappings(mappings, CODEX_LOCAL_VENDOR_SEED.key, CODEX_IMAGE_CURATED_MAPPINGS, now)) changed = true;
+  if (reconcileMappings(mappings, BYTEPLUS_VENDOR_SEED.key, BYTEPLUS_CURATED_MAPPINGS, now)) changed = true;
 
   if (!changed) return { state, changed: false };
   return { state: { ...state, vendors, models, mappings }, changed: true };
