@@ -286,6 +286,56 @@ export function createProductionRunRepository(deps: ProductionRunRepositoryDeps 
         eventType: `budget.${entry.kind}`,
         message: entry.billingEntryId,
       };
+    } else if (command.type === "gate.decide" && command.payload.status === "approved") {
+      effect = applyProductionCommand(current, command, timestamp);
+      const gateId = typeof command.payload.gateId === "string" ? command.payload.gateId.trim() : "";
+      const gate = current.gates.find((item) => item.gateId === gateId);
+      if (!gate) throw new Error(`Production gate not found: ${gateId}`);
+      if (Date.parse(timestamp) >= Date.parse(gate.expiresAt)) throw new Error("Production gate has expired");
+      if (gate.jobIds.length > 0) {
+        const maxSpend = current.policy.maxSpend;
+        if (maxSpend === null || !Number.isFinite(maxSpend) || maxSpend < 0) {
+          throw new Error("Production approval requires a hard spend limit");
+        }
+        const jobs = gate.jobIds.map((jobId) => {
+          const job = current.jobs.find((item) => item.jobId === jobId);
+          if (!job) throw new Error(`Production job not found: ${jobId}`);
+          if (!current.policy.allowedProviders.includes(job.provider) || !current.policy.allowedModels.includes(job.model)) {
+            throw new Error(`Production job is outside the current policy: ${jobId}`);
+          }
+          return job;
+        });
+        const approval: Approval = {
+          approvalId: `approval:${gate.gateId}`,
+          runId,
+          scope: gate.scope,
+          planHash: gate.planHash,
+          jobIds: [...gate.jobIds],
+          allowedProviders: [...new Set(jobs.map((job) => job.provider))],
+          allowedModels: [...new Set(jobs.map((job) => job.model))],
+          currency: current.budget.currency,
+          maxSpend,
+          maxAttemptsPerJob: current.policy.maxAttemptsPerJob,
+          decidedAt: timestamp,
+          expiresAt: gate.expiresAt,
+        };
+        const approvals = readJsonLines<Approval>(paths.approvals);
+        const existingApproval = approvals.find((item) => item.approvalId === approval.approvalId);
+        if (existingApproval && JSON.stringify(existingApproval) !== JSON.stringify(approval)) {
+          throw new Error("Approval id conflict");
+        }
+        const ledger = replayBudget(projectId, runId, current.budget.currency);
+        const authorization: BudgetLedgerEntry = {
+          billingEntryId: `${approval.approvalId}:authorize`,
+          kind: "authorize",
+          amount: maxSpend,
+          occurredAt: timestamp,
+        };
+        const nextLedger = applyBudgetEntry(ledger, authorization);
+        if (!existingApproval) appendDurableJsonLine(paths.approvals, approval);
+        if (nextLedger !== ledger) appendDurableJsonLine(paths.budgetLedger, authorization);
+        effect = { ...effect, run: { ...effect.run, budget: summarizeBudgetLedger(nextLedger) } };
+      }
     } else {
       effect = applyProductionCommand(current, command, timestamp);
     }

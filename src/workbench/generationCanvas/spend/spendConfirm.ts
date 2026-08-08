@@ -1,6 +1,7 @@
 import { isComfyuiVendorKey } from '../runner/comfyuiTaskControl'
 import { create } from 'zustand'
 import { mintSpendGrant } from '../../api/taskApi'
+import type { ProductionContractView } from './productionContractView'
 
 // 付费生成确认 + 铸令牌（渲染层单一收口）。
 // 方案：docs/plan/2026-06-21-spend-confirmation-gate.md（务实纵深 A1：用户直发轻确认、agent 强确认）。
@@ -22,7 +23,9 @@ export type SpendConfirmRequest = {
    * - 'reference'         = 参考图门：要花额度出参考图（定妆/场景卡），相机图标。
    * - 'plan'              = 方案门：AI 要往画布落一套节点方案（免费、可撤），分镜图标。
    */
-  kind?: 'generation' | 'reference' | 'plan'
+  kind?: 'generation' | 'reference' | 'plan' | 'contract'
+  /** Durable production summary shown inside the existing confirmation shell. */
+  contract?: ProductionContractView
   /** 明细行（节点 / 模型 / 预估），让用户一眼看懂谁要花钱、花在哪。 */
   details?: Array<{ label: string; value: string }>
   /**

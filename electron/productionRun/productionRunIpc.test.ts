@@ -116,4 +116,33 @@ describe("production run IPC", () => {
     expect(repo.execute).toHaveBeenCalledWith("project-1", "run-1", command);
     expect(repo.readEvents).toHaveBeenCalledWith("project-1", "run-1", 3);
   });
+
+  it("reduces a gate decision to its decision fields before crossing into the repository", async () => {
+    const repo = repository();
+    registerProductionRunIpc(repo as never);
+
+    await handlers.get("nomi:production-runs:command")?.({}, {
+      projectId: "project-1",
+      runId: "run-1",
+      command: {
+        commandId: "cmd-gate",
+        expectedRevision: 2,
+        type: "gate.decide",
+        payload: {
+          gateId: "gate-contract",
+          status: "approved",
+          approval: { maxSpend: 999999, allowedProviders: ["attacker"] },
+        },
+        issuedAt: "2026-08-08T08:00:00.000Z",
+      },
+    });
+
+    expect(repo.execute).toHaveBeenCalledWith("project-1", "run-1", {
+      commandId: "cmd-gate",
+      expectedRevision: 2,
+      type: "gate.decide",
+      payload: { gateId: "gate-contract", status: "approved" },
+      issuedAt: "2026-08-08T08:00:00.000Z",
+    });
+  });
 });

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { alertDialog } from '../../design'
 import { useGenerationCanvasStore } from '../generationCanvas/store/generationCanvasStore'
 import { useSpendConfirmStore } from '../generationCanvas/spend/spendConfirm'
+import { buildProductionContractView } from '../generationCanvas/spend/productionContractView'
 import { useWorkbenchStore } from '../workbenchStore'
 import { productionRunApi } from './productionRunApi'
 import { useProductionRunStore } from './productionRunStore'
@@ -54,11 +55,8 @@ export function useProductionStatus() {
       message: gate.summary,
       confirmLabel: t('generationCommon.production.gate.approve'),
       source: run.origin.host === 'nomi' ? 'user' : 'agent',
-      kind: 'generation',
-      details: [
-        { label: t('generationCommon.production.gate.scope'), value: t(`generationCommon.production.gateScope.${gate.scope}`) },
-        { label: t('generationCommon.production.gate.jobs'), value: String(gate.jobIds.length) },
-      ],
+      kind: 'contract',
+      contract: buildProductionContractView(run, gate),
     })
     if (!approved) return
     try {

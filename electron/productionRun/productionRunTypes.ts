@@ -66,6 +66,19 @@ export type ProductionStageStatus =
 
 export type ProductionGateStatus = "waiting" | "approved" | "rejected" | "expired" | "revoked";
 
+export type ProductionContract = {
+  specs: {
+    durationSeconds?: number;
+    aspectRatio?: string;
+    language?: string;
+    shotCount?: number;
+  };
+  claims: Array<{ text: string; evidenceIds: string[] }>;
+  evidence: Array<{ evidenceId: string; label: string; projectRelativePath?: string }>;
+  skills: Array<{ name: string; version: string }>;
+  estimatedCost?: { currency: string; minimum: number; maximum: number };
+};
+
 export type ProductionStage = {
   stageId: string;
   title: string;
@@ -102,6 +115,7 @@ export type ProductionGate = {
   jobIds: string[];
   title: string;
   summary: string;
+  contract?: ProductionContract;
   createdAt: string;
   expiresAt: string;
   decidedAt?: string;

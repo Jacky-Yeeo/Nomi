@@ -35,6 +35,7 @@ const ARTIFACT_STATUSES = new Set<ProductionArtifact["status"]>([
   "adopted",
   "rejected",
 ]);
+const GATE_STATUSES = new Set<ProductionGate["status"]>(["waiting", "approved", "rejected", "expired", "revoked"]);
 
 function artifact(payload: Record<string, unknown>): ProductionArtifact {
   const value = record(payload, "artifact");
@@ -119,12 +120,24 @@ export function applyProductionCommand(
     case "gate.decide": {
       const gateId = text(command.payload, "gateId");
       const status = text(command.payload, "status") as ProductionGate["status"];
+      if (!GATE_STATUSES.has(status) || status === "waiting") throw new Error("Invalid production gate decision");
+      const currentGate = current.gates.find((gate) => gate.gateId === gateId);
+      if (!currentGate) throw new Error(`Production entity not found: ${gateId}`);
+      if (currentGate.status !== "waiting") throw new Error(`Production gate is already decided: ${gateId}`);
       const gates = replaceById(current.gates, gateId, (gate) => gate.gateId, (gate) => ({
         ...gate,
         status,
         decidedAt: now,
       }));
-      return { run: { ...current, gates, updatedAt: now }, eventType: "gate.decided", message: gateId };
+      const jobs = status === "approved"
+        ? current.jobs.map((job) => currentGate.jobIds.includes(job.jobId) && job.status === "authorization_required"
+          ? transitionJob(job, "authorized", now)
+          : job)
+        : current.jobs;
+      const run = status === "approved" && current.status === "awaiting_contract"
+        ? transitionRun({ ...current, gates, jobs }, "ready", now)
+        : { ...current, gates, jobs, updatedAt: now };
+      return { run, eventType: "gate.decided", message: gateId };
     }
     case "artifact.add": {
       const nextArtifact = artifact(command.payload);

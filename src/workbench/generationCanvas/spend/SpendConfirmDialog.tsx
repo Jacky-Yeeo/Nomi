@@ -1,9 +1,10 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../../utils/cn'
-import { IconCoin, IconRobot, IconMovie, IconPhoto } from '@tabler/icons-react'
+import { IconCoin, IconFileText, IconRobot, IconMovie, IconPhoto } from '@tabler/icons-react'
 import { WorkbenchButton } from '../../../design'
 import { useSpendConfirmStore } from './spendConfirm'
+import { ProductionContractSummary } from './ProductionContractSummary'
 
 // 付费生成确认对话框（单一收口，挂一次于工作区根）。极简：标题 + 一句人话 + 取消/确认。
 // 三种来源共用这一个对话框（不另造并行卡，P1）：
@@ -46,7 +47,13 @@ export function SpendConfirmDialog() {
 
   const isAgent = pending.source === 'agent'
   // 图标按门类派生（Phase B）：方案门=分镜、参考图门=相机、生成门=机器人(agent)/金币(用户直发)。
-  const Icon = pending.kind === 'plan' ? IconMovie : pending.kind === 'reference' ? IconPhoto : isAgent ? IconRobot : IconCoin
+  const Icon = pending.kind === 'contract'
+    ? IconFileText
+    : pending.kind === 'plan'
+      ? IconMovie
+      : pending.kind === 'reference'
+        ? IconPhoto
+        : isAgent ? IconRobot : IconCoin
   const countdownTotal = pending.countdownMs || 0
   const remainingSec = countdownTotal ? Math.ceil(remainingMs / 1000) : 0
   const remainingPct = countdownTotal ? Math.max(0, Math.min(100, (remainingMs / countdownTotal) * 100)) : 0
@@ -61,7 +68,10 @@ export function SpendConfirmDialog() {
       }}
     >
       <div
-        className={cn('w-[380px] max-w-[88%] rounded-nomi-lg border border-nomi-line bg-nomi-paper p-4 shadow-nomi-md')}
+        className={cn(
+          pending.kind === 'contract' ? 'w-[680px]' : 'w-[380px]',
+          'max-h-[88vh] max-w-[88%] overflow-y-auto rounded-nomi-lg border border-nomi-line bg-nomi-paper p-4 shadow-nomi-md',
+        )}
       >
         <div className={cn('flex items-center gap-2.5 mb-2')}>
           <span
@@ -85,7 +95,11 @@ export function SpendConfirmDialog() {
 
         <p className={cn('text-body-sm text-nomi-ink-80 leading-relaxed mb-3')}>{pending.message}</p>
 
-        {pending.details?.length ? (
+        {pending.kind === 'contract' && pending.contract ? (
+          <ProductionContractSummary view={pending.contract} />
+        ) : null}
+
+        {pending.kind !== 'contract' && pending.details?.length ? (
           <div className={cn('mb-3 rounded-nomi-sm border border-nomi-line-soft divide-y divide-nomi-line-soft')}>
             {pending.details.map((row) => (
               <div key={row.label} className={cn('flex items-center justify-between gap-3 px-2.5 py-1.5')}>

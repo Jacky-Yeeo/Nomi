@@ -16,6 +16,20 @@ function objectValue(value: unknown, label: string): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function rendererCommandPayload(type: string, value: unknown): Record<string, unknown> {
+  const raw = objectValue(value, "production command payload");
+  if (type === "run.status") {
+    return { status: typeof raw.status === "string" ? raw.status.trim() : raw.status };
+  }
+  if (type === "gate.decide") {
+    return {
+      gateId: identifier(raw.gateId, "gate"),
+      status: typeof raw.status === "string" ? raw.status.trim() : raw.status,
+    };
+  }
+  return { artifactId: identifier(raw.artifactId, "artifact") };
+}
+
 function createDraftInput(value: unknown): CreateProductionRunInput {
   const raw = objectValue(value, "production draft");
   const playbook = objectValue(raw.playbook, "playbook");
@@ -44,7 +58,7 @@ function rendererCommand(value: unknown): RunCommand {
     commandId: identifier(raw.commandId, "command"),
     expectedRevision: Number(raw.expectedRevision),
     type,
-    payload: objectValue(raw.payload, "production command payload"),
+    payload: rendererCommandPayload(type, raw.payload),
     issuedAt: typeof raw.issuedAt === "string" && raw.issuedAt.trim() ? raw.issuedAt.trim() : new Date().toISOString(),
   };
 }

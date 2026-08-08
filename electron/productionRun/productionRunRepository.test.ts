@@ -178,6 +178,80 @@ describe("ProductionRunRepository", () => {
     expect(fs.readFileSync(productionRunPaths(root, "run-1").approvals, "utf8")).not.toContain("/Users/");
   });
 
+  it("derives durable authority and budget from an approved gate without trusting renderer authority", () => {
+    repository().create({
+      runId: "run-1",
+      projectId: "project-1",
+      playbook: { name: "brand.promo", version: "1.0.0" },
+      origin: { host: "codex" },
+      policy: {
+        mode: "balanced",
+        trustedHosts: ["codex"],
+        allowedProviders: ["tapcanvas"],
+        allowedModels: ["seedance-1.0"],
+        maxSpend: 60,
+        maxAttemptsPerJob: 2,
+      },
+    });
+    repository().execute("project-1", "run-1", {
+      commandId: "setup-job",
+      expectedRevision: 0,
+      type: "job.add",
+      payload: {
+        job: {
+          jobId: "job-1", stageId: "production", status: "authorization_required", attempt: 1,
+          provider: "tapcanvas", model: "seedance-1.0", idempotencyKey: "job-1:1",
+          createdAt: "2026-08-08T08:00:00.000Z", updatedAt: "2026-08-08T08:00:00.000Z",
+        },
+      },
+      issuedAt: "2026-08-08T08:00:00.000Z",
+    });
+    repository().execute("project-1", "run-1", {
+      commandId: "setup-gate",
+      expectedRevision: 1,
+      type: "gate.add",
+      payload: {
+        gate: {
+          gateId: "gate-contract", scope: "budget_envelope", status: "waiting", planHash: "plan-1", jobIds: ["job-1"],
+          title: "Contract", summary: "Summary", createdAt: "2026-08-08T08:00:00.000Z", expiresAt: "2026-08-08T09:00:00.000Z",
+        },
+      },
+      issuedAt: "2026-08-08T08:00:00.000Z",
+    });
+    repository().execute("project-1", "run-1", {
+      commandId: "await-contract",
+      expectedRevision: 2,
+      type: "run.status",
+      payload: { status: "awaiting_contract" },
+      issuedAt: "2026-08-08T08:00:00.000Z",
+    });
+
+    const result = repository().execute("project-1", "run-1", {
+      commandId: "approve-gate",
+      expectedRevision: 3,
+      type: "gate.decide",
+      payload: { gateId: "gate-contract", status: "approved", approval: { maxSpend: 999999 } },
+      issuedAt: "2026-08-08T08:00:00.000Z",
+    });
+
+    expect(result.run).toMatchObject({
+      status: "ready",
+      gates: [{ gateId: "gate-contract", status: "approved" }],
+      jobs: [{ jobId: "job-1", status: "authorized" }],
+      budget: { authorized: 60 },
+    });
+    expect(repository().readApprovals("project-1", "run-1")).toMatchObject([{
+      approvalId: "approval:gate-contract",
+      runId: "run-1",
+      planHash: "plan-1",
+      jobIds: ["job-1"],
+      allowedProviders: ["tapcanvas"],
+      allowedModels: ["seedance-1.0"],
+      maxSpend: 60,
+      maxAttemptsPerJob: 2,
+    }]);
+  });
+
   it("persists and replays deduplicated budget entries into the run summary", () => {
     createRun();
     const auth = {
