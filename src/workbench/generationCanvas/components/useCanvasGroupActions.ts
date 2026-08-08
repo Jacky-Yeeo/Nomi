@@ -1,18 +1,12 @@
 /**
- * 「跑什么」这一族画布动作：编组 / 解组 / 生成选中 / 连到组 / 拼联系表。
+ * 「成组处理」这一族画布动作：编组 / 解组 / 连到组 / 拼联系表。
  *
- * 注意**没有**独立的「整组运行」：点组框本来就会选中全部成员，选择浮条随即显示「生成 N 个」——
- * 整组运行走的就是 handleBatchGenerate 这一条，不该有第二条（2026-08-02 加过一个又删，见 GroupFrame 注释）。
- *
- * 从 GenerationCanvas.tsx 抽出来：那个壳已经顶到 800 行上限（R9）。这几个动作共用同一条批量链路
- * （buildDependencyWaves + confirmAndRunPlan）、只吃 store 数据、都不碰视口/拖拽/连线几何，抽在一起最自然。
+ * 批量生成由 useCanvasProductionActions 单独收口，避免两个生成入口逐渐分叉。
  */
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { showInfoToast } from '../../../utils/showInfoToast'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
-import { buildDependencyWaves } from '../runner/dependencyWaves'
-import { confirmAndRunPlan } from './batchPlanPreview'
 import { buildContactSheetNode, contactSheetSources } from '../nodes/buildContactSheetNode'
 
 export function useCanvasGroupActions(params: {
@@ -22,7 +16,6 @@ export function useCanvasGroupActions(params: {
 }): {
   handleGroupSelectedNodes: () => void
   handleUngroupSelectedNodes: () => void
-  handleBatchGenerate: () => void
   handleConnectToGroup: (groupId: string) => void
   /** 选中里已出图的张数（<2 就没有联系表可拼，浮条上那个钮不出现）。 */
   contactSheetCount: number
@@ -43,16 +36,6 @@ export function useCanvasGroupActions(params: {
     ungroupGroups(selectedGroupIds)
     // 解组结果画布即时可见 → 成功 toast 是噪音（弹窗审计 R2）。
   }, [selectedGroupIds, ungroupGroups])
-
-  // 批量生成（「生成选中」唯一入口）。不傻批量：先算依赖波次（参考先生成→镜头后生成）。
-  // 用户拍板「不弹窗+缺啥提示啥」：点了就直接跑能跑的（不再弹模态确认条）；上游参考没生成
-  // 而被拦下的，由 runPlanWithToasts 用人话 toast 告诉你「哪些没跑、为什么」(describeBlockedNotice)。
-  const handleBatchGenerate = React.useCallback(() => {
-    const ids = [...selectedNodeIds]
-    if (ids.length === 0) return
-    const state = useGenerationCanvasStore.getState()
-    void confirmAndRunPlan(buildDependencyWaves(ids, { nodes: state.nodes, edges: state.edges }))
-  }, [selectedNodeIds])
 
   // 连到组：给组内每个成员各连一根真边（图结构不变）。被能力校验跳过的必须说清，不许静默丢。
   const handleConnectToGroup = React.useCallback((groupId: string) => {
@@ -86,7 +69,6 @@ export function useCanvasGroupActions(params: {
   return {
     handleGroupSelectedNodes,
     handleUngroupSelectedNodes,
-    handleBatchGenerate,
     handleConnectToGroup,
     contactSheetCount,
     handleBuildContactSheet,

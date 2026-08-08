@@ -51,6 +51,8 @@ import { hasPendingScene3DCameraMoveCapture, hasPendingScene3DStagingCapture } f
 import { lazyWithChunkBoundary } from '../../../ui/chunkBoundary'
 import { useCanvasSelectionDrag } from './useCanvasSelectionDrag'
 import { CanvasSelectionToolbar } from './CanvasSelectionToolbar'
+import { CanvasBatchGenerateDock } from './CanvasBatchGenerateDock'
+import { useCanvasProductionActions } from './useCanvasProductionActions'
 import { useCanvasScreenshotCapture } from './useCanvasScreenshotCapture'
 import '../styles/generationCanvas.css'
 
@@ -321,15 +323,15 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
     setConnectionCreateMenu(null)
   }, [connectionCreateMenu, pendingConnectionSourceId])
 
-  // 「跑什么」这一族动作（编组/解组/生成选中/整组运行/连到组）抽到 useCanvasGroupActions（本壳顶着 800 行上限 R9）。
+  // 成组动作与批量生产分开收口，避免生成链路出现第二个实现。
   const {
     handleGroupSelectedNodes,
     handleUngroupSelectedNodes,
-    handleBatchGenerate,
     handleConnectToGroup,
     contactSheetCount,
     handleBuildContactSheet,
   } = useCanvasGroupActions({ activeCategoryId, selectedGroupIds, selectedNodeIds })
+  const production = useCanvasProductionActions({ activeCategoryId, selectedNodeIds })
 
   // 拖拽连线跟踪（含 rAF 节流预览线）抽到 useDragToConnect（R9/B3）
   const { pendingCursorPos } = useDragToConnect({
@@ -709,8 +711,13 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
                 selectedCount={selectedCount}
                 selectedGroupCount={selectedGroupIds.length}
                 transform={`translate(${Math.round(selectedBounds.minX + selectedBounds.width / 2)}px, ${Math.round(selectedBounds.minY - MULTI_SELECTION_BOUNDS_PADDING - MULTI_SELECTION_TOOLBAR_OFFSET)}px) translateX(-50%)`}
+                eligibleCount={production.eligibleIds.length}
+                executionGroups={production.executionGroups}
+                concurrency={production.concurrency}
                 contactSheetCount={contactSheetCount}
-                onBatchGenerate={handleBatchGenerate}
+                onConcurrencyChange={production.setConcurrency}
+                onGenerate={production.generate}
+                onApplyModel={production.applyModel}
                 onGroupSelectedNodes={handleGroupSelectedNodes}
                 onUngroupSelectedNodes={handleUngroupSelectedNodes}
                 onBuildContactSheet={handleBuildContactSheet}
@@ -761,6 +768,7 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
             />
           ) : null}
         </div>
+        {!readOnly && selectedCount === 0 && nodes.length > 0 ? <CanvasBatchGenerateDock {...production} /> : null}
         <CanvasNavigationStack
           readOnly={readOnly}
           nodes={nodes}

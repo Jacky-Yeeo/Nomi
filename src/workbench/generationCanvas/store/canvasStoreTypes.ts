@@ -44,6 +44,8 @@ export type CanvasNodeActions = {
   addNode: (input: CreateNodeInput) => GenerationCanvasNode
   commitPersistedChange: () => void
   updateNode: (nodeId: string, patch: Partial<GenerationCanvasNode>, options?: CanvasMutationOptions) => void
+  /** Apply many user edits with one undo barrier and one persist revision. */
+  updateNodes: (updates: readonly { nodeId: string; patch: Partial<GenerationCanvasNode> }[]) => void
   updateNodePrompt: (nodeId: string, prompt: string) => void
   /** S6-4 节点锁(N11):用户一键锁/解锁;AI 改它由 gate deny,事件 source 恒 user。 */
   setNodeLocked: (nodeId: string, locked: boolean) => void

@@ -42,7 +42,7 @@ export const useBatchPlanPreviewStore = create<BatchPlanPreviewState>()((set, ge
       return
     }
     set({ plan: null, running: false })
-    await runPlanWithToasts(plan, grantId)
+    await runPlanWithToasts(plan, { grantId })
   },
 }))
 
@@ -66,7 +66,10 @@ export function describeBlockedNotice(plan: DependencyWavePlan): string | null {
  * 用户直发批量（框选「生成 N 个」）：轻确认 + 铸令牌 + 跑。取消则零调用零扣费。
  * 抽到此处而非内联进 GenerationCanvas（巨壳 800 行顶格，不喂）。
  */
-export async function confirmAndRunPlan(plan: DependencyWavePlan): Promise<void> {
+export async function confirmAndRunPlan(
+  plan: DependencyWavePlan,
+  options: { concurrency?: number } = {},
+): Promise<void> {
   const ids = plan.waves.flat()
   if (ids.length === 0) {
     await runPlanWithToasts(plan) // 无可跑 → 复用人话 toast 报「为什么不能跑」
@@ -82,12 +85,15 @@ export async function confirmAndRunPlan(plan: DependencyWavePlan): Promise<void>
     light: true,
   })
   if (!grantId) return
-  await runPlanWithToasts(plan, grantId)
+  await runPlanWithToasts(plan, { grantId, concurrency: options.concurrency })
 }
 
 /** 按计划真实生成 + 进度人话 toast。「全部生成」与 S6b agent 受理路径共用(单一执行口)。
  * grantId：付费守卫令牌（确认后铸），随 plan 下到每个节点的 request.extras 供主进程核验。 */
-export async function runPlanWithToasts(plan: DependencyWavePlan, grantId?: string): Promise<void> {
+export async function runPlanWithToasts(
+  plan: DependencyWavePlan,
+  options: { grantId?: string; concurrency?: number } = {},
+): Promise<void> {
   const waves = plan.waves
   const runnable = waves.flat().length
   const notice = describeBlockedNotice(plan)
@@ -115,7 +121,10 @@ export async function runPlanWithToasts(plan: DependencyWavePlan, grantId?: stri
       : i18n.t('generationCommon.batchPlan.start', { count: runnable })
   toast(startMsg, 'info')
   try {
-    const result = await runGenerationNodesByPlan(plan, grantId ? { grantId } : {})
+    const result = await runGenerationNodesByPlan(plan, {
+      ...(options.grantId ? { grantId: options.grantId } : {}),
+      ...(options.concurrency === undefined ? {} : { concurrency: options.concurrency }),
+    })
     const okCount = result.successes.length
     const failCount = result.failures.length
     // 完成汇总：把「还有谁没跑、为什么」(notice) 并进同一条，不再跑完补弹第二条（消除连环弹，弹窗审计）。
@@ -138,7 +147,10 @@ export async function runPlanWithToasts(plan: DependencyWavePlan, grantId?: stri
         actionLabel: i18n.t('generationCommon.batchPlan.retryFailed', { count: failCount }),
         onAction: () => {
           const state = useGenerationCanvasStore.getState()
-          void confirmAndRunPlan(buildDependencyWaves(failureIds, { nodes: state.nodes, edges: state.edges }))
+          void confirmAndRunPlan(
+            buildDependencyWaves(failureIds, { nodes: state.nodes, edges: state.edges }),
+            { concurrency: options.concurrency },
+          )
         },
       })
     }

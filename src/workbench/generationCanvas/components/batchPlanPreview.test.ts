@@ -1,6 +1,12 @@
-import { describe, expect, it } from 'vitest'
-import { describeBlockedNotice } from './batchPlanPreview'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describeBlockedNotice, runPlanWithToasts } from './batchPlanPreview'
 import type { DependencyWavePlan } from '../runner/dependencyWaves'
+import { runGenerationNodesByPlan } from '../runner/generationRunController'
+
+vi.mock('../runner/generationRunController', () => ({
+  runGenerationNodesByPlan: vi.fn(async () => ({ totalCount: 1, successes: [], failures: [] })),
+  spendCostKindForNodes: vi.fn(() => 'image'),
+}))
 
 function plan(over: Partial<DependencyWavePlan>): DependencyWavePlan {
   return { waves: [], blocked: [], edgesUsed: [], ...over }
@@ -31,5 +37,22 @@ describe('describeBlockedNotice — 批量「缺啥提示啥」', () => {
     const msg = describeBlockedNotice(p)!
     expect(msg).toContain('1 个在等上游参考')
     expect(msg).toContain('1 个存在循环引用')
+  })
+})
+
+describe('runPlanWithToasts concurrency', () => {
+  beforeEach(() => {
+    vi.mocked(runGenerationNodesByPlan).mockClear()
+  })
+
+  it('passes the chosen concurrency to the dependency-wave runner', async () => {
+    const dependencyPlan = plan({ waves: [['a']] })
+
+    await runPlanWithToasts(dependencyPlan, { grantId: 'grant-1', concurrency: 4 })
+
+    expect(runGenerationNodesByPlan).toHaveBeenCalledWith(dependencyPlan, {
+      grantId: 'grant-1',
+      concurrency: 4,
+    })
   })
 })

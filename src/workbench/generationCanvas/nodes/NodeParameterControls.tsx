@@ -25,9 +25,7 @@ import {
   buildEffectiveImageCatalogConfig,
   buildComfyWorkflowImageUrlSlots,
   buildImageUrlSlots,
-  buildModelControls,
   defaultPatchForCatalogControl,
-  defaultPatchForControls,
   videoAspectDefaultPatch,
   edgeModeForGroup,
   getEdgeSourceForSlot,
@@ -37,7 +35,6 @@ import {
   nodeSelectedModelAddress,
   parseControlInput,
   readMeta,
-  removePreviousControlParams,
   resultPreviewUrl,
   shouldUseVideoFrameSlotFallback,
 } from './controls/parameterControlModel'
@@ -60,7 +57,6 @@ import {
 import { resolveReferenceSlots, decideArrayReferenceRemoval } from '../runner/referenceSlots'
 import { useChannelCreateBody } from './controls/useChannelCreateBody'
 import { translateModelDisplayText } from '../../../i18n/modelDisplayText'
-import { resolveModeForConnectedReferences } from '../agent/referenceEdgeCapability'
 import { specializeArchetypeForVariant } from '../../../config/modelArchetypes'
 import ModeBar from './controls/ModeBar'
 import AssetReference, { type AssetSlot } from '../../assets/AssetReference'
@@ -82,6 +78,7 @@ import {
   parseAspectRatioValue,
   preferredVideoAspect,
 } from './aspectRatio'
+import { buildNodeModelChangePatch } from './buildNodeModelChangePatch'
 
 // 模块级常量：比例参数的 key 白名单（与 aspectRatio.ts 的 ASPECT_RATIO_KEYS 保持一致）。
 const ASPECT_RATIO_KEY_SET = new Set<string>(ASPECT_RATIO_KEYS)
@@ -179,40 +176,16 @@ export default function NodeParameterControls({
   }
 
   const handleModelChange = (value: string, vendor?: string) => {
-    const nextOption = findModelOptionByIdentifier(modelOptions, value, vendor)
-    const controls = buildModelControls(nextOption?.meta, isImageLike, isVideoLike)
-    const defaultPatch = defaultPatchForControls(controls)
-    const nextArchetype = resolveArchetypeForOption(nextOption)
-    // 视频比例产品默认（覆盖档案默认）：首选 16:9，已连输入全竖才 9:16（2026-07-17 用户拍板）。
-    const aspectPatch = isVideoLike
-      ? videoAspectDefaultPatch(controls, preferredVideoAspect(collectInputAspectRatios(node.id, edges, nodes)))
-      : {}
-    let nextMeta: Record<string, unknown> = {
-      ...removePreviousControlParams(getLatestMeta(), renderedControls),
-      modelKey: nextOption?.modelKey || nextOption?.value || value || null,
-      modelAlias: nextOption?.modelAlias || nextOption?.value || value || null,
-      modelVendor: nextOption?.vendor || null,
-      vendor: nextOption?.vendor || null,
-      modelLabel: nextOption?.label || value || null,
-      ...defaultPatch,
-      ...aspectPatch,
-      ...(isVideoLike
-        ? { videoModel: nextOption?.value || value || null, videoModelVendor: nextOption?.vendor || null }
-        : { imageModel: nextOption?.value || value || null, imageModelVendor: nextOption?.vendor || null }),
-    }
-    if (!nextArchetype) {
-      delete nextMeta.archetype
-    } else {
-      // 换模型后旧 meta.archetype 失配 → currentArchetypeMode 落回新档案默认（常为 t2i 空槽）。
-      // 身上挂着活边参考时就地促到能收的模式（与建边 auto-promote 同一把尺子），UI 立即正确、
-      // 不等提交咽喉兜底——否则用户看着「文生图」还以为参考没用（2026-07-28 群反馈根因之一）。
-      const state = useGenerationCanvasStore.getState()
-      const promotedModeId = resolveModeForConnectedReferences({ ...node, meta: nextMeta }, state.nodes, state.edges)
-      if (promotedModeId) nextMeta = applyArchetypeModeSwitch(nextMeta, nextArchetype, promotedModeId)
-    }
-    updateNode(node.id, {
-      meta: nextMeta,
-    })
+    const state = useGenerationCanvasStore.getState()
+    const latestNode = state.nodes.find((candidate) => candidate.id === node.id) || node
+    updateNode(node.id, buildNodeModelChangePatch({
+      node: latestNode,
+      nodes: state.nodes,
+      edges: state.edges,
+      modelOptions,
+      value,
+      vendor,
+    }))
   }
 
   useNodeModelAutoSelect({

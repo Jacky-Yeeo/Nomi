@@ -101,6 +101,25 @@ export const createCanvasNodeActions: CanvasSliceCreator<CanvasNodeActions> = (s
     })
     emitCanvasGesture([{ type: 'canvas.node.updated', payload: { nodeId, patch } }])
   },
+  updateNodes: (updates) => {
+    const currentState = get()
+    const existingIds = new Set(currentState.nodes.map((node) => node.id))
+    const applicable = updates.filter((update) => existingIds.has(update.nodeId))
+    if (applicable.length === 0) return
+    pushUndoSnapshot(currentState)
+    set((state) => {
+      const patches = new Map(applicable.map((update) => [update.nodeId, update.patch]))
+      for (const node of state.nodes) {
+        const patch = patches.get(node.id)
+        if (patch) Object.assign(node, patch)
+      }
+      bumpPersistRevision(state)
+      Object.assign(state, getHistoryFlags())
+    })
+    emitCanvasGesture(
+      applicable.map(({ nodeId, patch }) => ({ type: 'canvas.node.updated', payload: { nodeId, patch } })),
+    )
+  },
   updateNodePrompt: (nodeId, prompt) => {
     if (!get().nodes.some((candidate) => candidate.id === nodeId)) return
     pushEditBurstBarrier(nodeId, get())

@@ -604,3 +604,28 @@ describe('selectNodesInRect (框选 AABB)', () => {
     expect([...useGenerationCanvasStore.getState().selectedNodeIds].sort()).toEqual(['a', 'b'])
   })
 })
+
+describe('updateNodes', () => {
+  it('applies a bulk edit with one persist revision and one undo step', () => {
+    useGenerationCanvasStore.getState().restoreSnapshot({
+      nodes: [node('a', 'shots'), node('b', 'shots')],
+      edges: [],
+      selectedNodeIds: [],
+      groups: [],
+    })
+    const beforeRevision = useGenerationCanvasStore.getState().persistRevision
+
+    useGenerationCanvasStore.getState().updateNodes([
+      { nodeId: 'a', patch: { meta: { modelKey: 'model-a' } } },
+      { nodeId: 'b', patch: { meta: { modelKey: 'model-b' } } },
+    ])
+
+    let state = useGenerationCanvasStore.getState()
+    expect(state.persistRevision).toBe(beforeRevision + 1)
+    expect(state.nodes.map((candidate) => candidate.meta?.modelKey)).toEqual(['model-a', 'model-b'])
+
+    state.undo()
+    state = useGenerationCanvasStore.getState()
+    expect(state.nodes.map((candidate) => candidate.meta?.modelKey)).toEqual([undefined, undefined])
+  })
+})
