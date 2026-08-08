@@ -76,12 +76,7 @@ export function FoldableModelCard({
         </span>
         {badge ? <span className="shrink-0">{badge}</span> : null}
         <span
-          className={cn(
-            'inline-flex items-center gap-1.5 px-2 py-[3px] rounded-full text-micro font-semibold shrink-0',
-            status === 'ok'
-              ? 'bg-[var(--workbench-success-soft)] text-[var(--workbench-success-ink)]'
-              : 'bg-nomi-ink-10 text-nomi-ink-60',
-          )}
+          className="inline-flex items-center gap-1.5 px-2 py-[3px] rounded-full bg-nomi-ink-10 text-micro font-semibold text-nomi-ink-60 shrink-0"
         >
           <span className={cn('w-1.5 h-1.5 rounded-full', status === 'ok' ? 'bg-workbench-success' : 'bg-nomi-ink-30')} />
           {statusLabel ?? (status === 'ok' ? t('onboardingProviders.modelControls.connected') : t('onboardingProviders.modelControls.pending'))}

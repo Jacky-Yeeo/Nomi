@@ -54,6 +54,7 @@ const workbenchBasePlugin = plugin(({ addBase, addUtilities }) => {
       // 根层语义红。--workbench-danger 只活在 .workbench-shell 作用域，Portal 到 body 的浮层够不到它、
       // 会静默退回继承色（任务中心走查实锤读到 rgb(201,201,201)）——根层浮层的错误色一律用这个。
       '--nomi-danger': 'oklch(0.55 0.20 27)',
+      '--nomi-warning': 'oklch(0.62 0.14 75)',
       // 全局焦点环色（accent 42%）。所有交互控件 :focus-visible 统一用它，覆盖 macOS 系统强调色的
       // outline:auto（用户设了橙/黄就冒橙环）。全局 :root → portal 到 body 的面板也生效。
       '--nomi-focus': 'color-mix(in srgb, var(--nomi-accent) 42%, transparent)',
@@ -179,6 +180,7 @@ const workbenchBasePlugin = plugin(({ addBase, addUtilities }) => {
       // in srgb 的原因见浅色块同名 token 处（暗色 paper h=80，走 oklch 会把选中态混成橄榄绿）。
       '--nomi-accent-soft': 'color-mix(in srgb, var(--nomi-accent) 26%, var(--nomi-paper))',
       '--nomi-danger': 'oklch(0.72 0.16 25)',
+      '--nomi-warning': 'oklch(0.78 0.13 75)',
       '--nomi-focus': 'color-mix(in srgb, var(--nomi-accent) 50%, transparent)',
       // 时间轴三轨：暗底提亮以保持可辨（fork 未覆盖，本次补）。
       '--nomi-track-text': 'oklch(0.75 0.15 305)',

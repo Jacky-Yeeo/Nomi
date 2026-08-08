@@ -248,6 +248,7 @@ DaVinci Resolve 确实有「选中跟随播放头」，但它是 **opt-in 且默
 |---|---|---|---|
 | `--nomi-accent` | `oklch(0.55 0.13 250)` | 中等饱和的蓝紫 | 选中态描边、链接、主操作 hover、字标中间的 m、logo loading |
 | `--nomi-accent-soft` | `color-mix(accent 12%, paper)` | 极浅蓝紫 | 选中态背景、accent 浅底 |
+| `--nomi-warning` | `oklch(0.62 0.14 75)` | 克制的琥珀 | 通知 warning 图标；暗色主题提亮到 `0.78 0.13 75` |
 
 #### 2.1.3 时间轴轨道色（媒体类型区分，定义在 nomi-tokens.css）
 
@@ -584,9 +585,9 @@ mark 是 **28×28 viewBox 的圆角方块**：深色底（`oklch(0.22 0.01 80)` 
 - Label 背景：原 color
 - 可拖动整组
 
-### 4.5 `showUndoToast`
+### 4.5 Notification / `showUndoToast`
 
-文件：`src/workbench/feedback/showUndoToast.ts`
+文件：`src/ui/toast.tsx`、`src/utils/showUndoToast.ts`
 
 API：
 
@@ -598,7 +599,14 @@ showUndoToast({
 })
 ```
 
-视觉：基于 `@mantine/notifications`，整张 toast clickable = 撤销。5 秒后自动消失。
+视觉与行为：
+
+- 全仓只挂一套 `@mantine/notifications` 容器；右上角位于 56px 顶栏下 12px。
+- 宽 344px，最多同时显示 2 条，间距 8px；表面统一用 `--nomi-paper`、`--nomi-line`、`--nomi-shadow-md` 和 10px 圆角。
+- info / success / warning / error 只用语义图标区分，不给整张通知铺语义色。
+- 普通 info 3 秒、success 2.6 秒、warning 5 秒、error 6 秒；有动作时默认 8 秒。
+- 动作用右侧明确的文字按钮承载；整张通知不可点击，避免用户不知道点哪里会发生什么。
+- 长任务使用稳定 `id` 原位更新。画布批量生成从开始、失败、重试到完成始终使用 `canvas-batch-run`，不堆历史通知。
 
 **使用场景**：跨分类拖拽完成、跨分类 Cmd+V 粘贴等"用户可能误操作"的写入。
 
@@ -683,11 +691,11 @@ showUndoToast({
 
 ### 5.4 Undo Toast
 
-文案模板：`已 {动词} 到 {目标}  ·  点击此处撤销`
+文案模板：`已 {动词} 到 {目标}` + 右侧显式「撤销」按钮
 
-- 颜色：gray
+- 颜色：中性表面 + 语义图标
 - 持续：5 秒
-- 行为：整张可点 = 撤销 + 立即消失
+- 行为：点「撤销」按钮 = 撤销 + 立即消失；通知其余区域无操作
 - 实现：`showUndoToast()` helper
 
 ### 5.5 视觉状态约定
@@ -698,9 +706,10 @@ showUndoToast({
 | Hover | 背景 `--workbench-hover` 或 `--nomi-ink-05` |
 | Pressed | 背景 `--workbench-pressed` |
 | Selected | 描边 `--nomi-accent` 1.5px + 阴影提升一级 |
+| Enabled / Available | `--nomi-accent` 文字或图标 + `--nomi-accent-soft` 背景 |
 | Disabled | 文字 `--nomi-ink-30`、cursor not-allowed、opacity 不动 |
 | Error | 字 `--workbench-danger`、背景 `--workbench-danger-soft` |
-| Success | 字 `--workbench-success-ink`、背景 `--workbench-success-soft` |
+| Verified Success | 中性表面 + 小号 `--workbench-success` 圆点或勾；完整成功页可用 success soft 背景 |
 
 ---
 
@@ -883,7 +892,7 @@ import IconX from '@/assets/some-svg.svg'
 - [ ] **4 个非分镜分类的卡片视觉**——基于本设计系统重新设计角色 / 场景 / 道具 / 声音节点的渲染样式，差异化它们与分镜的视觉
 - [ ] **统一菜单 / 右键菜单组件**——目前 sidebar 右键菜单内联在 CategorySidebar 里，可抽出
 - [ ] **Group color picker**——组框颜色当前是固定 `#d8c3a5`，UI 允许用户选色
-- [ ] **Toast 系统升级**——当前 toast 内点击撤销 OK 但未来想加倒计时进度条，需在 §4.5 重新登记
+- [x] **Toast 系统升级**——已统一 Nomi 样式、显式动作、稳定任务更新与可见数量；倒计时进度条无明确收益，暂不增加。
 
 ---
 

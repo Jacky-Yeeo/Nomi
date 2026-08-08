@@ -89,7 +89,7 @@ export function ComfyuiPresetSection({ modelLabels, onImported }: ComfyuiPresetS
                 <span className="block text-micro text-nomi-ink-30 truncate">{preset.descZh}</span>
               </span>
               {alreadyEnabled ? (
-                <span className="text-micro text-workbench-success bg-[var(--workbench-success-soft)] px-2 py-0.5 rounded-full shrink-0">{t('onboardingProviders.comfyPreset.chipEnabled')}</span>
+                <span className="text-micro text-nomi-accent bg-nomi-accent-soft px-2 py-0.5 rounded-full shrink-0">{t('onboardingProviders.comfyPreset.chipEnabled')}</span>
               ) : result ? (
                 ready ? (
                   <span className="text-micro text-workbench-success bg-[var(--workbench-success-soft)] px-2 py-0.5 rounded-full shrink-0">{t('onboardingProviders.comfyPreset.chipReady')}</span>

@@ -162,7 +162,7 @@ export function ComfyuiTemplateLibrary({ vendorKey, modelLabels, onImported }: P
                       {entry.description ? <span className="block text-micro text-nomi-ink-30 truncate">{entry.description}</span> : null}
                     </span>
                     {already ? (
-                      <span className="text-micro text-workbench-success bg-[var(--workbench-success-soft)] px-2 py-0.5 rounded-full shrink-0">
+                      <span className="text-micro text-nomi-accent bg-nomi-accent-soft px-2 py-0.5 rounded-full shrink-0">
                         {t('onboardingProviders.comfyTemplates.chipEnabled')}
                       </span>
                     ) : null}

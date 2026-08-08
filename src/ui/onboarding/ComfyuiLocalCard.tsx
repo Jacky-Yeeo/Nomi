@@ -251,7 +251,7 @@ export function ComfyuiLocalCard({ vendorKey, instanceName, enabled, baseUrl, mo
       ) : (
         <>
           {health?.ok ? (
-            <div className="flex items-start gap-2 rounded-nomi-sm bg-[var(--workbench-success-soft)] px-3 py-2.5">
+            <div className="flex items-start gap-2 rounded-nomi-sm bg-nomi-ink-05 px-3 py-2.5">
               <IconCircleCheck size={17} className="shrink-0 mt-0.5 text-workbench-success" />
               <div className="min-w-0">
                 <div className="text-body-sm font-semibold text-nomi-ink">{t('onboardingProviders.comfyLocal.connected')}{health.version ? <span className="text-nomi-ink-60 font-normal">{t('onboardingProviders.comfyLocal.version', { version: health.version })}</span> : null}</div>
@@ -316,11 +316,11 @@ export function ComfyuiLocalCard({ vendorKey, instanceName, enabled, baseUrl, mo
                       </button>
                     </span>
                     ) : (
-                      <span className="text-micro text-workbench-success bg-[var(--workbench-success-soft)] px-2 py-0.5 rounded-full">{t('onboardingProviders.comfyLocal.modelEnabled')}</span>
+                      <span className="text-micro text-nomi-accent bg-nomi-accent-soft px-2 py-0.5 rounded-full">{t('onboardingProviders.comfyLocal.modelEnabled')}</span>
                     )}
                   </span>
                 ) : (
-                  <span className="text-micro text-workbench-success bg-[var(--workbench-success-soft)] px-2 py-0.5 rounded-full">{t('onboardingProviders.comfyLocal.modelEnabled')}</span>
+                  <span className="text-micro text-nomi-accent bg-nomi-accent-soft px-2 py-0.5 rounded-full">{t('onboardingProviders.comfyLocal.modelEnabled')}</span>
                 )}
               </div>
               {editingWorkflowKey === m.modelKey && draft ? (

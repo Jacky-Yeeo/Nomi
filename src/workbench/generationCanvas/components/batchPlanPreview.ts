@@ -10,6 +10,8 @@ import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import { verifyShotsAndReport } from '../agent/shotVerifyStore'
 import i18n from '../../../i18n'
 
+export const BATCH_RUN_TOAST_ID = 'canvas-batch-run'
+
 type BatchPlanPreviewState = {
   plan: DependencyWavePlan | null
   running: boolean
@@ -119,7 +121,13 @@ export async function runPlanWithToasts(
           remaining: runnable - firstWave,
         })
       : i18n.t('generationCommon.batchPlan.start', { count: runnable })
-  toast(startMsg, 'info')
+  useToastStore.getState().push({
+    id: BATCH_RUN_TOAST_ID,
+    message: startMsg,
+    type: 'info',
+    ttl: false,
+    dismissible: true,
+  })
   try {
     const result = await runGenerationNodesByPlan(plan, {
       ...(options.grantId ? { grantId: options.grantId } : {}),
@@ -130,7 +138,11 @@ export async function runPlanWithToasts(
     // 完成汇总：把「还有谁没跑、为什么」(notice) 并进同一条，不再跑完补弹第二条（消除连环弹，弹窗审计）。
     const tail = notice ? i18n.t('generationCommon.batchPlan.blockedTail', { notice }) : ''
     if (failCount === 0) {
-      toast(i18n.t('generationCommon.batchPlan.completed', { count: okCount, tail }), notice ? 'warning' : 'success')
+      useToastStore.getState().push({
+        id: BATCH_RUN_TOAST_ID,
+        message: i18n.t('generationCommon.batchPlan.completed', { count: okCount, tail }),
+        type: notice ? 'warning' : 'success',
+      })
     } else {
       // 失败汇总挂「重试失败的 N 个」一键动作（样张拍板 2026-07-29）：只对失败节点重建依赖波次
       // → 重新轻确认（新令牌，不绕付费闸）→ 并发重跑；成功的不重付。上游仍缺果的会再次被
@@ -141,6 +153,7 @@ export async function runPlanWithToasts(
           ? i18n.t('generationCommon.batchPlan.failed', { count: failCount, tail })
           : i18n.t('generationCommon.batchPlan.partiallyCompleted', { successes: okCount, failures: failCount, tail })
       useToastStore.getState().push({
+        id: BATCH_RUN_TOAST_ID,
         message,
         type: okCount === 0 ? 'error' : 'warning',
         ttl: 12_000,
@@ -164,9 +177,10 @@ export async function runPlanWithToasts(
       if (shotIds.length > 0) void verifyShotsAndReport(shotIds)
     }
   } catch (error: unknown) {
-    toast(
-      error instanceof Error && error.message ? error.message : i18n.t('generationCommon.batchPlan.exception'),
-      'error',
-    )
+    useToastStore.getState().push({
+      id: BATCH_RUN_TOAST_ID,
+      message: error instanceof Error && error.message ? error.message : i18n.t('generationCommon.batchPlan.exception'),
+      type: 'error',
+    })
   }
 }

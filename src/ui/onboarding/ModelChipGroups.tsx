@@ -62,7 +62,7 @@ export function ModelChipGroups({ models, connected, onToggle, onDelete }: Model
                     {onToggle && m.enabled ? (
                       <IconCheck size={12} stroke={2.4} className="text-nomi-accent" aria-hidden="true" />
                     ) : (
-                      <span className={cn('w-1.5 h-1.5 rounded-full', connected && m.enabled ? 'bg-workbench-success' : 'bg-nomi-ink-20')} />
+                      <span className={cn('w-1.5 h-1.5 rounded-full', connected && m.enabled ? 'bg-nomi-accent' : 'bg-nomi-ink-20')} />
                     )}
                     {m.labelZh}
                     {onDelete ? (

@@ -74,6 +74,7 @@ export function OnboardingFloatingPanel({ opened, onClose }: Props): JSX.Element
         ref={panelRef}
         role="dialog"
         aria-label={t('onboardingProviders.drawer.title')}
+        data-nomi-right-panel="model"
         // Portal 到 body 会脱离 .workbench-shell 作用域 → 面板内所有 --workbench-* **全部未定义**：
         // 实测 background:var(--workbench-success-soft) 解析成 rgba(0,0,0,0)（透明）、
         // color:var(--workbench-danger) 解析成纯黑而非红 —— 面板里 60+ 处成功/危险配色一直是死的

@@ -18,7 +18,17 @@ export function NomiAppProviders({ children }: { children: React.ReactNode }): J
     <I18nextProvider i18n={i18n}>
       <MantineProvider theme={nomiTheme} forceColorScheme={colorScheme} defaultColorScheme={colorScheme}>
         <ModalsProvider>
-          <Notifications position="top-right" zIndex={FEEDBACK_LAYER_Z_INDEX} />
+          <Notifications
+            className="workbench-shell pointer-events-none [&[data-position=top-right]]:!top-[calc(var(--workbench-topbar-height)+12px)] [&[data-position=top-right]]:!right-3 [&[data-position=top-right]]:grid [&[data-position=top-right]]:gap-2 [body:has([data-nomi-right-panel=model])_&]:!right-[344px] [body:has([data-nomi-right-panel=tasks])_&]:!right-[404px]"
+            classNames={{ notification: 'pointer-events-auto !mt-0' }}
+            position="top-right"
+            zIndex={FEEDBACK_LAYER_Z_INDEX}
+            containerWidth={344}
+            limit={2}
+            autoClose={3000}
+            transitionDuration={140}
+            notificationMaxHeight={160}
+          />
           <RootErrorBoundary>
             {children}
           </RootErrorBoundary>

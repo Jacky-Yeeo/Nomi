@@ -220,7 +220,7 @@ export function ConnectAssistantCard({ info, onChanged }: ConnectAssistantCardPr
             </>
           ) : client.installed ? (
             <>
-              <div className="flex items-start gap-2 rounded-nomi-sm bg-[var(--workbench-success-soft)] px-3 py-2.5">
+              <div className="flex items-start gap-2 rounded-nomi-sm bg-nomi-ink-05 px-3 py-2.5">
                 <IconCircleCheck size={17} className="shrink-0 mt-0.5 text-workbench-success-ink" />
                 <div className="min-w-0">
                   {/* 验证通过就报「已连通」并给出证据（几个工具可用）；没验证能力时退回「已写入配置」。 */}

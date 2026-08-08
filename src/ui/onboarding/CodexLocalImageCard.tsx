@@ -58,8 +58,8 @@ export function CodexLocalImageCard({ enabled, onChanged }: CodexLocalImageCardP
       defaultExpanded={false}
     >
       {enabled ? (
-        <div className="flex items-start gap-2 rounded-nomi-sm bg-[var(--workbench-success-soft)] px-3 py-2.5">
-          <IconCircleCheck size={17} className="shrink-0 mt-0.5 text-workbench-success" />
+        <div className="flex items-start gap-2 rounded-nomi-sm bg-nomi-accent-soft px-3 py-2.5">
+          <IconCircleCheck size={17} className="shrink-0 mt-0.5 text-nomi-accent" />
           <div className="min-w-0">
             <div className="text-body-sm font-semibold text-nomi-ink">{t('onboardingProviders.codexImage.readyTitle')}</div>
             <div className="text-caption text-nomi-ink-60 mt-0.5">{t('onboardingProviders.codexImage.readyBody')}</div>

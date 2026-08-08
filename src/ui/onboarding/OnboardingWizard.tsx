@@ -483,8 +483,8 @@ export function OnboardingWizard({ opened, onClose, onCommitted, initialPreset }
                 <Text size="sm" c="var(--nomi-ink)">{t('modelSetup.models')}</Text>
                 {models.length > 0 && (
                   <Group gap={3} align="center" wrap="nowrap">
-                    <IconCheck size={13} stroke={1.5} style={{ color: 'var(--workbench-success)' }} />
-                    <Text size="xs" c="var(--workbench-success)">{t('modelSetup.selectedCount', { count: models.length })}</Text>
+                    <IconCheck size={13} stroke={1.5} style={{ color: 'var(--nomi-accent)' }} />
+                    <Text size="xs" c="var(--nomi-accent)">{t('modelSetup.selectedCount', { count: models.length })}</Text>
                   </Group>
                 )}
               </Group>

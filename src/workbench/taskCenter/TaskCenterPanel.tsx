@@ -117,6 +117,7 @@ export function TaskCenterPanel({ opened, onClose, onRevealNode }: Props): JSX.E
         ref={panelRef}
         role="dialog"
         aria-label={t('taskCenter.title')}
+        data-nomi-right-panel="tasks"
         className="flex flex-col overflow-hidden bg-nomi-paper border border-nomi-line shadow-nomi-lg"
         style={{
           position: 'fixed',

@@ -1,7 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { describeBlockedNotice, runPlanWithToasts } from './batchPlanPreview'
+import { BATCH_RUN_TOAST_ID, describeBlockedNotice, runPlanWithToasts } from './batchPlanPreview'
 import type { DependencyWavePlan } from '../runner/dependencyWaves'
 import { runGenerationNodesByPlan } from '../runner/generationRunController'
+
+const mocks = vi.hoisted(() => ({
+  toast: vi.fn(),
+  toastPush: vi.fn(),
+  confirmAndMintGrant: vi.fn(async () => 'retry-grant'),
+  nodes: [{ id: 'a', kind: 'image', title: 'A', position: { x: 0, y: 0 } }],
+  edges: [],
+}))
+
+vi.mock('../../../ui/toast', () => ({
+  toast: mocks.toast,
+  useToastStore: { getState: () => ({ push: mocks.toastPush }) },
+}))
+
+vi.mock('../spend/spendConfirm', () => ({
+  confirmAndMintGrant: mocks.confirmAndMintGrant,
+  describeGenerationCost: vi.fn(() => '1 image'),
+}))
+
+vi.mock('../store/generationCanvasStore', () => ({
+  useGenerationCanvasStore: { getState: () => ({ nodes: mocks.nodes, edges: mocks.edges }) },
+}))
+
+vi.mock('../agent/shotVerifyStore', () => ({ verifyShotsAndReport: vi.fn() }))
 
 vi.mock('../runner/generationRunController', () => ({
   runGenerationNodesByPlan: vi.fn(async () => ({ totalCount: 1, successes: [], failures: [] })),
@@ -42,7 +66,9 @@ describe('describeBlockedNotice — 批量「缺啥提示啥」', () => {
 
 describe('runPlanWithToasts concurrency', () => {
   beforeEach(() => {
-    vi.mocked(runGenerationNodesByPlan).mockClear()
+    vi.clearAllMocks()
+    vi.mocked(runGenerationNodesByPlan).mockResolvedValue({ totalCount: 1, successes: [], failures: [] })
+    mocks.confirmAndMintGrant.mockResolvedValue('retry-grant')
   })
 
   it('passes the chosen concurrency to the dependency-wave runner', async () => {
@@ -54,5 +80,51 @@ describe('runPlanWithToasts concurrency', () => {
       grantId: 'grant-1',
       concurrency: 4,
     })
+  })
+
+  it('updates start and terminal feedback through one stable notification id', async () => {
+    vi.mocked(runGenerationNodesByPlan).mockResolvedValueOnce({
+      totalCount: 1,
+      successes: [{ nodeId: 'a', result: { id: 'result-a', type: 'image', url: 'data:image/png;base64,a', createdAt: 1 } }],
+      failures: [],
+    })
+
+    await runPlanWithToasts(plan({ waves: [['a']] }))
+
+    expect(mocks.toastPush).toHaveBeenCalledTimes(2)
+    expect(mocks.toastPush.mock.calls[0][0]).toMatchObject({ id: BATCH_RUN_TOAST_ID, ttl: false })
+    expect(mocks.toastPush.mock.calls[1][0]).toMatchObject({ id: BATCH_RUN_TOAST_ID, type: 'success' })
+  })
+
+  it('keeps the selected concurrency when the explicit retry action reruns failures', async () => {
+    vi.mocked(runGenerationNodesByPlan)
+      .mockResolvedValueOnce({
+        totalCount: 1,
+        successes: [],
+        failures: [{ nodeId: 'a', error: 'mock failure' }],
+      })
+      .mockResolvedValueOnce({
+        totalCount: 1,
+        successes: [{ nodeId: 'a', result: { id: 'result-a', type: 'image', url: 'data:image/png;base64,a', createdAt: 1 } }],
+        failures: [],
+      })
+
+    await runPlanWithToasts(plan({ waves: [['a']] }), { concurrency: 4 })
+    const failedToast = mocks.toastPush.mock.calls[1][0]
+    expect(failedToast).toMatchObject({
+      id: BATCH_RUN_TOAST_ID,
+      type: 'error',
+      actionLabel: expect.any(String),
+      onAction: expect.any(Function),
+    })
+
+    failedToast.onAction()
+    await vi.waitFor(() => expect(runGenerationNodesByPlan).toHaveBeenCalledTimes(2))
+
+    expect(runGenerationNodesByPlan).toHaveBeenLastCalledWith(expect.any(Object), {
+      grantId: 'retry-grant',
+      concurrency: 4,
+    })
+    expect(mocks.toastPush.mock.calls.slice(2).every(([input]) => input.id === BATCH_RUN_TOAST_ID)).toBe(true)
   })
 })

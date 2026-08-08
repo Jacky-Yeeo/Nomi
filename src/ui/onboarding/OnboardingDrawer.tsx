@@ -368,7 +368,7 @@ export function OnboardingDrawer(): JSX.Element {
                 key={kind}
                 className={cn(
                   'inline-flex items-center gap-1 text-caption rounded-nomi-sm px-2 py-1',
-                  on ? 'bg-workbench-success-soft text-workbench-success-ink' : 'bg-nomi-ink-05 text-nomi-ink-40',
+                  on ? 'bg-nomi-accent-soft text-nomi-accent' : 'bg-nomi-ink-05 text-nomi-ink-40',
                 )}
               >
                 <Icon size={13} stroke={1.7} />
